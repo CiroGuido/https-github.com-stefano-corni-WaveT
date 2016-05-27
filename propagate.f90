@@ -194,6 +194,10 @@
       write(file_e,*) '#   istep time   <H(t)>-E_gs(0)  DE_vac(t) DG_eq(t)    DG_neq(t)    Const'   
       return
       end subroutine
+!
+      subroutine  prova
+      end surboutine
+      
 
 !
       end module

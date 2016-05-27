@@ -1,0 +1,18 @@
+%subst l914 /home/cammi/software/g09A02/g09/roby/qrep/parma/exe-dir
+%mem=60MW
+%chk=He.chk
+%nproc=1
+#p cis=(root=1,nstates=10,alltransitiondensities)/6-31G density=rhoci iop(9/33=1) scrf=(iefpcm,read)
+
+LiCN 6-31G(d)
+
+0 1
+Li 0.0 0.0 -2.085506
+C  0.0 0.0 -0.136506
+N  0.0 0.0  1.010794
+
+norep nodis nocav pcmdoc geomview g03defaults eps=2 epsinf=1.02 pdens=1.0
+nsfe=1
+
+ 0.0 0.0 0.0 5.0 1.0
+

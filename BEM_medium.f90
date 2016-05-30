@@ -111,8 +111,7 @@
        real(dbl), dimension(nts_act,nts_act) :: scr4,scr1
        real(dbl), dimension(nts_act,nts_act) :: scr2,scr3
        real(dbl), dimension(nts_act) :: fact1,fact2
-       real(dbl), dimension(nts_act) :: Kdiag0
-       real(dbl), allocatable :: Kdiagd(:)
+       real(dbl), dimension(nts_act) :: Kdiag0,Kdiagd
        real(dbl) :: sgn,fac_eps0,fac_epsd
        character jobz,uplo
        integer(i4b) :: iwork(3+5*nts_act)
@@ -179,15 +178,14 @@
 !      Form the Q_w and Q_f and K_d and K_0 for debye propagation
        fac_eps0=(eps_0+1)/(eps_0-1)
        Kdiag0(:)=(twp-sgn*eigv(:))/(twp*fac_eps0-sgn*eigv(:))
+       fac_epsd=(eps_d+1)/(eps_d-1)
+       Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
        if (Feps.eq."deb") then
 !        debye dielectric function  
          ! SP: Need to check the signs of the second part for a debye medium localized in space  
-         allocate(Kdiagd(nts_act))
          fact1(:)=((twp-sgn*eigv(:))*eps_0+twp+eigv(:))/ &
                   ((twp-sgn*eigv(:))*eps_d+twp+eigv(:))/tau_deb
          fact2(:)=Kdiag0(:)*fact1(:)
-         fac_epsd=(eps_d+1)/(eps_d-1)
-         Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
        elseif (Feps.eq."drl") then       
 !        Drude-Lorentz dielectric function
          fact2(:)=(twp-sgn*eigv(:))*eps_A/(two*twp)  
@@ -218,12 +216,10 @@
        enddo
        matq0=-matmul(scr1,scr4) 
 !      Build Q_d only for debye
-       if (Feps.eq."deb") then
-         do i=1,nts_act
-           scr1(:,i)=scr3(:,i)*Kdiagd(i) 
-         enddo
-         matqd=-matmul(scr1,scr4) 
-       endif
+       do i=1,nts_act
+         scr1(:,i)=scr3(:,i)*Kdiagd(i) 
+       enddo
+       matqd=-matmul(scr1,scr4) 
 ! Print matrices in output
        open(7,file="BEM_matrices.inp",status="unknown")
        write(7,*) nts_act
@@ -233,8 +229,6 @@
         enddo
        enddo
        close(7)
-!      Deallocate arrays
-       if (allocated(Kdiagd)) deallocate(Kdiagd)
       return
       end subroutine
 !

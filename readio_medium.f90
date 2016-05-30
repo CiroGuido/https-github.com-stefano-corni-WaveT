@@ -78,7 +78,8 @@
            read(5,*) eps_0,eps_d,tau_deb
          case ('drl','Drl','DRL')
            Feps='drl'
-           read(5,*) eps_A,eps_gm,eps_w0,f_vel
+! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
+           read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
 !SC 16/02/2016: perhaps this correction should not stay in the input routine
            ! correct for finite size effects of nanoparticle with respect to bulk
            eps_gm=eps_gm+f_vel/sfe_act(1)%r

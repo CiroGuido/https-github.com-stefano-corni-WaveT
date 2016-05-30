@@ -40,11 +40,6 @@
        thrv=10**(-thrshld+2)
        thre=10**(-thrshld)
        write(6,*) "Threshold ", thrv,thre
-       ! SP 29/05/16: test on nanop
-       write(6,*) "initial charges"
-       do its=1,nts_act
-         write(6,*) qst(its)
-       enddo
        allocate(eigv_c(n_ci),eigt_c(n_ci,n_ci))
        allocate(eigv_cp(n_ci),eigt_cp(n_ci,n_ci))
        allocate(Htot(n_ci,n_ci))
@@ -73,10 +68,13 @@
 !       write(6,*) "Max Diff on Eigenvalue ", maxe
 !       write(6,*) "Max Diff on Eigenvector ", maxv
 ! Transform the potentials to the new basis
-       do its=1,nts_act
-        vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
-        vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
-       enddo
+! SP 30/05/16: added the condition on Fint for Fint=ons and Fprop=ief
+       if (Fint.eq.'pcm') then
+         do its=1,nts_act
+          vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
+          vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
+         enddo
+       endif
 ! Transform the dipoles to the new basis
        do its=1,3
         mut(:,:,its)=matmul(mut(:,:,its),eigt_c)
@@ -94,12 +92,6 @@
        deallocate(eigv_c,eigt_c)
        deallocate(eigv_cp,eigt_cp)
        deallocate(Htot)
-       ! SP 29/05/16: test on nanop
-       write(6,*) "final charges"
-       do its=1,nts_act
-         write(6,*) qst(its)
-       enddo
-       stop        
       return
       end subroutine
 !     

@@ -40,6 +40,11 @@
        thrv=10**(-thrshld+2)
        thre=10**(-thrshld)
        write(6,*) "Threshold ", thrv,thre
+       ! SP 29/05/16: test on nanop
+       write(6,*) "initial charges"
+       do its=1,nts_act
+         write(6,*) qst(its)
+       enddo
        allocate(eigv_c(n_ci),eigt_c(n_ci,n_ci))
        allocate(eigv_cp(n_ci),eigt_cp(n_ci,n_ci))
        allocate(Htot(n_ci,n_ci))
@@ -89,6 +94,12 @@
        deallocate(eigv_c,eigt_c)
        deallocate(eigv_cp,eigt_cp)
        deallocate(Htot)
+       ! SP 29/05/16: test on nanop
+       write(6,*) "final charges"
+       do its=1,nts_act
+         write(6,*) qst(its)
+       enddo
+       stop        
       return
       end subroutine
 !     

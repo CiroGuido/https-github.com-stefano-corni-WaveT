@@ -98,9 +98,10 @@
 ! SC 16/02/2016: for efficiency reasons, it would be better
 !   to define mut(3,n_ci,n_ci)
        allocate (mut(n_ci,n_ci,3))
-       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
-       mut(1,1,:)=mut(1,1,:)*debye_to_au
-       do i=2,n_ci
+! SC 31/05/2016: now the GS data from gaussian is in debye and same format as others
+!       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
+!       mut(1,1,:)=mut(1,1,:)*debye_to_au
+       do i=1,n_ci
 !         read(7,*) junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
         read(7,*)junk,junk,junk,junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
         mut(i,1,:)=mut(1,i,:)

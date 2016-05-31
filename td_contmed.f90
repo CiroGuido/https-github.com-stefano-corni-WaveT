@@ -80,7 +80,7 @@
         if (Fint.eq.'pcm') call init_ief      
       endif
       c_prev2=c_prev
-      call correct_hamiltonian
+      if (mdm.eq.'sol') call correct_hamiltonian
       ! SP 25/02/16 Initial gebug routine:
       if(debug) call test_dbg
 ! SC set the initial values of the solvent component of the 
@@ -182,6 +182,7 @@
        allocate(pot_t(nts_act))
        allocate(pot_gs(nts_act))
        call do_potential_ts(c,pot_t)
+       if (Fint.eq.'ons') call do_field(q0,fr_tp)
        c_gs(:)=zeroc
        c_gs(1)=onec
        call do_potential_ts(c_gs,pot_gs)
@@ -242,10 +243,12 @@
         case ('sce')
          q_tp=mix_coef*matmul(matq0,pot_t)+(1.-mix_coef)*q0
          call do_scf(q_tp,c_prev)
+! SP 30/05/16: changed for Fprop=ief and Fint=ons
 ! update the potential
-         do its=1,nts_act
-          pot_t(its)=dot_product(c_prev,matmul(vts(:,:,its),c_prev))
-         enddo
+!         do its=1,nts_act
+!          pot_t(its)=dot_product(c_prev,matmul(vts(:,:,its),c_prev))
+!         enddo
+         call do_potential_ts(c_prev,pot_t)
          g_neq_0=0.5*dot_product(q_tp,pot_t)
          q_tp=matmul(matqd,pot_t)
          g_neq2_0=0.5*dot_product(q_tp,pot_t)
@@ -456,12 +459,6 @@
          write(*,*) "wrong interaction type "
          stop
        endif
-       ! SP 29/05/16: test on nanop
-       !write(6,*) "charges, potential "
-       !do j=1,nts_act
-       !  write(6,*) q_t(j),vts(1,1,j)
-       !enddo
-       !stop        
       return
       end subroutine
 !

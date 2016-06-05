@@ -1,0 +1,24 @@
+10  ! numero stati eccitati ci
+0.05  100000 ! dt(au) e numero step
+pip
+2000 250 0.262961 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
+0.036 0.0 0.0 ! valore massimo del campo (vettore)
+sol          ! solvent(sol) or nanoparticle (nan)
+0.     0.     0.0     ! molecular center of charge
+2.0                  ! tau spectrum
+0.                   ! start FT
+!input for medium=sol
+1  ! stride between updating the interaction potential
+pcm ! coupling BEM (pcm) or dipolar (ons)
+! input for dielectric function
+deb ! Debye vs Drude-Lorentz (drl)
+2.0 1.02 1000.  1. ! eps_0, eps_d, tau_deb(in au)  
+! propagation scheme:ons evolve onsager field....
+ief
+! other options
+NON     ! scf 
+0       ! Include local Field ?  Binary(1=yes,0=no)
+0       ! Debug ?  Binary(1=yes,0=no)
+0       ! Equilibrium calculation? Binary(1=yes,0=no)
+0       ! Scf optimisation? Binary(1=yes,0=no)
+

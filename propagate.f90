@@ -21,6 +21,8 @@
        complex(16), allocatable :: c(:),c_prev(:),c_prev2(:)
        real(8), allocatable :: h_int(:,:)
        real(8) :: f_prev(3),f_prev2(3)
+       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+                  mu_prev5(3)
 ! OPEN FILES
        open (file_c,file="c_t.dat",status="unknown")
        open (file_e,file="e_t.dat",status="unknown")
@@ -38,6 +40,12 @@
        f_prev2=f(:,2)
        f_prev=f(:,1)
        h_int=zero  
+       mu_prev=0.d0
+       mu_prev2=0.d0
+       mu_prev3=0.d0
+       mu_prev4=0.d0
+       mu_prev5=0.d0
+       call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
            call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
@@ -48,6 +56,7 @@
        c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        c=c/sqrt(dot_product(c,c))
        c_prev=c
+       call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        call output(2,c,f_prev,h_int)
 !
@@ -59,10 +68,14 @@
          if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
                                                       f_prev2,h_int)
          call add_int_vac(f_prev,h_int)
+! SC field
+         if (rad.eq."arl") call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+                                                mu_prev4,mu_prev5,h_int)
          c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
          c=c/sqrt(dot_product(c,c))
          c_prev2=c_prev
          c_prev=c
+         call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
          call output(i,c,f_prev,h_int)
        enddo
 
@@ -146,6 +159,23 @@
        return
       end subroutine
 !
+      subroutine do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+       implicit none
+       complex(16), intent(IN) :: c(n_ci)
+       real(8)::mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+                mu_prev5(3)
+       mu_a(1)=dot_product(c,matmul(mut(:,:,1),c))
+       mu_a(2)=dot_product(c,matmul(mut(:,:,2),c))
+       mu_a(3)=dot_product(c,matmul(mut(:,:,3),c))
+! SC save previous mu for radiative damping
+       mu_prev5=mu_prev4
+       mu_prev4=mu_prev3
+       mu_prev3=mu_prev2
+       mu_prev2=mu_prev
+       mu_prev=mu_a
+      return
+      end subroutine
+
       subroutine output(i,c,f_prev,h_int)     
        implicit none
        integer(4), intent(IN) :: i
@@ -154,9 +184,6 @@
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
         t=(i-1)*dt
-        mu_a(1)=dot_product(c,matmul(mut(:,:,1),c))
-        mu_a(2)=dot_product(c,matmul(mut(:,:,2),c))
-        mu_a(3)=dot_product(c,matmul(mut(:,:,3),c))
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
         if(mdm.ne.'vac') then 
@@ -188,12 +215,30 @@
       return
       end subroutine
 !
+      subroutine add_int_rad(mu_prev,mu_prev2,mu_prev3,mu_prev4, &
+                                                   mu_prev5,h_int)
+! SC calculate the Aharonov Lorentz radiative damping
+       implicit none
+       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+                 mu_prev5(3)
+       real(8), intent(INOUT) :: h_int(n_ci,n_ci)
+       real(8) :: d3_mu(3)
+!       d3_mu=(mu_prev-3.*mu_prev2+3.*mu_prev3-mu_prev4)/(dt*dt*dt)
+       d3_mu=(2.5*mu_prev-9.*mu_prev2+12.*mu_prev3-7.*mu_prev4+ &
+              1.5*mu_prev5)/(dt*dt*dt)
+!SC coefficient 1/(6 pi eps0 c^3) in atomic units
+       d3_mu=d3_mu*2.d0/3.d0/137.036**3.
+       write (6,*) d3_mu
+!       h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
+!                   mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
+       return
+      end subroutine
+!
       subroutine out_header
 ! SC write headers to output files, to be completed!
       implicit none
       write(file_e,*) '#   istep time   <H(t)>-E_gs(0)  DE_vac(t) DG_eq(t)    DG_neq(t)    Const'   
       return
       end subroutine
-
 !
       end module

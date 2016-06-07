@@ -21,13 +21,15 @@
       real(8) :: dt,tau,start
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
       real(8), allocatable :: q0(:)
-      character(3) :: mdm,tfield 
+      character(3) :: mdm,tfield,rad 
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
 !     mdm=vac: no medium
 !
 !     tfield=gau: gaussian impulse
+!SC
+!     rad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
       real(8) :: eps_A,eps_gm,eps_w0,f_vel
 
@@ -35,13 +37,13 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5
+             one_i,onec,twoc,pt5,rad
 !
       contains
 !
       subroutine read_input
        integer(4):: i
-       character(3) :: medium
+       character(3) :: medium,radiative
        read(5,*) n_ci
        write (6,*) "Number of CIS states",n_ci
        read(5,*) dt,n_step
@@ -66,6 +68,14 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+!SC
+       read(5,*) radiative
+       select case (radiative)
+        case ('rad','Rad','RAD')
+         rad='arl'
+        case default
+         rad='non'
+       end select 
        ! Moleculalr center of charge: used?
        read(5,*) (mol_cc(i),i=1,3)
        write(*,*) 'Molecular center of charge'

@@ -48,6 +48,7 @@
        mu_prev3=0.d0
        mu_prev4=0.d0
        mu_prev5=0.d0
+       int_rad_int=0.d0
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
@@ -196,10 +197,10 @@
          g_neq2_t=e_a
          e_vac=e_a
          call get_gneq(e_vac,g_eq_t,g_neq_t,g_neq2_t)
-         write (file_e,'(i8,f14.4,6e20.8)') i,t,e_a,e_vac, &
-                   g_eq_t,g_neq2_t,g_neq_t,int_rad
+         write (file_e,'(i8,f14.4,7e20.8)') i,t,e_a,e_vac, &
+                   g_eq_t,g_neq2_t,g_neq_t,int_rad,int_rad_int
         else
-         write (file_e,'(i8,f14.4,2e22.10)') i,t,e_a,int_rad
+         write (file_e,'(i8,f14.4,3e22.10)') i,t,e_a,int_rad,int_rad_int
         endif
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
@@ -239,7 +240,7 @@
 !                  -5.*sqrt(dot_product(mu_prev2,mu_prev2))+ &
 !                  4.*sqrt(dot_product(mu_prev3,mu_prev3)) &
 !               -sqrt(dot_product(mu_prev4,mu_prev4)))/(dt*dt)
-       d2_mu=2.*mu_prev-5.*mu_prev2+4.*mu_prev3-mu_prev4
+       d2_mu=(2.*mu_prev-5.*mu_prev2+4.*mu_prev3-mu_prev4)/(dt*dt)
 !SC coefficient 1/(6 pi eps0 c^3) in atomic units
        coeff=2.d0/3.d0/137.036**3.
        d3_mu=d3_mu*coeff

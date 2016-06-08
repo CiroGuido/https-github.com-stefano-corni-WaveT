@@ -15,7 +15,7 @@
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_ci,n_step
+      integer(4) :: n_ci,n_step,n_out
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
@@ -37,7 +37,7 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad
+             one_i,onec,twoc,pt5,rad,n_out
 !
       contains
 !
@@ -46,7 +46,7 @@
        character(3) :: medium,radiative
        read(5,*) n_ci
        write (6,*) "Number of CIS states",n_ci
-       read(5,*) dt,n_step
+       read(5,*) dt,n_step,n_out
        write (6,*) "Time step (in au) and number of steps",dt,n_step
        read(5,*) tfield             
        write (6,*) "Time shape of the perturbing field",tfield

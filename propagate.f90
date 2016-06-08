@@ -62,7 +62,7 @@
        c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
-       call output(2,c,f_prev,h_int)
+       if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
 !
 ! PROPAGATION CYCLE: starts the propagation at timestep 3
        do i=3,n_step
@@ -80,7 +80,7 @@
          c_prev2=c_prev
          c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-         call output(i,c,f_prev,h_int)
+         if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int)
        enddo
 
 ! DEALLOCATION AND CLOSING
@@ -106,7 +106,8 @@
           t_a=dt*(i-1)
           f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
                          sin(omega*t_a)
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+           write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("mds")
          i_max=int(t_mid/dt)
@@ -114,12 +115,14 @@
           t_a=dt*(i-1)
           f(:,i)=fmax*cos(pi*(t_a-t_mid)/(2*t_mid))**2/2.d0* &
                  sin(omega*t_a)
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
          do i=2*i_max+1,n_step
           t_a=dt*(i-1)
           f(:,i)=0.
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("pip")
          i_max=int(t_mid/dt)
@@ -130,19 +133,22 @@
             f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(2*sigma)))**2* &
                cos(omega*(t_a-t_mid))
           endif
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("sin")
          do i=1,n_step
           t_a=dt*(i-1)
           f(:,i)=fmax(:)*sin(omega*t_a)
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("gau")
          do i=1,n_step
           t_a=dt*(i-1)
           f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("css")
          ti=t_mid-sigma/two
@@ -153,7 +159,8 @@
           if (t_a.gt.ti.and.t_a.le.tf) then
             f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(sigma)))**2
           endif
-          write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case default
          write(*,*)  "Error: wrong field type !"
@@ -244,7 +251,7 @@
 !SC coefficient 1/(6 pi eps0 c^3) in atomic units
        coeff=2.d0/3.d0/137.036**3.
        d3_mu=d3_mu*coeff
-       write (6,*) d3_mu
+!       write (6,*) d3_mu
 !SC Instantenous emitted intensity (from Novotny Hech eq. 8.70)
 !       int_rad=coeff*d2_mod_mu*d2_mod_mu
        int_rad=coeff*dot_product(d2_mu,d2_mu)

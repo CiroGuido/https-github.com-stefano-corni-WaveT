@@ -7,7 +7,10 @@
       use spectra
       implicit none
       real(8),allocatable :: f(:,:)
-      real(8) :: mu_a(3)
+! SC mu_a is the dipole moment at current step,
+!    int_rad is the classical radiated power at current step
+!    int_rad_int is the integral of the classical radiated power at current step
+      real(8) :: mu_a(3),int_rad,int_rad_int
       integer(4) :: file_c=7,file_e=8,file_mu=9
       save
       private
@@ -69,7 +72,7 @@
                                                       f_prev2,h_int)
          call add_int_vac(f_prev,h_int)
 ! SC field
-         if (rad.eq."arl") call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+         if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
          c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
          c=c/sqrt(dot_product(c,c))
@@ -183,6 +186,7 @@
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
+       character(20) :: fmt_ci
         t=(i-1)*dt
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
@@ -192,12 +196,13 @@
          g_neq2_t=e_a
          e_vac=e_a
          call get_gneq(e_vac,g_eq_t,g_neq_t,g_neq2_t)
-         write (file_e,'(i8,f14.4,5e20.8)') i,t,e_a,e_vac, &
-                   g_eq_t,g_neq2_t,g_neq_t
+         write (file_e,'(i8,f14.4,6e20.8)') i,t,e_a,e_vac, &
+                   g_eq_t,g_neq2_t,g_neq_t,int_rad
         else
-         write (file_e,'(i8,f14.4,e22.10)') i,t,e_a
+         write (file_e,'(i8,f14.4,2e22.10)') i,t,e_a,int_rad
         endif
-        write (file_c,*) i,t,real(c(:)*conjg(c(:)))
+        write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
+        write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         Sfld(i,:)=f(:,i-1)
@@ -219,25 +224,41 @@
                                                    mu_prev5,h_int)
 ! SC calculate the Aharonov Lorentz radiative damping
        implicit none
-       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
-                 mu_prev5(3)
+       real(8),intent(in) :: mu_prev(3),mu_prev2(3),mu_prev3(3), &
+                 mu_prev4(3), mu_prev5(3)
        real(8), intent(INOUT) :: h_int(n_ci,n_ci)
-       real(8) :: d3_mu(3)
+       real(8) :: d3_mu(3),d2_mu(3),d2_mod_mu,coeff
 !       d3_mu=(mu_prev-3.*mu_prev2+3.*mu_prev3-mu_prev4)/(dt*dt*dt)
        d3_mu=(2.5*mu_prev-9.*mu_prev2+12.*mu_prev3-7.*mu_prev4+ &
               1.5*mu_prev5)/(dt*dt*dt)
+! SC 08/06/2016: i'm confused on the right formula for istantaneous radiated intensity:
+!  Novotny-Hecht is pro. to (d^2/dt^2 |mu|)^2 (eq. 8.70), however in Jackson
+! for Larmor one has pro. to (d^2/dt^2 mu \cdot d^2/dt^2 mu). Since Novotny-Hech
+! in eq. 8.82 seems to use jacson definition, I also use it here
+!       d2_mod_mu=(2.*sqrt(dot_product(mu_prev,mu_prev)) &
+!                  -5.*sqrt(dot_product(mu_prev2,mu_prev2))+ &
+!                  4.*sqrt(dot_product(mu_prev3,mu_prev3)) &
+!               -sqrt(dot_product(mu_prev4,mu_prev4)))/(dt*dt)
+       d2_mu=2.*mu_prev-5.*mu_prev2+4.*mu_prev3-mu_prev4
 !SC coefficient 1/(6 pi eps0 c^3) in atomic units
-       d3_mu=d3_mu*2.d0/3.d0/137.036**3.
+       coeff=2.d0/3.d0/137.036**3.
+       d3_mu=d3_mu*coeff
        write (6,*) d3_mu
-!       h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
-!                   mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
+!SC Instantenous emitted intensity (from Novotny Hech eq. 8.70)
+!       int_rad=coeff*d2_mod_mu*d2_mod_mu
+       int_rad=coeff*dot_product(d2_mu,d2_mu)
+       int_rad_int=int_rad_int+int_rad*dt
+       h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
+                   mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
        return
       end subroutine
 !
       subroutine out_header
 ! SC write headers to output files, to be completed!
       implicit none
-      write(file_e,*) '#   istep time   <H(t)>-E_gs(0)  DE_vac(t) DG_eq(t)    DG_neq(t)    Const'   
+      write(file_e,'(8a)') '#   istep time',' <H(t)>-E_gs(0)', &
+              ' DE_vac(t)',' DG_eq(t)',' DG_neq(t)',  '  Const', &
+              '  Rad. Int', '  Rad. Ene'   
       return
       end subroutine
 !

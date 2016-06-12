@@ -22,6 +22,7 @@
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
       real(8), allocatable :: q0(:)
       character(3) :: mdm,tfield,rad 
+      integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
@@ -37,7 +38,7 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad,n_out
+             one_i,onec,twoc,pt5,rad,n_out,iseed
 !
       contains
 !
@@ -73,6 +74,7 @@
        select case (radiative)
         case ('rad','Rad','RAD')
          rad='arl'
+         read(5,*) iseed
         case default
          rad='non'
        end select 

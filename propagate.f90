@@ -5,6 +5,7 @@
       use cav_types      
       use pedra_friends  
       use spectra
+      use random
       implicit none
       real(8),allocatable :: f(:,:)
 ! SC mu_a is the dipole moment at current step,
@@ -49,6 +50,7 @@
        mu_prev4=0.d0
        mu_prev5=0.d0
        int_rad_int=0.d0
+       if(rad.eq."arl") call seed_random_number_sc(iseed)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
@@ -59,7 +61,6 @@
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
        c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        c=c/sqrt(dot_product(c,c))
-       c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
@@ -235,7 +236,8 @@
        real(8),intent(in) :: mu_prev(3),mu_prev2(3),mu_prev3(3), &
                  mu_prev4(3), mu_prev5(3)
        real(8), intent(INOUT) :: h_int(n_ci,n_ci)
-       real(8) :: d3_mu(3),d2_mu(3),d2_mod_mu,coeff
+       real(8) :: d3_mu(3),d2_mu(3),d_mu(3),d2_mod_mu,coeff,scoeff, &
+                  force(3),de
 !       d3_mu=(mu_prev-3.*mu_prev2+3.*mu_prev3-mu_prev4)/(dt*dt*dt)
        d3_mu=(2.5*mu_prev-9.*mu_prev2+12.*mu_prev3-7.*mu_prev4+ &
               1.5*mu_prev5)/(dt*dt*dt)
@@ -248,13 +250,22 @@
 !                  4.*sqrt(dot_product(mu_prev3,mu_prev3)) &
 !               -sqrt(dot_product(mu_prev4,mu_prev4)))/(dt*dt)
        d2_mu=(2.*mu_prev-5.*mu_prev2+4.*mu_prev3-mu_prev4)/(dt*dt)
+       d_mu=(1.5*mu_prev-2.*mu_prev2+0.5*mu_prev3)/dt
 !SC coefficient 1/(6 pi eps0 c^3) in atomic units
        coeff=2.d0/3.d0/137.036**3.
+       scoeff=coeff
+!SC: added random force             
+!       d3_mu=d3_mu*coeff
+       force(1)=random_normal()*scoeff
+       force(2)=random_normal()*scoeff
+       force(3)=random_normal()*scoeff
        d3_mu=d3_mu*coeff
+       de=dot_product(d_mu,force)
+       if(de.lt.0) d3_mu=d3_mu+force
 !       write (6,*) d3_mu
 !SC Instantenous emitted intensity (from Novotny Hech eq. 8.70)
 !       int_rad=coeff*d2_mod_mu*d2_mod_mu
-       int_rad=coeff*dot_product(d2_mu,d2_mu)
+       int_rad=coeff*dot_product(d2_mu,d2_mu)+de/dt
        int_rad_int=int_rad_int+int_rad*dt
        h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
                    mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)

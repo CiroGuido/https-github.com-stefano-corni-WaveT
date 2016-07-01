@@ -304,6 +304,7 @@
                 -f_d*dot_product(mu_prev,mu0) &
                 +0.5*f_d*dot_product(mu0,mu0)
          g_neq_0=-g_neq_0
+         g_neq2_0=-0.5*f_d*dot_product(mu0,mu0)
         case ('sce')
          fr_t=mix_coef*f_0*mu_prev+(1.-mix_coef)*fr_0
          call do_scf(fr_t,c_prev)
@@ -312,6 +313,7 @@
          mu_prev(3)=dot_product(c_prev,matmul(mut(:,:,3),c_prev))
          mu_prev2=mu_prev
          g_neq_0=-0.5*f_0*dot_product(mu_prev,mu_prev)
+         g_neq2_0=-0.5*f_d*dot_product(mu_prev,mu_prev)
        end select
        write(6,*) 'G_neq at t=0:',g_neq_0
        ! assume that fr_tp2=fr_tp is the field from the dipole 

@@ -12,7 +12,7 @@
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=7,file_e=8,file_mu=9
+      integer(4) :: file_c=10,file_e=8,file_mu=9
       save
       private
       public create_field, prop
@@ -27,10 +27,14 @@
        real(8) :: f_prev(3),f_prev2(3)
        real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
                   mu_prev5(3)
+       character(20) :: name_f
 ! OPEN FILES
-       open (file_c,file="c_t.dat",status="unknown")
-       open (file_e,file="e_t.dat",status="unknown")
-       open (file_mu,file="mu_t.dat",status="unknown")
+       write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
+       open (file_c,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "e_t_",n_f,".dat"
+       open (file_e,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
+       open (file_mu,file=name_f,status="unknown")
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
@@ -99,8 +103,10 @@
        implicit none
        integer(4) :: i,i_max
        real(8) :: t_a,ti,tf
+       character(15) :: name_f
        allocate (f(3,n_step))
-       open (7,file="field.dat",status="unknown")
+       write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
+       open (7,file=name_f,status="unknown")
        select case (tfield)
         case ("mdg")
          do i=1,n_step 

@@ -15,7 +15,7 @@
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_ci,n_step,n_out
+      integer(4) :: n_f,n_ci,n_step,n_out
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
@@ -38,13 +38,15 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad,n_out,iseed
+             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f
 !
       contains
 !
       subroutine read_input
        integer(4):: i
        character(3) :: medium,radiative
+       read(5,*) n_f
+       write(6,*) "Number to append to dat file"
        read(5,*) n_ci
        write (6,*) "Number of CIS states",n_ci
        read(5,*) dt,n_step,n_out

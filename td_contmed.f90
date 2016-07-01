@@ -59,7 +59,10 @@
       complex(16), intent(INOUT) :: c_prev(n_ci),c_prev2(n_ci)
       real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
       integer(i4b) :: its,i,j                   
-      open (file_med,file='medium_t.dat',status="unknown")
+      character(20) :: name_f
+! OPEN FILES
+      write(name_f,'(a9,i0,a4)') "medium_t_",n_f,".dat"
+      open (file_med,file=name_f,status="unknown")
       allocate(h_mdm(n_ci,n_ci),h_mdm0(n_ci,n_ci))
       h_mdm=zero
       h_mdm0=zero
@@ -158,7 +161,7 @@
        ! Update the interaction Hamiltonian 
        h_int(:,:)=h_int(:,:)+h_mdm(:,:)
        ! SP 24/02/16  Write output
-       call out_mdm(i)
+      if (mod(i,n_out).eq.0) call out_mdm(i)
       return
       end subroutine
 !     

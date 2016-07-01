@@ -111,7 +111,7 @@
            !we need to read CIS0 charges and positions at time 0 
            call read_mat 
            call read_charges_gau
-!           call read_interface_gau 
+           call read_interface_gau 
            readmat=.true.
          endif
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles

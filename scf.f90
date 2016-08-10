@@ -68,10 +68,13 @@
 !       write(6,*) "Max Diff on Eigenvalue ", maxe
 !       write(6,*) "Max Diff on Eigenvector ", maxv
 ! Transform the potentials to the new basis
-       do its=1,nts_act
-        vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
-        vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
-       enddo
+! SP 30/05/16: added the condition on Fint for Fint=ons and Fprop=ief
+       if (Fint.eq.'pcm') then
+         do its=1,nts_act
+          vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
+          vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
+         enddo
+       endif
 ! Transform the dipoles to the new basis
        do its=1,3
         mut(:,:,its)=matmul(mut(:,:,its),eigt_c)

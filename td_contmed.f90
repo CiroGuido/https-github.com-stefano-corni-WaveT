@@ -11,10 +11,11 @@
       implicit none
       real(dbl), parameter :: TOANGS=0.52917724924D+00
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
+      complex(cmp), parameter :: zeroc=(zero,zero)                
 !LIGHT SPEED IN AU TO BE REVISED
       real(dbl), parameter :: c=1.37036d2                
       real(dbl) :: qtot,ref    
-      real(8), allocatable :: vtsd(:,:,:),vtsw(:,:,:),vtsf(:,:,:)
+      real(8), allocatable :: vtsd(:,:,:),vtsv(:,:,:),vtsq(:,:,:)
 ! SC this is the medium contribution to the hamiltonian
 ! SP 26/02/16: h_int0 contains the GS PCM contribution
       real(8), allocatable :: h_mdm(:,:),h_mdm0(:,:)
@@ -33,7 +34,8 @@
       real(8) :: k_r         
 !SP 22/02/16:  External charges (qext)/ potential on tesserae (potx)
 !SP 22/02/16:  Reaction charges (q)/ potential on tesserae (pot)
-      real(dbl), allocatable :: pot_t(:),pot_tp(:)
+!SP 29/05/16:  pot_gs contains vts(1,1,:), but works also with Fint='ons'
+      real(dbl), allocatable :: pot_t(:),pot_tp(:),pot_gs(:)
       real(dbl), allocatable :: potx_t(:),potx_tp(:)
       real(dbl), allocatable :: q_t(:),dq_t(:)
       real(dbl), allocatable :: q_tp(:),dq_tp(:)
@@ -57,7 +59,10 @@
       complex(16), intent(INOUT) :: c_prev(n_ci),c_prev2(n_ci)
       real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
       integer(i4b) :: its,i,j                   
-      open (file_med,file='medium_t.dat',status="unknown")
+      character(20) :: name_f
+! OPEN FILES
+      write(name_f,'(a9,i0,a4)') "medium_t_",n_f,".dat"
+      open (file_med,file=name_f,status="unknown")
       allocate(h_mdm(n_ci,n_ci),h_mdm0(n_ci,n_ci))
       h_mdm=zero
       h_mdm0=zero
@@ -69,16 +74,16 @@
         call init_dip(c_prev,f_prev)
 ! SC: ...then charges propagation        
       else 
-! SC 03/05/2016: create a new matq0=matqf^-1*matqw that should avoid
+! SC 03/05/2016: create a new matq0=matqq^-1*matqv that should avoid
 !                spurious charge dynamics for stationary states
-        call init_matq0
+        !call init_matq0
         call init_potential(c_prev)
         call init_charges(c_prev)
         ! SP initialize some matrices for propagation  coeff
-        call init_ief      
+        if (Fint.eq.'pcm') call init_ief      
       endif
       c_prev2=c_prev
-      call correct_hamiltonian
+      if (mdm.eq.'sol') call correct_hamiltonian
       ! SP 25/02/16 Initial gebug routine:
       if(debug) call test_dbg
 ! SC set the initial values of the solvent component of the 
@@ -103,39 +108,50 @@
        endif
        t=(i-1)*dt
 !SP 18/02/16: changed to try to base everything on Fint and Fprop 
-       if (Fprop.eq.'dip') then
-       ! Dipole propagation: 
-         call prop_dip(c_prev,f_prev,f_prev2)
+!SP 29/05/16: changed to allow the calculation of g_neq for Fprop=ief and Fint=ons
+       if (Fprop.eq.'dip'.or.Fint.eq.'ons') then
          f_d_mat=0.d0
          f_d_mat(1,1)=f_d
          f_d_mat(2,2)=f_d
          f_d_mat(3,3)=f_d
+       endif
+       if (Fprop.eq.'dip') then
+       ! Dipole propagation: 
+         call prop_dip(c_prev,f_prev,f_prev2)
          call do_gneq(c_prev,mut,dfr_t,fr_t,f_d_mat,3,-1)
        else
        ! Charges propagation: 
          ! Calculate external potential on tesserae for local field       
          if(localf) call do_ext_potential(f_prev)
          ! Calculate the molecule potential on tesserae
-         call do_potential_ts(c_prev)
+         call do_potential_ts(c_prev,pot_t)
          call prop_chr(c_prev,c_prev2)
          ! Charges normalization 
          ! call norm_ch
          ! Calculate medium's dipole from charges 
          call do_dipole        
          ! Calculate Reaction Field from charges
+!SP 29/05/16: changed to allow the calculation of g_neq for Fprop=ief and Fint=ons
+         if (Fint.eq.'ons') dfr_t=-fr_t
          call do_field(q_t,fr_t)
+         if (Fint.eq.'ons') dfr_t=dfr_t+fr_t
          ! Calculate Local Field from external charges
          if(localf) call do_field(qext_t,fl_t)
          !if (time.eq.endtime) call print_ch
        ! SC calculate free energy:
-         call do_gneq(c_prev,vts,dq_t,q_t,matqd,nts_act,1)
+!SP 29/05/16: changed to allow the calculation of g_neq for Fprop=ief and Fint=ons
+         if (Fint.eq.'ons') then 
+           call do_gneq(c_prev,mut,dfr_t,fr_t,f_d_mat,3,-1)
+         else
+           call do_gneq(c_prev,vts,dq_t,q_t,matqd,nts_act,1)
+         endif
        endif
        ! Calculate a reference value (testing purposes)
        if(pref.gt.0)  call do_ref
        ! Build the interaction Hamiltonian Reaction/Local
        call do_interaction_h
        if (i.eq.1) then
-        write(6,*) "h_mdm at the first iteration"
+        write(6,*) "h_mdm at the first propagation step"
         do j=1,n_ci
          do k=1,n_ci
           write (6,*) j,k,h_mdm(j,k)
@@ -145,7 +161,7 @@
        ! Update the interaction Hamiltonian 
        h_int(:,:)=h_int(:,:)+h_mdm(:,:)
        ! SP 24/02/16  Write output
-       call out_mdm(i)
+      if (mod(i,n_out).eq.0) call out_mdm(i)
       return
       end subroutine
 !     
@@ -164,11 +180,15 @@
       ! Initialize potential
       subroutine init_potential(c)
        complex(16), intent(IN) :: c(:)
+       complex(16) :: c_gs(n_ci)
        integer(i4b) :: its  
        allocate(pot_t(nts_act))
-       do its=1,nts_act
-         pot_t(its)=dot_product(c,matmul(vts(:,:,its),c))
-       enddo
+       allocate(pot_gs(nts_act))
+       call do_potential_ts(c,pot_t)
+       if (Fint.eq.'ons') call do_field(q0,fr_tp)
+       c_gs(:)=zeroc
+       c_gs(1)=onec
+       call do_potential_ts(c_gs,pot_gs)
        if(localf) then
          allocate(potx_t(nts_act))
          fl_t(:)=zero
@@ -198,10 +218,11 @@
        allocate(q_t(nts_act))
        allocate(q_tp(nts_act))
        allocate(dq_t(nts_act))
-       allocate (q0(nts_act))
+       if (.not.allocated(q0)) allocate (q0(nts_act))
        ! init the state and the RF before propagation
-       q0(:)=matmul(matq0,vts(1,1,:))
-       g_eq_gs=0.5d0*dot_product(q0,vts(1,1,:))
+!SP 29/05/16: pot_gs replaces vts(1,1,:) to allow treating Fprop=ief and Fint=ons
+       q0(:)=matmul(matq0,pot_gs)
+       g_eq_gs=0.5d0*dot_product(q0,pot_gs)
        write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
        ! see readio_medium for mdm_init_prop
@@ -215,20 +236,22 @@
 
 ! SC in principle a non equilibrium self consistency if eps_d=1 is needed
 !    here we use the non self-consitent density but use the correct RF
-         q_tp=matmul(matqd,vts(1,1,:))
-         g_neq_0=0.5d0*dot_product(q_tp,vts(1,1,:))
+         q_tp=matmul(matqd,pot_gs)
+         g_neq_0=0.5d0*dot_product(q_tp,pot_gs)
          g_neq2_0=g_neq_0
          g_neq_0=g_neq_0-dot_product(q_tp,pot_t)
          q_tp=matmul(matqd,pot_t)
          g_neq_0=g_neq_0+0.5d0*dot_product(q_tp,pot_t)
-         q_tp=q0+matmul(matqd,(pot_t-vts(1,1,:)))
+         q_tp=q0+matmul(matqd,(pot_t-pot_gs))
         case ('sce')
          q_tp=mix_coef*matmul(matq0,pot_t)+(1.-mix_coef)*q0
          call do_scf(q_tp,c_prev)
+! SP 30/05/16: changed for Fprop=ief and Fint=ons
 ! update the potential
-         do its=1,nts_act
-          pot_t(its)=dot_product(c_prev,matmul(vts(:,:,its),c_prev))
-         enddo
+!         do its=1,nts_act
+!          pot_t(its)=dot_product(c_prev,matmul(vts(:,:,its),c_prev))
+!         enddo
+         call do_potential_ts(c_prev,pot_t)
          g_neq_0=0.5*dot_product(q_tp,pot_t)
          q_tp=matmul(matqd,pot_t)
          g_neq2_0=0.5*dot_product(q_tp,pot_t)
@@ -281,6 +304,7 @@
                 -f_d*dot_product(mu_prev,mu0) &
                 +0.5*f_d*dot_product(mu0,mu0)
          g_neq_0=-g_neq_0
+         g_neq2_0=-0.5*f_d*dot_product(mu0,mu0)
         case ('sce')
          fr_t=mix_coef*f_0*mu_prev+(1.-mix_coef)*fr_0
          call do_scf(fr_t,c_prev)
@@ -289,6 +313,7 @@
          mu_prev(3)=dot_product(c_prev,matmul(mut(:,:,3),c_prev))
          mu_prev2=mu_prev
          g_neq_0=-0.5*f_0*dot_product(mu_prev,mu_prev)
+         g_neq2_0=-0.5*f_d*dot_product(mu_prev,mu_prev)
        end select
        write(6,*) 'G_neq at t=0:',g_neq_0
        ! assume that fr_tp2=fr_tp is the field from the dipole 
@@ -306,13 +331,13 @@
       subroutine init_ief
       integer(i4b) :: i,j  
 !     Build the contribution in \tilde{Q} Vij and Q_d dVij/dt
-      if (Feps.eq.'drl') allocate(vtsf(n_ci,n_ci,nts_act))
-      if (Feps.eq.'deb') allocate(vtsw(n_ci,n_ci,nts_act))
+      if (Feps.eq.'drl') allocate(vtsq(n_ci,n_ci,nts_act))
+      if (Feps.eq.'deb') allocate(vtsv(n_ci,n_ci,nts_act))
       if (Feps.eq.'deb') allocate(vtsd(n_ci,n_ci,nts_act))
       do i=1,n_ci    
         do j=1,n_ci    
-          if (Feps.eq.'drl') vtsf(i,j,:)=matmul(matqf(:,:),vts(i,j,:)) 
-          if (Feps.eq.'deb') vtsw(i,j,:)=matmul(matqw(:,:),vts(i,j,:))
+          if (Feps.eq.'drl') vtsq(i,j,:)=matmul(matqq(:,:),vts(i,j,:)) 
+          if (Feps.eq.'deb') vtsv(i,j,:)=matmul(matqv(:,:),vts(i,j,:))
           if (Feps.eq.'deb') vtsd(i,j,:)=matmul(matqd(:,:),vts(i,j,:))
         enddo
       enddo
@@ -321,9 +346,9 @@
 !
       subroutine end_prop
       integer(i4b) :: its  
-      if(allocated(vtsf)) deallocate (vtsf)
+      if(allocated(vtsq)) deallocate (vtsq)
       if(allocated(vtsd)) deallocate (vtsd)
-      if(allocated(vtsw)) deallocate (vtsw)
+      if(allocated(vtsv)) deallocate (vtsv)
       if(allocated(pot_t)) deallocate (pot_t)
       if(allocated(potx_t)) deallocate (potx_t)
       if(allocated(pot_tp)) deallocate (pot_tp)
@@ -355,10 +380,11 @@
       end subroutine
 !
       !
-      subroutine do_potential_ts(c)
+      subroutine do_potential_ts(c,pot)
       ! Builds dipole from CIS coefficients and calculates the potential
       !  on tesserae                 
        complex(16), intent(IN) :: c(n_ci)
+       real(dbl), intent(OUT) :: pot(nts_act)
        real(dbl):: diff(3)  
        real(dbl):: dist
        integer(i4b) :: its  
@@ -366,17 +392,17 @@
           dip(1)=dot_product(c,matmul(mut(:,:,1),c))
           dip(2)=dot_product(c,matmul(mut(:,:,2),c))
           dip(3)=dot_product(c,matmul(mut(:,:,3),c))
-          pot_t(:)=zero
+          pot(:)=zero
           do its=1,nts_act
             diff(1)=-(mol_cc(1)-cts_act(its)%x)
             diff(2)=-(mol_cc(2)-cts_act(its)%y)
             diff(3)=-(mol_cc(3)-cts_act(its)%z)
             dist=sqrt(dot_product(diff,diff))
-            pot_t(its)=pot_t(its)+dot_product(diff,dip)/(dist**3)
+            pot(its)=pot(its)+dot_product(diff,dip)/(dist**3)
           enddo
         elseif(Fint.eq.'pcm') then
           do its=1,nts_act
-            pot_t(its)=dot_product(c,matmul(vts(:,:,its),c))
+            pot(its)=dot_product(c,matmul(vts(:,:,its),c))
           enddo 
         endif
        return
@@ -517,7 +543,7 @@
       return
       end subroutine
 !
-! DANGER: initialize factors for solvent/nanoparticle
+! DANGER: initialize factors for solvent/nanoparticle and check signs !!!
       subroutine prop_csm_drl
       ! charge propagation with drude/lorentz and cosmo/onsager equations
       integer(i4b) :: its  
@@ -541,17 +567,17 @@
       integer(i4b) :: its  
       ! Reaction Field
       q_t=q_tp+dt*dq_tp
-      call DGEMV('N',nts_act,nts_act,dt,matqf,nts_act,pot_t,one_i, &
+      call DGEMV('N',nts_act,nts_act,dt,matqv,nts_act,pot_t,one_i, &
                      zero,dq_t,one_i)
-      call DGEMV('N',nts_act,nts_act,dt,matqw,nts_act,q_tp,one_i,  &
+      call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,q_tp,one_i,  &
                      one,dq_t,one_i)
       dq_t=dq_t+(1-dt*eps_gm)*dq_tp 
       ! Local Field
       if(localf) then
         qext_t=qext_tp+dt*dqext_tp
-        call DGEMV('N',nts_act,nts_act,dt,matqf,nts_act,potx_t,one_i, &
+        call DGEMV('N',nts_act,nts_act,dt,matqv,nts_act,potx_t,one_i, &
                        zero,dqext_t,one_i)
-        call DGEMV('N',nts_act,nts_act,dt,matqw,nts_act,qext_tp,one_i,&
+        call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,qext_tp,one_i,&
                        one,dqext_t,one_i)
         dqext_t=dqext_t+(1.d0-dt*eps_gm)*dqext_tp 
       endif
@@ -565,16 +591,16 @@
        ! Reaction Field
        q_t=q_tp+dt*dq_tp
        do its=1,nts_act
-         dq_t(its)=dt*dot_product(c,matmul(vtsf(:,:,its),c)) 
+         dq_t(its)=dt*dot_product(c,matmul(vtsv(:,:,its),c)) 
        enddo
-       call DGEMV('N',nts_act,nts_act,dt,matqw,nts_act,q_tp,one_i,  &
+       call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,q_tp,one_i,  &
                       one,dq_t,one_i)
        dq_t=dq_t+(1-dt*eps_gm)*dq_tp 
        ! Local Field
        if(localf) then
          qext_t=qext_tp+dt*dqext_tp
-         dqext_t=dt*matmul(matqf,potx_t)
-         call DGEMV('N',nts_act,nts_act,dt,matqw,nts_act,qext_tp,one_i,&
+         dqext_t=dt*matmul(matqv,potx_t)
+         call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,qext_tp,one_i,&
                         one,dqext_t,one_i)
          dqext_t=dqext_t+(1-dt*eps_gm)*dqext_tp 
        endif
@@ -585,12 +611,12 @@
       ! Charge propagation with debye and IEF equations 
       integer(i4b) :: its  
       ! Reaction Field
-      q_t(:)=q_tp(:)-dt*matmul(matqf,q_tp)+dt*matmul(matqw,pot_tp) &
+      q_t(:)=q_tp(:)-dt*matmul(matqq,q_tp)+dt*matmul(matqv,pot_tp) &
                     +matmul(matqd,pot_t-pot_tp)
       ! Local Field eq.47 JPCA 2015
       if(localf) then
-        qext_t(:)=qext_tp(:)-dt*matmul(matqf,qext_tp)+  &
-                  dt*matmul(matqw,potx_tp)+matmul(matqd,potx_t-potx_tp)
+        qext_t(:)=qext_tp(:)-dt*matmul(matqq,qext_tp)+  &
+                  dt*matmul(matqv,potx_tp)+matmul(matqd,potx_t-potx_tp)
       endif
       return
       end subroutine
@@ -616,12 +642,12 @@
       integer(i4b) :: its  
       ! Reaction Field
       q_t(:)=q_tp(:)
-      call DGEMV('N',nts_act,nts_act,-dt,matqf,nts_act,q_tp,one_i, &
+      call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,q_tp,one_i, &
                      one,q_t,one_i)
       ! Add the contribution in \tilde{Q} Vij and Q_d dVij/dt
       do its=1,nts_act
         q_t(its)=q_t(its)                            & 
-          +dt*dot_product(c_prev,matmul(vtsw(:,:,its),c_prev))     
+          +dt*dot_product(c_prev,matmul(vtsv(:,:,its),c_prev))     
       enddo
       do its=1,nts_act
         q_t(its)=q_t(its)                             & 
@@ -632,9 +658,9 @@
       ! Local Field eq.47 JPCA 2015
       if(localf) then
         qext_t(:)=qext_tp(:)
-        call DGEMV('N',nts_act,nts_act,-dt,matqf,nts_act,qext_tp,one_i,&
+        call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,qext_tp,one_i,&
                        one,qext_t,one_i)
-        qext_t(:)=qext_t(:)+dt*matmul(matqw,potx_tp)+ &
+        qext_t(:)=qext_t(:)+dt*matmul(matqv,potx_tp)+ &
                          matmul(matqd,potx_t-potx_tp)  
       endif
       return
@@ -651,17 +677,17 @@
       !
       !tau_ons=(eps_d+one)/(eps_0+one)*tau_deb 
       !q_t(:)=q_t(:)-dt/tau_ons*q_tp(:)
-      !q_t(:)=q_t(:)-dt*matmul(matqf,q_tp)
-      !call DGEMV('N',nts_act,nts_act,-dt,matqf,nts_act,q_tp,one_i, &
+      !q_t(:)=q_t(:)-dt*matmul(matqq,q_tp)
+      !call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,q_tp,one_i, &
       !               one,q_t,one_i)
 
       !q_t(:)=q_t(:)+dt/tau_ons*matmul(matq0,pot_tp)
-      !q_t(:)=q_t(:)+dt*matmul(matqw,pot_tp)
+      !q_t(:)=q_t(:)+dt*matmul(matqv,pot_tp)
       !do its=1,nts_act
       !  tmp(its)=dot_product(c,matmul(vts(:,:,its),c))     
       !enddo
       !q_t(:)=q_t(:)+dt/tau_deb*matmul(matq0,tmp) 
-      !q_t(:)=q_t(:)+dt*matmul(matqw,tmp) 
+      !q_t(:)=q_t(:)+dt*matmul(matqv,tmp) 
 
       !q_t(:)=q_t(:)+matmul(matqd,pot_t-pot_tp)
       !do its=1,nts_act
@@ -674,9 +700,9 @@
       ! Local Field eq.47 JPCA 2015
       if(localf) then
         qext_t(:)=qext_tp(:)
-        call DGEMV('N',nts_act,nts_act,-dt,matqf,nts_act,qext_tp,one_i,&
+        call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,qext_tp,one_i,&
                        one,qext_t,one_i)
-        qext_t(:)=qext_t(:)+dt*matmul(matqw,potx_t)+ &
+        qext_t(:)=qext_t(:)+dt*matmul(matqv,potx_t)+ &
                          matmul(matqd,potx_t-potx_tp)  
       endif
       return
@@ -798,12 +824,12 @@
            h_mdm0(:,:)=h_mdm0(:,:)+q_tp(its)*vts(:,:,its)
          enddo
        endif
-         write(6,*) "in correct hamiltonian"
-         do i=1,n_ci
-          do j=1,n_ci
-           write(6,*) i,j,h_mdm0(i,j)
-          enddo
-         enddo
+       write(6,*) "in correct hamiltonian"
+       do i=1,n_ci
+        do j=1,n_ci
+         write(6,*) i,j,h_mdm0(i,j)
+        enddo
+       enddo
        return
       end subroutine
 !
@@ -811,7 +837,7 @@
       ! A routine to correct the potential matrix with the GS PCM potential.
        integer(4) :: i
        do i=2,n_ci     
-         vts(i,i,:)=vts(i,i,:)+vts(1,1,:)
+         vts(i,i,:)=vts(i,i,:)+pot_gs(:)
        enddo
        return
       end subroutine
@@ -917,8 +943,8 @@
       allocate(mat_t(nts_act,nts_act))
       allocate(mat_t2(nts_act,nts_act))
       allocate(ipiv(nts_act))
-      mat_t=matqf
-      mat_t2=matqw
+      mat_t=matqq
+      mat_t2=matqv
       call dgetrf(nts_act,nts_act,mat_t,nts_act,ipiv,info)
       call dgetrs('N',nts_act,nts_act,mat_t,nts_act,ipiv,mat_t2,nts_act,info)
       matq0=mat_t2

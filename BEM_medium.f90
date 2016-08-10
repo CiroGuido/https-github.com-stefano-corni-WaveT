@@ -12,17 +12,19 @@
 !LIGHT SPEED IN AU TO BE REVISED
       real(dbl), parameter :: c=1.37036d2                
       real(dbl) :: f_f,f_w    
-      real(dbl), allocatable :: cals(:,:),cald(:,:),calds(:,:)
       real(dbl), allocatable :: sm1(:,:)
       real(dbl), allocatable :: eigv(:),eigt(:,:)
-      real(dbl), allocatable :: sm12(:,:)
+      real(dbl), allocatable :: sm12(:,:),sp12(:,:)
+      real(dbl), allocatable :: matq0(:,:),matqd(:,:)
+      real(dbl), allocatable :: matqv(:,:),matqq(:,:)
 !SP 22/02/16:  Onsager's factors for reaction and local(x) fields
       real(8) :: f_0,f_d,tau_ons,fx_0,fx_d,taux_ons
       complex(cmp) :: eps,eps_f
       save
       private
       public init_BEM,deallocate_BEM,do_eps,eps,eps_f,eigv,eigt, &
-             sm1,f_f,f_w,sm12,f_0,f_d,tau_ons,fx_0,fx_d,taux_ons
+             sm1,f_f,f_w,sm12,f_0,f_d,tau_ons,fx_0,fx_d,taux_ons, &
+             matqv,matqq,matqd,matq0
 
       contains
 !     
@@ -35,24 +37,24 @@
            ! Build Matrices for propagation
            allocate(cals(nts_act,nts_act))
            allocate(cald(nts_act,nts_act))
-           allocate(calds(nts_act,nts_act))
+           call do_calderon
+         endif
+         if(Fprop.eq."ief") then
            allocate(eigv(nts_act))
            allocate(eigt(nts_act,nts_act))
-           call do_calderon
-           if(Fprop.eq."ief") then
-             if (.not.allocated(matqf)) allocate(matqf(nts_act,nts_act))
-             if (.not.allocated(matqw)) allocate(matqw(nts_act,nts_act))
-             if (.not.allocated(matqd)) allocate(matqd(nts_act,nts_act))
-             if (.not.allocated(matq0)) allocate(matq0(nts_act,nts_act))
-             if (.not.allocated(sm12)) allocate(sm12(nts_act,nts_act))
-             call do_PCMdiag  
-           else
-             if (.not.allocated(sm1)) allocate(sm1(nts_act,nts_act))
-             call do_ons  
-           endif
-           deallocate(cals,cald,calds)
-           deallocate(eigt,eigv)
-         endif
+           allocate(matqv(nts_act,nts_act))
+           allocate(matqq(nts_act,nts_act))
+           allocate(matqd(nts_act,nts_act))
+           allocate(matq0(nts_act,nts_act))
+           allocate(sm12(nts_act,nts_act))
+           allocate(sp12(nts_act,nts_act))
+           call do_PCM_propMat
+         else
+           allocate(sm1(nts_act,nts_act))
+           call do_ons_propMat  
+        endif
+         deallocate(cals,cald)
+         deallocate(eigt,eigv)
        endif
       return
       end subroutine
@@ -61,11 +63,12 @@
        if (Fprop.eq.'dip') then
        else
          ! deallocate matrices related to nanoparticle
-         if (allocated(matqf)) deallocate(matqf)
-         if (allocated(matqw)) deallocate(matqw)
+         if (allocated(matqv)) deallocate(matqv)
+         if (allocated(matqq)) deallocate(matqq)
          if (allocated(matqd)) deallocate(matqd)
          if (allocated(matq0)) deallocate(matq0)
          if (allocated(sm12)) deallocate(sm12)
+         if (allocated(sp12)) deallocate(sp12)
          if (allocated(sm1)) deallocate(sm1)
        endif
       return
@@ -103,21 +106,20 @@
       return
       end subroutine
 !
-      subroutine do_PCMdiag   
+      subroutine do_PCM_propMat
        integer(i4b) :: i,j,info,lwork,liwork
-       real(dbl), dimension(nts_act,nts_act) :: scr4,scr1,sp12
+       real(dbl), dimension(nts_act,nts_act) :: scr4,scr1
        real(dbl), dimension(nts_act,nts_act) :: scr2,scr3
        real(dbl), dimension(nts_act) :: fact1,fact2
-       real(dbl), allocatable :: Kdiag0(:),Kdiagd(:)
+       real(dbl), dimension(nts_act) :: Kdiag0,Kdiagd
        real(dbl) :: sgn,fac_eps0,fac_epsd
        character jobz,uplo
        integer(i4b) :: iwork(3+5*nts_act)
        real(dbl) :: work(1+6*nts_act+2*nts_act*nts_act)
-!      
-!      solvent or nanoparticle
+       ! Solvent or nanoparticle
        sgn=one                 
        if(mdm.eq."nan") sgn=-one  
-!      Set parameters for diagonalization routine dsyevd
+       ! Set parameters for diagonalization routine dsyevd
        jobz = 'V'
        uplo = 'U'
        lwork = 1+6*nts_act+2*nts_act*nts_act
@@ -126,13 +128,12 @@
        write(7,*) nts_act
        do j=1,nts_act
         do i=j,nts_act
-         write(7,'(3E26.16)')cals(i,j),cald(i,j),calds(i,j)
+         write(7,'(2E26.16)')cals(i,j),cald(i,j)
         enddo
        enddo
        close(7)
-!      
-!      Form S^1/2 and S^-1/2
-!      Copy the matrix in the eigenvector matrix
+       ! Form S^1/2 and S^-1/2
+       ! Copy the matrix in the eigenvector matrix
        eigt = cals
        call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
          iwork,liwork,info)
@@ -151,35 +152,44 @@
        do i=1,nts_act
          scr1(:,i)=cald(:,i)*cts_act(i)%area
        enddo
-       scr1=matmul(matmul(sm12,scr1),scr4)                   
-       !S^1/2 A D* S^-1/2
-       do i=1,nts_act
-         scr2(i,:)=calds(i,:)*cts_act(i)%area
-       enddo
-       scr2=matmul(matmul(sp12,scr2),sm12)                   
+       scr2=matmul(matmul(sm12,scr1),sp12)                   
        !S^-1/2 D A S^1/2+S^1/2 A D* S^-1/2 and diagonalise
-       !eigt(:,:)=0.5*(scr1(:,:)+scr2(:,:))
-       eigt(:,:)=scr1(:,:)
+       do j=1,nts_act
+        do i=1,nts_act
+         eigt(i,j)=0.5*(scr2(i,j)+scr2(j,i))
+        enddo
+       enddo
        call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
          iwork,liwork,info)
+       open(7,file="TSSK_matrices.inp",status="unknown")
+       write(7,*) nts_act
+       do j=1,nts_act
+        do i=j,nts_act
+         write(7,'(4E26.16)')eigt(i,j),sp12(i,j),sm12(i,j)
+        enddo
+       enddo
+       write(7,*) nts_act
+       do j=1,nts_act
+         write(7,*)eigv(j)
+       enddo
+       close(7)
 !      Test on S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 Diagonal passed 
 !      
 !      Form the Q_w and Q_f and K_d and K_0 for debye propagation
+       fac_eps0=(eps_0+1)/(eps_0-1)
+       Kdiag0(:)=(twp-sgn*eigv(:))/(twp*fac_eps0-sgn*eigv(:))
+       fac_epsd=(eps_d+1)/(eps_d-1)
+       Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
        if (Feps.eq."deb") then
 !        debye dielectric function  
          ! SP: Need to check the signs of the second part for a debye medium localized in space  
-         allocate(Kdiag0(nts_act),Kdiagd(nts_act))
          fact1(:)=((twp-sgn*eigv(:))*eps_0+twp+eigv(:))/ &
                   ((twp-sgn*eigv(:))*eps_d+twp+eigv(:))/tau_deb
-         fac_eps0=(eps_0+1)/(eps_0-1)
-         Kdiag0(:)=(twp-sgn*eigv(:))/(twp*fac_eps0-sgn*eigv(:))
          fact2(:)=Kdiag0(:)*fact1(:)
-         fac_epsd=(eps_d+1)/(eps_d-1)
-         Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
        elseif (Feps.eq."drl") then       
 !        Drude-Lorentz dielectric function
-         fact1(:)=(two*pi-sgn*eigv(:))*eps_A/(two*twp)  
-         fact2(:)=((two*pi-sgn*eigv(i))*eps_A/(two*twp)+eps_w0*eps_w0)  
+         fact2(:)=(twp-sgn*eigv(:))*eps_A/(two*twp)  
+         fact1(:)=fact2(:)+eps_w0*eps_w0  
        else
          write(6,*) "Wrong epsilon choice"
          stop
@@ -190,40 +200,35 @@
        scr2=matmul(transpose(eigt),sp12)  
 !      Buil T*S-1/2 in scr4
        scr4=matmul(transpose(eigt),sm12)  
-!      Build matqf (R for debye)
+!      Build matqq (R for debye)
        do i=1,nts_act
          scr1(:,i)=scr3(:,i)*fact1(i) 
        enddo
-       matqf=matmul(scr1,scr2)
-!      Build matqw (\tilde{Q} for debye)
+       matqq=matmul(scr1,scr2)
+!      Build matqv (\tilde{Q} for debye)
        do i=1,nts_act
          scr1(:,i)=scr3(:,i)*fact2(i) 
        enddo
-       matqw=-matmul(scr1,scr4) 
+       matqv=-matmul(scr1,scr4) 
 !      Build Q_0 
        do i=1,nts_act
          scr1(:,i)=scr3(:,i)*Kdiag0(i) 
        enddo
        matq0=-matmul(scr1,scr4) 
 !      Build Q_d only for debye
-       if (Feps.eq."deb") then
-         do i=1,nts_act
-           scr1(:,i)=scr3(:,i)*Kdiagd(i) 
-         enddo
-         matqd=-matmul(scr1,scr4) 
-       endif
+       do i=1,nts_act
+         scr1(:,i)=scr3(:,i)*Kdiagd(i) 
+       enddo
+       matqd=-matmul(scr1,scr4) 
 ! Print matrices in output
        open(7,file="BEM_matrices.inp",status="unknown")
        write(7,*) nts_act
        do j=1,nts_act
         do i=j,nts_act
-         write(7,'(4E26.16)')matqw(i,j),matqd(i,j),matqf(i,j),matq0(i,j)
+         write(7,'(4E26.16)')matqv(i,j),matqd(i,j),matqq(i,j),matq0(i,j)
         enddo
        enddo
        close(7)
-!      Deallocate arrays
-       if (allocated(Kdiag0)) deallocate(Kdiag0)
-       if (allocated(Kdiagd)) deallocate(Kdiagd)
       return
       end subroutine
 !
@@ -271,37 +276,32 @@
          cals(i,j)=temp
          call green_d(i,j,temp)
          cald(i,j)=temp
-         call green_d(j,i,temp)
-         calds(i,j)=temp
        enddo
       enddo
       return
       end subroutine
 !
-      subroutine do_ons   
+      subroutine do_ons_propMat   
       integer(i4b) :: i,j,info,lwork,liwork
        real(dbl), dimension(nts_act,nts_act) :: scr1,scr2
       character jobz,uplo
       integer(i4b) :: iwork(3+5*nts_act)
       real(dbl) :: work(1+6*nts_act+2*nts_act*nts_act)
-!
-!      Set parameters for diagonalization routine dsyevd
+       ! Set parameters for diagonalization routine dsyevd
        jobz = 'V'
        uplo = 'U'
        lwork = 1+6*nts_act+2*nts_act*nts_act
        liwork = 3+5*nts_act
-!      
-!      Form S^-1
+       ! Form S^-1
        eigt = cals
        call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
-         iwork,liwork,info)
+               iwork,liwork,info)
        do i=1,nts_act
          scr1(:,i)=eigt(:,i)/eigv(i)
        enddo
        scr2=transpose(eigt)
        sm1=matmul(scr1,scr2)                   
-!      
-!      Form the f_w=-1/tau+w_0^2 and f_f=A/3                           
+       ! Form the f_w=-1/tau+w_0^2 and f_f=A/3                           
        f_w=-(eps_A/3.+eps_w0*eps_w0) 
        f_f=-eps_A/3. 
        return

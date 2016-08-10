@@ -15,19 +15,22 @@
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_ci,n_step
+      integer(4) :: n_f,n_ci,n_step,n_out
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
       real(8), allocatable :: q0(:)
-      character(3) :: mdm,tfield 
+      character(3) :: mdm,tfield,rad 
+      integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
 !     mdm=vac: no medium
 !
 !     tfield=gau: gaussian impulse
+!SC
+!     rad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
       real(8) :: eps_A,eps_gm,eps_w0,f_vel
 
@@ -35,16 +38,18 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5
+             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f
 !
       contains
 !
       subroutine read_input
        integer(4):: i
-       character(3) :: medium
+       character(3) :: medium,radiative
+       read(5,*) n_f
+       write(6,*) "Number to append to dat file"
        read(5,*) n_ci
        write (6,*) "Number of CIS states",n_ci
-       read(5,*) dt,n_step
+       read(5,*) dt,n_step,n_out
        write (6,*) "Time step (in au) and number of steps",dt,n_step
        read(5,*) tfield             
        write (6,*) "Time shape of the perturbing field",tfield
@@ -66,6 +71,15 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+!SC
+       read(5,*) radiative
+       select case (radiative)
+        case ('rad','Rad','RAD')
+         rad='arl'
+         read(5,*) iseed
+        case default
+         rad='non'
+       end select 
        ! Moleculalr center of charge: used?
        read(5,*) (mol_cc(i),i=1,3)
        write(*,*) 'Molecular center of charge'
@@ -98,9 +112,10 @@
 ! SC 16/02/2016: for efficiency reasons, it would be better
 !   to define mut(3,n_ci,n_ci)
        allocate (mut(n_ci,n_ci,3))
-       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
-       mut(1,1,:)=mut(1,1,:)*debye_to_au
-       do i=2,n_ci
+! SC 31/05/2016: now the GS data from gaussian is in debye and same format as others
+!       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
+!       mut(1,1,:)=mut(1,1,:)*debye_to_au
+       do i=1,n_ci
 !         read(7,*) junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
         read(7,*)junk,junk,junk,junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
         mut(i,1,:)=mut(1,i,:)

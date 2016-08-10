@@ -11,16 +11,16 @@
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
       integer(4) :: nts
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
-      real(8), allocatable :: matqd(:,:),matqf(:,:),matqw(:,:) !Debye evolution matrices  
-      real(8), allocatable :: matq0(:,:) !PCM matrix eps=eps0                 
+      real(8), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,pref,nmodes,ncycmax
       integer(4), allocatable :: xmode(:),occmd(:)
       character(3) :: Fint,Feps,Fprop
-! SP 220216: added local field keyword localf
 ! SP 220216: added equilibrium reaction field eq_rf0
-      logical :: molint,iBEM,localf,readmat,debug, eq_rf0
+! SP 220216: added local field keyword localf
+! SP 180516: added pot_file to see if a file with potentials is present
+      logical :: molint,iBEM,localf,readmat,pot_file,debug,eq_rf0
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
@@ -36,8 +36,8 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
              pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,iBEM,   &
-             matqf,matqw,matqd,q0,fr_0,localf,mdm_dip,readmat,qtot0, &
-             matq0,debug,vtsn,eq_rf0,mdm_init_prop, &
+             cals,cald,q0,fr_0,localf,mdm_dip,readmat,qtot0, &
+             debug,vtsn,eq_rf0,mdm_init_prop, &
              ncycmax,thrshld,mix_coef
 !
       contains
@@ -78,16 +78,17 @@
            read(5,*) eps_0,eps_d,tau_deb
          case ('drl','Drl','DRL')
            Feps='drl'
-           read(5,*) eps_A,eps_gm,eps_w0,f_vel
+! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
+           read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
 !SC 16/02/2016: perhaps this correction should not stay in the input routine
            ! correct for finite size effects of nanoparticle with respect to bulk
-           !eps_gm=eps_gm+f_vel/sfe_act(1)%r
+           eps_gm=eps_gm+f_vel/sfe_act(1)%r
          case default
            write(*,*) "Error, specify eps(omega) type DEB or DRL"
            stop
        end select
        read(5,*) 
-! read charges propagation type: ief, ied or dpc or ons 
+! read charges propagation type: ief, ied or dpc or dip 
        read(5,*) which_prop
        select case (which_prop)
          case ('ief','Ief','IEF')
@@ -104,17 +105,17 @@
            write(*,*) "Error, specify the propagation type "
            stop
        end select
-       if(Fprop.ne.'dip') then
+       if(Fprop.ne.'dip'.and.Fint.eq.'pcm') then
          call read_gau_out_medium
          if (mdm.eq."sol") then
            !we need to read CIS0 charges and positions at time 0 
            call read_mat 
-!           call read_charges_gau
+           call read_charges_gau
            call read_interface_gau 
            readmat=.true.
          endif
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
-         call do_vts_from_dip
+         !call do_vts_from_dip
        endif
        read(5,*)
        read(5,*) which_mdm_init_prop
@@ -138,7 +139,7 @@
        read(5,*) db
        if (db.gt.0) debug=.true.   
        read(5,*) rf
-       if (rf.gt.0) eq_rf0=.true.   
+       if (rf.gt.0) eq_rf0=.true.
 ! NEED TO CHECK COMBINATIONS OF OPTIONS THAT ARE NOT IMPLEMENTED YET
        return
       end subroutine
@@ -154,12 +155,14 @@
            stop
          endif
          if(.not.allocated(q0)) allocate (q0(nts_act))
+         if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
          qtot0=zero
          do i=1,nts_act 
-           read(7,*) q0(i)
+           read(7,*) q0(i),cts_act(i)%area
            qtot0=qtot0+q0(i)
          enddo
-         q0=q0-matmul(matq0,vtsn)
+! SP 16/05/2016: we don't have matq0 here now, correct in the propagation routine 
+         !q0=q0-matmul(matq0,vtsn)
        close(7)
        return
       end subroutine
@@ -275,7 +278,7 @@
       ! read matrices for propagation
       subroutine read_mat  
        integer :: i,j,nts
-       open(7,file="mat_debye.inp",status="old")
+       open(7,file="mat_SD.inp",status="old")
        read(7,*) nts
        if(nts_act.eq.0.or.nts.eq.nts_act) then
          nts_act=nts
@@ -283,25 +286,12 @@
          write(*,*) "Tesserae number conflict"
          stop
        endif
-       allocate (matqf(nts_act,nts_act),matqw(nts_act,nts_act), &
-                 matqd(nts_act,nts_act),matq0(nts_act,nts_act))
+       allocate (cald(nts_act,nts_act),cals(nts_act,nts_act))
        do j=1,nts_act
         do i=j,nts_act
-         read(7,*) matqw(i,j), matqd(i,j), matqf(i,j), matq0(i,j)
-!SC 02/05/2016: test since the matrix seems to have wrong sign
-!         matqw(i,j)=-matqw(i,j)
-!         matqd(i,j)=-matqd(i,j)
-!         matqf(i,j)=-matqf(i,j)
-!         matq0(i,j)=-matq0(i,j)
-!SC: end of test
-!        matqw is \tilde{Q} for debye
-         matqw(j,i)=matqw(i,j)
-!        matqd is Qd for debye
-         matqd(j,i)=matqd(i,j)
-!        matqf is R for debye
-         matqf(j,i)=matqf(i,j)
-!        matq0 is Q0 for debye
-         matq0(j,i)=matq0(i,j)
+         read(7,*) cals(i,j), cald(i,j)
+         cals(j,i)=cals(i,j)
+         cald(j,i)=cald(i,j)
         enddo
        enddo
        close(7)
@@ -311,6 +301,7 @@
       subroutine read_nanop
        integer :: i
        open(unit=7,file="nanop.in",status="old",form="formatted")
+        read (7,*)
         ! Read sphere info                
         call read_act(7)
         ! Read info                    
@@ -325,6 +316,15 @@
        close(unit=7)
 ! SC create tessera for the NP
        call pedra_int('met')
+       if(Fint.eq.'pcm') then
+         pot_file=.false.
+         inquire(file='ci_pot.inp',exist=pot_file)       
+         if (Fint.eq.'pcm'.and.(.not.pot_file)) then
+           call output_surf
+           write(6,*) "Created output file with surface points"
+           stop
+         endif
+       endif
 ! SC 07/02/16: initiate q0 and set to 0 (for solvent calculations is
 !   set in the sister routine read_....gau 
        allocate (q0(nts_act))
@@ -332,7 +332,19 @@
        return
       end subroutine
 !
+      subroutine output_surf
+       integer :: i
+       open(unit=7,file="surface.xyz",status="unknown",form="formatted")
+        write (7,*) nts_act
+        do i=1,nts_act
+          write (7,'(3F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z
+        enddo
+       close(unit=7)
+      end subroutine
+!
       subroutine deallocate_medium
+       if(allocated(cals)) deallocate(cals)
+       if(allocated(cald)) deallocate(cald)
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
        if(allocated(xmode)) deallocate(xmode)

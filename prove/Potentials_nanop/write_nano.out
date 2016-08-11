@@ -1,0 +1,26 @@
+ Number to append to dat file
+ Number of CIS states          20
+ Time step (in au) and number of steps  0.200000000000000              100
+ Time shape of the perturbing fieldpip
+ time at the center of the pulse (au):   20.0000000000000     
+ Width of the pulse (time au):   250.000000000000     
+ Frequency (au):  0.262961000000000     
+ Molecular center of charge
+  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ Nanoparticle as external medium
+ This is a standard PCM nanoparticle run
+ This run just writes matrices and boundary
+ Use GS RF as coded in the ci_energy.inp values
+ GEPOL-GB: COUNTING TESSERAE
+ nts_act         240
+ GEPOL-GB: GENERATING TESSERAE
+
+ TOTAL NUMBER OF SPHERES=    1
+ SPHERE             CENTER  (X,Y,Z) (A)               RADIUS (A)      AREA(A*A)
+   1    0.000000000    0.000000000   63.501269909   52.917724924
+
+ TOTAL NUMBER OF TESSERAE=     240
+ SURFACE AREA=      35189.42681554(A**2)    CAVITY VOLUME=     620714.80281924 (A**3)
+ nts_act         240
+ Created output file with surface points
+ Matrixes S D have been written out, I'll stop now

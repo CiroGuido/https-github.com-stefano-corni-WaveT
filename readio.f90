@@ -58,19 +58,6 @@
        write (6,*) "Width of the pulse (time au):",sigma
        write (6,*) "Frequency (au):",omega
        read(5,*) fmax
-!    read external medium type: sol, nan, vac
-       read(5,*) medium
-       select case (medium)
-        case ('sol','Sol','SOL')
-          write(*,*) "Solvent as external medium" 
-          mdm='sol'
-        case ('nan','Nan','NAN')
-          write(*,*) "Nanoparticle as external medium" 
-          mdm='nan'
-        case default
-          write(*,*) "No external medium, vacuum calculation" 
-          mdm='vac'
-       end select
 !SC
        read(5,*) radiative
        select case (radiative)
@@ -89,6 +76,20 @@
        read(5,*) start     ! Start point for FT calculation
 !    read gaussian output for CIS propagation
        call read_gau_out
+!    read external medium type: sol, nan, vac
+       read(5,*) 
+       read(5,*) medium
+       select case (medium)
+        case ('sol','Sol','SOL')
+          write(*,*) "Solvent as external medium" 
+          mdm='sol'
+        case ('nan','Nan','NAN')
+          write(*,*) "Nanoparticle as external medium" 
+          mdm='nan'
+        case default
+          write(*,*) "No external medium, vacuum calculation" 
+          mdm='vac'
+       end select
        return
       end subroutine
 !

@@ -16,11 +16,13 @@
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,pref,nmodes,ncycmax
       integer(4), allocatable :: xmode(:),occmd(:)
-      character(3) :: Fint,Feps,Fprop
+      character(3) :: Fint,Feps,Fprop,Fbem
 ! SP 220216: added equilibrium reaction field eq_rf0
 ! SP 220216: added local field keyword localf
 ! SP 180516: added pot_file to see if a file with potentials is present
-      logical :: molint,iBEM,localf,readmat,pot_file,debug,eq_rf0
+! SC 11/08/2016: instead of automatic detection of pot_file, now it is part 
+!                of the Fbem mechanism (reading or writing)
+      logical :: molint,iBEM,localf,debug,eq_rf0
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
@@ -35,40 +37,21 @@
       private
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
-             pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,iBEM,   &
-             cals,cald,q0,fr_0,localf,mdm_dip,readmat,qtot0, &
+             pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
+             iBEM, cals,cald,q0,fr_0,localf,mdm_dip,qtot0, &
              debug,vtsn,eq_rf0,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef
+             ncycmax,thrshld,mix_coef,Fbem
 !
       contains
 !
       subroutine read_medium
        implicit none
        integer(4):: i,lc,db,rf,sc
-       character(3) :: which_int, which_eps, which_prop
+       character(3) :: which_int, which_eps, which_prop,which_bound_mat
        character(6) :: which_mdm_init_prop
        nts_act=0
-       read(5,*) 
 ! read frequency of updating the interaction potential
        read(5,*) n_q
-! read interaction type: PCM or dipolar (onsager)
-       read(5,*) which_int
-       select case (which_int)
-         case ('ons','Ons','ONS')
-           Fint='ons'
-           if (mdm.eq."sol") then
-             read(5,*) a_cav,b_cav,c_cav
-             a_cav=a_cav*antoau
-             b_cav=b_cav*antoau
-             c_cav=c_cav*antoau
-           endif
-         case ('pcm','Pcm','PCM')
-           Fint='pcm'
-         case default
-           write(*,*) "Error, specify interaction type ONS or PCM"
-           stop
-       end select
-       if (mdm.eq."nan") call read_nanop
        read(5,*) 
 ! read dielectric function type and parameters
        read(5,*) which_eps
@@ -82,40 +65,123 @@
            read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
 !SC 16/02/2016: perhaps this correction should not stay in the input routine
            ! correct for finite size effects of nanoparticle with respect to bulk
-           eps_gm=eps_gm+f_vel/sfe_act(1)%r
+!           eps_gm=eps_gm+f_vel/sfe_act(1)%r
          case default
            write(*,*) "Error, specify eps(omega) type DEB or DRL"
            stop
        end select
        read(5,*) 
-! read charges propagation type: ief, ied or dpc or dip 
+! read interaction type: PCM or Onsager
+! which_int refers to the coupling between the molecule and the reaction field
+!   ons: the reaction field is considered constant in space and the coupling is -mu*F_RF
+!   pcm: the reaction potential is used, the coupling is \int dr rho(r) V_RF(r)
+       read(5,*) which_int
+       select case (which_int)
+        case ('ons','Ons','ONS')
+         Fint='ons'
+        case ('pcm','Pcm','PCM')
+         Fint='pcm'
+        case default
+         write(*,*) "Error, specify interaction type ONS or PCM"
+         stop
+       end select
+! which_prop refers to which quantity is propagated by equations of motions
+!   dip: only the dipolar (i.e., Onsager) reaction field is propagated
+!   ief,ied,csm: the apparent charges are propagated, within different schemes
        read(5,*) which_prop
        select case (which_prop)
-         case ('ief','Ief','IEF')
-           Fprop='ief'
-         case ('ied','Ied','IED')
-           Fprop='ied'
-         case ('csm','Csm','CSM')
-         ! COSMO propagation PCM, Onsager Nanoparticle
-           Fprop='csm'
-         case ('dip','Dip','DIP')
-         ! Dipole propagation no charges involved 
-           Fprop='dip'
-         case default
-           write(*,*) "Error, specify the propagation type "
-           stop
+        case ('ief','Ief','IEF')
+         Fprop='ief'
+        case ('ied','Ied','IED')
+         Fprop='ied'
+        case ('csm','Csm','CSM')
+       ! COSMO propagation PCM, Onsager Nanoparticle
+         Fprop='csm'
+        case ('dip','Dip','DIP')
+       ! Dipole propagation no charges involved 
+         Fprop='dip'
+        case default
+         write(*,*) "Error, specify the propagation type "
+         stop
        end select
-       if(Fprop.ne.'dip'.and.Fint.eq.'pcm') then
-         call read_gau_out_medium
-         if (mdm.eq."sol") then
-           !we need to read CIS0 charges and positions at time 0 
-           call read_mat 
-           call read_charges_gau
-           call read_interface_gau 
-           readmat=.true.
+! Only some of the combintations mdm/which_int/which_prop make sense/are implemented
+! here we sort out what can be done and what cannot, and read in specific input for each option
+!
+! Here the solvent...
+       if (mdm.eq.'sol') then
+        if (Fint.eq.'ons') then
+         if (Fprop.ne.'dip') then    
+          write(*,*) &
+      "Error: Ons coupling with solvent PCM charges not implemented yet"
+          stop
+         else 
+          write(6,*) 'This is a standard Onsager run in solution'
+          read(5,*) a_cav,b_cav,c_cav
+          a_cav=a_cav*antoau
+          b_cav=b_cav*antoau
+          c_cav=c_cav*antoau
          endif
+        elseif (Fint.eq.'pcm') then
+         if (Fprop.eq.'dip') then     
+          write(*,*) &
+      "Error: PCM incompatible with dipolar reaction field propagation"
+          stop
+         else 
+          write(6,*) 'This is a standard PCM run in solution'
+         endif
+        endif
+! ...and here the NP
+       elseif (mdm.eq.'nan') then
+         if (Fprop.eq.'dip') then    
+          write(*,*)"Error: propagation of dipolar reaction field", & 
+            "for the nanoparticle not implemented yet"
+          stop
+         else 
+          read (5,*)
+          read (5,*) pref    
+          read (5,*) nmodes
+          allocate(xmode(nmodes))
+          allocate(occmd(nmodes))
+          read (5,*) (xmode(i),i=1,nmodes) 
+          read (5,*) (occmd(i),i=1,nmodes) 
+          if (nmodes.eq.0) then
+            write (6,*) "This is a standard PCM nanoparticle run"
+          else
+            write (6,*) "This is a quantum PCM nanoparticle run"
+          endif
+         endif
+       endif
+! 
+! if this is a run with an explicit boundary (fprop.neq.dip), then
+! we need to know if the boundary and the matrix are read from outside
+! or are produced here and just written out, with no real propagation
+       if (Fprop.ne.'dip') then
+         read(5,*) 
+         read(5,*) which_bound_mat
+         select case(which_bound_mat)
+         case ('rea','Rea','REA')
+          Fbem='rea'
+          write(6,*) "This is full run reading matrix and boundary"
+         case ('wri','Wri', 'WRI')
+          Fbem='wri'
+          write(6,*) "This run just writes matrices and boundary"
+         case default
+          write(*,*) "Error, specify if boundary data & matrices", & 
+             "are read (read) or made and written out (write) "
+          stop
+         end select
+       endif
+!
+! Read in potentials and charges from outside
+! matrices, and boundary data are read in BEM_medium
+       if(Fbem.eq.'rea') then
+         call read_gau_out_medium
+         call read_charges_gau
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
          !call do_vts_from_dip
+       elseif (Fbem.eq.'wri') then
+! read in the data needed for building the cavity/nanoparticle
+         call read_act(5)
        endif
        read(5,*)
        read(5,*) which_mdm_init_prop
@@ -154,8 +220,8 @@
            write(*,*) "Tesserae number conflict"
            stop
          endif
-         if(.not.allocated(q0)) allocate (q0(nts_act))
          if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
+         if(.not.allocated(q0)) allocate (q0(nts_act))
          qtot0=zero
          do i=1,nts_act 
            read(7,*) q0(i),cts_act(i)%area
@@ -167,37 +233,6 @@
        return
       end subroutine
 !
-      subroutine read_interface_gau
-       integer(4) :: i,nts,nsphe
-       real(dbl)  :: x,y,z,s,r      
-       open(7,file="cavity.inp",status="old")
-         !read(7,*)  
-         read(7,*) nts,nsphe
-         if(nts_act.eq.0.or.nts.eq.nts_act) then
-           nts_act=nts
-         else
-           write(*,*) "Tesserae number conflict"
-           stop
-         endif
-         if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
-         do i=1,nsphe
-          read(7,*)  x,y,z
-         enddo
-         do i=1,nts_act 
-           read(7,*) x,y,z,s
-           cts_act(i)%x=x!*antoau 
-           cts_act(i)%y=y!*antoau
-           cts_act(i)%z=z!*antoau 
-           cts_act(i)%area=s!*antoau*antoau 
-           ! SP: this is only for a sphere: test purposes
-           cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
-           cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
-           cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
-           cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
-         enddo
-       close(7)
-       return
-      end subroutine
 !
       ! read transition potentials on tesserae
       subroutine read_gau_out_medium
@@ -274,77 +309,7 @@
        return
        end subroutine
 !
-! SP 25/02/16 changed the reading loop N*(N+1)/2
-      ! read matrices for propagation
-      subroutine read_mat  
-       integer :: i,j,nts
-       open(7,file="mat_SD.inp",status="old")
-       read(7,*) nts
-       if(nts_act.eq.0.or.nts.eq.nts_act) then
-         nts_act=nts
-       else
-         write(*,*) "Tesserae number conflict"
-         stop
-       endif
-       allocate (cald(nts_act,nts_act),cals(nts_act,nts_act))
-       do j=1,nts_act
-        do i=j,nts_act
-         read(7,*) cals(i,j), cald(i,j)
-         cals(j,i)=cals(i,j)
-         cald(j,i)=cald(i,j)
-        enddo
-       enddo
-       close(7)
-       return
-      end subroutine
-!
-      subroutine read_nanop
-       integer :: i
-       open(unit=7,file="nanop.in",status="old",form="formatted")
-        read (7,*)
-        ! Read sphere info                
-        call read_act(7)
-        ! Read info                    
-        read (7,*)
-        read (7,*) molint
-        read (7,*) pref    
-        read (7,*) nmodes
-        allocate(xmode(nmodes))
-        allocate(occmd(nmodes))
-        read (7,*) (xmode(i),i=1,nmodes) 
-        read (7,*) (occmd(i),i=1,nmodes) 
-       close(unit=7)
-! SC create tessera for the NP
-       call pedra_int('met')
-       if(Fint.eq.'pcm') then
-         pot_file=.false.
-         inquire(file='ci_pot.inp',exist=pot_file)       
-         if (Fint.eq.'pcm'.and.(.not.pot_file)) then
-           call output_surf
-           write(6,*) "Created output file with surface points"
-           stop
-         endif
-       endif
-! SC 07/02/16: initiate q0 and set to 0 (for solvent calculations is
-!   set in the sister routine read_....gau 
-       allocate (q0(nts_act))
-       q0(:)=zero
-       return
-      end subroutine
-!
-      subroutine output_surf
-       integer :: i
-       open(unit=7,file="surface.xyz",status="unknown",form="formatted")
-        write (7,*) nts_act
-        do i=1,nts_act
-          write (7,'(3F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z
-        enddo
-       close(unit=7)
-      end subroutine
-!
       subroutine deallocate_medium
-       if(allocated(cals)) deallocate(cals)
-       if(allocated(cald)) deallocate(cald)
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
        if(allocated(xmode)) deallocate(xmode)

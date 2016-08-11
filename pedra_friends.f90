@@ -437,7 +437,7 @@
 !
 ! Scrive su file le posizioni delle tessere
       if (i_count.eq.1) then
-       open(3,status="unknown",position="append")
+       open(3,file="tesseare.dat",status="unknown",position="append")
        write (3,*)
        write (3,*) nts
        do i=1,nts
@@ -475,8 +475,8 @@
                  '   RADIUS (A)      AREA(A*A)')
  9030 FORMAT(I4,4F15.9,F15.9)
  9040 FORMAT(/1X,'TOTAL NUMBER OF TESSERAE=',I8/ &
-              1X,'SURFACE AREA=',F14.8,'(A**2)',4X,'CAVITY VOLUME=', &
-                  F14.8,' (A**3)')
+              1X,'SURFACE AREA=',F20.8,'(A**2)',4X,'CAVITY VOLUME=', &
+                  F20.8,' (A**3)')
  9050 FORMAT(1X,'PEDRA: CONFUSION ABOUT SPHERE COUNTS. NESFP,NAT=',2I6)
  9060 FORMAT(/1X,'ADDITIONAL MEMORY NEEDED TO SETUP GRADIENT RUN=',I10)
  9061 FORMAT(/1X,'ADDITIONAL MEMORY NEEDED TO SETUP IEF RUN=',I10)

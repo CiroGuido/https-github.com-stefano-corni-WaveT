@@ -195,6 +195,8 @@
          potx_t(:)=zero     
        endif
        if(Feps.eq."drl") then
+         allocate(pot_tp(nts_act))
+         pot_tp(:)=pot_t(:)
          if(localf) then
            allocate(potx_tp(nts_act))      
            potx_tp(:)=zero    

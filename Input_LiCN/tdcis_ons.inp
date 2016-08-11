@@ -1,9 +1,11 @@
+0
 10  ! numero stati eccitati ci
-0.05  100000 ! dt(au) e numero step
+0.05  100000 50 ! dt(au) e numero step
 pip
 2000 2000 0.262961 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
 0.001 0.0 0.000 ! valore massimo del campo (vettore)
 sol          ! solvent(sol) or nanoparticle (nan)
+nrad
 0.     0.     0.     ! molecular center of charge
 2.0                  ! tau spectrum
 0.                   ! start FT

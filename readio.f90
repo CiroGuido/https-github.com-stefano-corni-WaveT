@@ -20,7 +20,6 @@
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
-      real(8), allocatable :: q0(:)
       character(3) :: mdm,tfield,rad 
       integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse

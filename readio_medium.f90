@@ -176,9 +176,7 @@
 ! matrices, and boundary data are read in BEM_medium
        if(Fbem.eq.'rea') then
          call read_gau_out_medium
-         call read_charges_gau
-! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
-         !call do_vts_from_dip
+!         call read_charges_gau
        elseif (Fbem.eq.'wri') then
 ! read in the data needed for building the cavity/nanoparticle
          call read_act(5)
@@ -281,33 +279,6 @@
        close(7)
        return
       end subroutine
-!
-      subroutine do_vts_from_dip
-       integer(4) :: i,j,its
-       real(dbl) :: diff(3),dist,vts_dip
-       do its=1,nts_act
-        diff(1)=(mol_cc(1)-cts_act(its)%x)
-        diff(2)=(mol_cc(2)-cts_act(its)%y)
-        diff(3)=(mol_cc(3)-cts_act(its)%z)
-        dist=sqrt(dot_product(diff,diff))
-        do i=1,n_ci
-         do j=i,n_ci
-          vts_dip=-dot_product(mut(j,i,:),diff)/dist**3
-          if(its.eq.nts_act) write (6,'(2i6,3f8.3,2e13.5)') i,j, &
-                          cts_act(its)%x,cts_act(its)%y, &
-                          cts_act(its)%z,vts_dip,vts(i,j,its)
-          vts(j,i,its)=vts_dip
-          vts(i,j,its)=vts_dip
-         enddo
-        enddo
-       enddo
-!       do its=1,nts_act
-!        write(6,'(i6,3f8.3,1e13.5)') its,&
-!          cts_act(its)%x,cts_act(its)%y, &
-!          cts_act(its)%z, vts(1,1,its)
-!       enddo
-       return
-       end subroutine
 !
       subroutine deallocate_medium
        if(allocated(q0)) deallocate(q0)

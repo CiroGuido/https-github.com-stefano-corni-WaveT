@@ -83,7 +83,7 @@
         if (Fint.eq.'pcm') call init_ief      
       endif
       c_prev2=c_prev
-      if (mdm.eq.'sol') call correct_hamiltonian
+      call correct_hamiltonian
       ! SP 25/02/16 Initial gebug routine:
       if(debug) call test_dbg
 ! SC set the initial values of the solvent component of the 
@@ -184,6 +184,8 @@
        integer(i4b) :: its  
        allocate(pot_t(nts_act))
        allocate(pot_gs(nts_act))
+! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
+!       call do_vts_from_dip
        call do_potential_ts(c,pot_t)
        if (Fint.eq.'ons') call do_field(q0,fr_tp)
        c_gs(:)=zeroc
@@ -955,5 +957,32 @@
       deallocate (ipiv)
       return
       end subroutine
+!
+      subroutine do_vts_from_dip
+       integer(4) :: i,j,its
+       real(dbl) :: diff(3),dist,vts_dip
+       do its=1,nts_act
+        diff(1)=(mol_cc(1)-cts_act(its)%x)
+        diff(2)=(mol_cc(2)-cts_act(its)%y)
+        diff(3)=(mol_cc(3)-cts_act(its)%z)
+        dist=sqrt(dot_product(diff,diff))
+        do i=1,n_ci
+         do j=i,n_ci
+          vts_dip=-dot_product(mut(j,i,:),diff)/dist**3
+          if(its.eq.nts_act) write (6,'(2i6,3f8.3,2e13.5)') i,j, &
+                          cts_act(its)%x,cts_act(its)%y, &
+                          cts_act(its)%z,vts_dip,vts(i,j,its)
+          vts(j,i,its)=vts_dip
+          vts(i,j,its)=vts_dip
+         enddo
+        enddo
+       enddo
+!       do its=1,nts_act
+!        write(6,'(i6,3f8.3,1e13.5)') its,&
+!          cts_act(its)%x,cts_act(its)%y, &
+!          cts_act(its)%z, vts(1,1,its)
+!       enddo
+       return
+       end subroutine
 !
       end module

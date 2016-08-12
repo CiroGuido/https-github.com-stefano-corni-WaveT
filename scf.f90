@@ -65,11 +65,21 @@
          write(6,*) "Max Diff on Eigenvector ", maxv
        enddo
        write(6,*) "SCF Done"
+! write out the charges in the charge0.dat file
+       if (Fprop.ne.'dip') then
+       open(unit=7,file="charges0.inp",status="unknown",form="formatted")
+         write (7,*) nts_act
+         do its=1,nts_act
+          write (7,'(E22.8,F22.10)') qst(its), cts_act(its)%area
+         enddo
+       close(unit=7)
+       write(6,*) "Written out the SCF charges"
+       endif
 !       write(6,*) "Max Diff on Eigenvalue ", maxe
 !       write(6,*) "Max Diff on Eigenvector ", maxv
 ! Transform the potentials to the new basis
 ! SP 30/05/16: added the condition on Fint for Fint=ons and Fprop=ief
-       if (Fint.eq.'pcm') then
+       if (Fprop.ne.'dip') then
          do its=1,nts_act
           vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
           vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
@@ -115,8 +125,8 @@
        write(6,*) i, c_c(i)
       enddo
       write(6,*)
-      select case (Fint)
-      case('ons')
+      select case (Fprop)
+      case('dip')
 ! SC pot is the dipole and qts is the field
        allocate(pot(3))
        do i=1,3
@@ -124,13 +134,14 @@
        enddo
        qts=(1.-mix_coef)*qts+mix_coef*f_0*pot
        write(6,*) pot(3),qts(3),f_0*pot(3)
-      case('pcm')
+      case default
        allocate(pot(nts_act))
        do i=1,nts_act
          pot(i)=dot_product(c_c,matmul(vts(:,:,i),c_c))
        enddo 
-!SC 02/05/2016: added a mixing factor, set to 0.2, better to read it from input!
        qts=(1.-mix_coef)*qts+mix_coef*matmul(matq0,pot)
+! SC 12/8/2016: apparently for NP, charge compensation is needed
+       if (mdm.eq.'nan') qts=qts-sum(qts)/nts_act
       end select
       if (allocated(pot)) deallocate(pot)
       return
@@ -141,7 +152,7 @@
       integer(4)::i,j,k     
       write(6,*) "Htot(j,j)"
       select case (Fint)
-      case('ons')
+      case('dip')
        do j=1,n_ci
          do k=1,j   
            Htot(k,j)=-dot_product(mut(k,j,:),qts(:)-fr_0(:))
@@ -150,7 +161,7 @@
          Htot(j,j)=Htot(j,j)+e_ci(j)
          write(6,*) j,Htot(j,j)
        enddo
-      case('pcm')
+      case default
        do j=1,n_ci
          do k=1,j   
            Htot(k,j)=dot_product(vts(k,j,:),qts(:)-q0(:))

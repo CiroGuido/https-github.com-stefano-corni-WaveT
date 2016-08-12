@@ -114,12 +114,12 @@
                                cts_act(i)%area
        enddo
       close(unit=7)
-      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
-       write (7,*) nts_act
-       do i=1,nts_act
-         write (7,'(3F22.10)') 0.d0, cts_act(i)%area
-       enddo
-      close(unit=7)
+!      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
+!       write (7,*) nts_act
+!       do i=1,nts_act
+!         write (7,'(2F22.10)') 0.d0, cts_act(i)%area
+!       enddo
+!      close(unit=7)
       end subroutine
 !
       subroutine deallocate_BEM     

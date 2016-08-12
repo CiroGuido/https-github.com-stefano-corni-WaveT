@@ -1,6 +1,6 @@
 1  ! numero che viene aggiunto ai nomi dei file .dat, manca ancora medium_t 
 20  ! numero stati eccitati ci
-0.2  100 50 ! dt(au), numero step, stride del''output
+0.2  10000 50 ! dt(au), numero step, stride del''output
 pip
 20 250 0.262961 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
 0.000 0.0 0.0 ! valore massimo del campo (vettore)

@@ -254,7 +254,7 @@
          enddo
          call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
            iwork,liwork,info)
-         open(7,file="TSSK_matrices.inp",status="unknown")
+         open(7,file="TSSK_matrices.mat",status="unknown")
          write(7,*) nts_act
          do j=1,nts_act
           do i=j,nts_act
@@ -313,7 +313,7 @@
          enddo
          matqd=-matmul(scr1,scr4) 
 !   Print matrices in output
-         open(7,file="BEM_matrices.inp",status="unknown")
+         open(7,file="BEM_matrices.mat",status="unknown")
          write(7,*) nts_act
          do j=1,nts_act
           do i=j,nts_act

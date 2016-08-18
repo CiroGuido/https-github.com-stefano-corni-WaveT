@@ -32,6 +32,8 @@
                  g_neq2_0
 !SP 22/02/16:  k_r constant for dipole propagation                    
       real(8) :: k_r         
+! SC factors used in velocity-verlet propagator, used for Drude-Lorentz
+      real(8) :: f1,f2,f3,f4,f5
 !SP 22/02/16:  External charges (qext)/ potential on tesserae (potx)
 !SP 22/02/16:  Reaction charges (q)/ potential on tesserae (pot)
 !SP 29/05/16:  pot_gs contains vts(1,1,:), but works also with Fint='ons'
@@ -41,6 +43,9 @@
       real(dbl), allocatable :: q_tp(:),dq_tp(:)
       real(dbl), allocatable :: qext_t(:),dqext_t(:)
       real(dbl), allocatable :: qext_tp(:),dqext_tp(:)
+! SC for velocity verlet
+      real(8), allocatable :: force(:),force_p(:)
+      real(8), allocatable :: forcex(:),forcex_p(:)
       integer(4) :: file_med=11 !file numbers
 !SP 22/02/16: debug                                                   
       real(8) :: q1,q2,q3,q4 
@@ -80,7 +85,10 @@
         call init_potential(c_prev)
         call init_charges(c_prev)
         ! SP initialize some matrices for propagation  coeff
-        if (Fint.eq.'pcm') call init_ief      
+        if (Fint.eq.'pcm') call init_ief     
+! SC: predifine the factors used in the VV propagator, used for
+! Drude-Lorentz
+        call init_vv_propagator
       endif
       c_prev2=c_prev
       call correct_hamiltonian
@@ -275,10 +283,16 @@
        endif
        if(Feps.eq."drl") then
          allocate(dq_tp(nts_act))
+         allocate(force_p(nts_act))
+         allocate(force(nts_act))
          dq_tp(:)=zero
+         force_p=zero
          if(localf) then
            allocate(dqext_tp(nts_act))
+           allocate(forcex_p(nts_act))
+           allocate(forcex(nts_act))
            dqext_tp(:)=zero
+           forcex_p=zero
          endif
        endif
        return
@@ -361,6 +375,10 @@
       if(allocated(q_tp)) deallocate(q_tp)
       if(allocated(dq_t)) deallocate(dq_t)
       if(allocated(dq_tp)) deallocate(dq_tp)
+      if(allocated(force)) deallocate(force)
+      if(allocated(force_p)) deallocate(force_p)
+      if(allocated(forcex)) deallocate(forcex)
+      if(allocated(forcex_p)) deallocate(forcex_p)
       return
       end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -491,21 +509,19 @@
            write(*,*) "not implemented yet"
            stop
          endif
+       ! SP 22/02/16 dq_t calculated for g_neq
+         dq_t=q_t-q_tp
        elseif(Feps.eq."drl") then
          if(Fprop.eq."ief") then
-           call prop_ief_drl 
+           call prop_vv_ief_drl 
            !call prop_ief_drl_c(c_prev) 
          elseif(Fprop.eq."csm") then
            call prop_csm_drl  
          else
            write(*,*) "Wrong propagation method"
          endif
-         dq_tp=dq_t
-         if(localf) dqext_tp=dqext_t
        endif
        if(eq_rf0) q_t=matmul(matq0,pot_t)
-       ! SP 22/02/16 dq_t calculated for g_neq
-       dq_t=q_t-q_tp
        q_tp=q_t
        pot_tp=pot_t
        if(localf) qext_tp=qext_t
@@ -556,12 +572,14 @@
       call DGEMV('N',nts_act,nts_act,dt*f_f,sm1,nts_act,pot_t,one_i,&
                      zero,dq_t,one_i)
       dq_t=dq_t+dt*f_w*q_tp+(1-dt*eps_gm)*dq_tp
+      dq_tp=dq_t
       ! Local Field
       if(localf) then
         qext_t=qext_tp+dt*dqext_tp
         call DGEMV('N',nts_act,nts_act,dt*f_f,sm1,nts_act,potx_t,one_i,&
                        zero,dqext_t,one_i)
         dqext_t=dqext_t+dt*f_w*qext_tp+(1-dt*eps_gm)*dqext_tp
+        dqext_tp=dqext_t
       endif
       return
       end subroutine
@@ -575,7 +593,12 @@
                      zero,dq_t,one_i)
       call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,q_tp,one_i,  &
                      one,dq_t,one_i)
-      dq_t=dq_t+(1-dt*eps_gm)*dq_tp 
+! SC 17/8/2016: changed the following, 
+!      dq_t=dq_t+(1-dt*eps_gm)*dq_tp 
+      dq_t=(dq_t+dq_tp)/(1.d0+eps_gm*dt)
+! SC avoid developing a total charge
+      dq_t=dq_t-sum(dq_t)/nts_act
+      dq_tp=dq_t
       ! Local Field
       if(localf) then
         qext_t=qext_tp+dt*dqext_tp
@@ -583,7 +606,66 @@
                        zero,dqext_t,one_i)
         call DGEMV('N',nts_act,nts_act,-dt,matqq,nts_act,qext_tp,one_i,&
                        one,dqext_t,one_i)
-        dqext_t=dqext_t+(1.d0-dt*eps_gm)*dqext_tp 
+! SC 17/8/2016: changed the following, 
+!        dqext_t=dqext_t+(1.d0-dt*eps_gm)*dqext_tp 
+        dqext_t=(dqext_t+dqext_tp)/(1.d0+eps_gm*dt)
+! SC avoid developing a total charge
+        dqext_t=dqext_t-sum(dqext_t)/nts_act
+        dqext_tp=dqext_t
+      endif
+      return
+      end subroutine
+!
+      subroutine init_vv_propagator
+      f1=dt*(1.d0-dt*0.5d0*eps_gm)
+      f2=dt*dt*0.5d0
+      f3=1.d0-dt*eps_gm*(1.d0-dt*0.5*eps_gm)
+      f4=0.5d0*dt
+      f5=eps_gm*f2
+      return
+      end subroutine
+!
+      subroutine prop_vv_ief_drl
+      ! Charge propagation with drude/lorentz and IEF equations 
+      integer(i4b) :: its  
+!      q_t=q_tp+dt*(1.d0-dt*0.5d0*eps_gm)*dq_tp+dt*dt*0.5d0*force_p
+!      force=-matmul(matqq,q_t)+matmul(matqv,pot_t)
+!      dq_t=(1.d0-dt*0.5d0*eps_gm)*dq_tp+0.5d0*dt*(force+force_p)
+!      dq_t=dq_t/(1.d0+dt*0.5d0*eps_gm)
+! SC integrator from E. Vanden-Eijnden, G. Ciccotti CPL 429 (2006) 310–316
+!      q_t=q_tp+dt*(1.d0-dt*0.5d0*eps_gm)*dq_tp+dt*dt*0.5d0*force_p
+!      force=-matmul(matqq,q_t)+matmul(matqv,pot_t)
+!      dq_t=(1.d0-dt*eps_gm*(1.d0-dt*0.5*eps_gm))*dq_tp+ &
+!           0.5d0*dt*(force+force_p)-eps_gm*dt*dt*0.5*force_p
+!      f1=dt*(1.d0-dt*0.5d0*eps_gm)
+!      f2=dt*dt*0.5d0
+!      f3=1.d0-dt*eps_gm*(1.d0-dt*0.5*eps_gm)
+!      f4=0.5d0*dt
+!      f5=eps_gm*f2
+      q_t=q_tp+f1*dq_tp+f2*force_p
+      force=-matmul(matqq,q_t)+matmul(matqv,pot_t)
+      dq_t=f3*dq_tp+f4*(force+force_p)-f5*force_p
+! SC avoid developing a total charge
+      dq_t=dq_t-sum(dq_t)/nts_act
+!
+      force_p=force
+      dq_tp=dq_t
+      q_tp=q_t
+      ! Local Field
+      if(localf) then
+!       qext_t=qext_tp+dt*(1.d0-dt*0.5d0*eps_gm)*dqext_tp+dt*dt*0.5d0*forcex_p
+!       forcex=-matmul(matqq,qext_t)+matmul(matqv,potx_t)
+!       dqext_t=(1.d0-dt*0.5d0*eps_gm)*dqext_tp+0.5d0*dt*(forcex+forcex_p)
+!       dqext_t=dqext_t/(1.d0+dt*0.5d0*eps_gm)
+       qext_t=qext_tp+f1*dqext_tp+ &
+           f2*forcex_p
+       forcex=-matmul(matqq,qext_t)+matmul(matqv,potx_t)
+       dqext_t=f3*dqext_tp+f4*(forcex+forcex_p)-f5*forcex_p
+! SC avoid developing a total charge
+       dqext_t=dqext_t-sum(dqext_t)/nts_act
+       forcex_p=forcex
+       dqext_tp=dqext_t
+       qext_tp=qext_t
       endif
       return
       end subroutine
@@ -741,8 +823,12 @@
        g_neq1=g_neq_0-g_neq1_part
        g_neq2=-sig*(dot_product((mu_or_v(1,1,:)-v_avg), &
                (f_or_q-matmul(fact_d,v_avg)))- &
-               0.5*dot_product(v_avg,matmul(fact_d,v_avg)))+ &
+               0.5*dot_product(v_avg,matmul(fact_d,v_avg)))- &
                g_neq2_0+e_vac
+!       write(6,*) 'g_neq2 a, g_neq2 b', &
+!             -sig*dot_product((mu_or_v(1,1,:)-v_avg), &
+!               (f_or_q-matmul(fact_d,v_avg))), &
+!             -sig*0.5*dot_product(v_avg,matmul(fact_d,v_avg))
 !       write (6,*) 'g_eq,g_neq1_part',g_eq,g_neq1_part
        g_eq=g_eq_gs-g_eq
 ! SC to be completed with other means to calculate gneq

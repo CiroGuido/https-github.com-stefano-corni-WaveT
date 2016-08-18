@@ -281,7 +281,13 @@
          elseif (Feps.eq."drl") then       
 !          Drude-Lorentz dielectric function
            fact2(:)=(twp-sgn*eigv(:))*eps_A/(two*twp)  
+! SC: the first eigenvector should be 0 for the NP
+           if (mdm.eq.'nan') fact2(1)=0.d0
            fact1(:)=fact2(:)+eps_w0*eps_w0  
+           write (6,*) "Squares of resonance frequencies, in a.u."
+           do i=1,nts_act
+            write(6,*) i,fact1(i)
+           enddo
          else
            write(6,*) "Wrong epsilon choice"
            stop

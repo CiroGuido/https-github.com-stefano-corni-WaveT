@@ -102,10 +102,13 @@
        n_ci=n_ci+1
        allocate (e_ci(n_ci))
        e_ci(1)=0.d0
+       write (6,*) "Excitation energies read from input, in Hartree"
        do i=2,n_ci
          read(7,*) junk,junk,junk,e_ci(i)
          e_ci(i)=e_ci(i)*ev_to_au
+         write(6,*) i-1,e_ci(i)
        enddo
+       write (6,*) 
        close(7)
 !    read transition dipoles (also for pcm: useful for analysis)
        open(7,file="ci_mut.inp",status="old")

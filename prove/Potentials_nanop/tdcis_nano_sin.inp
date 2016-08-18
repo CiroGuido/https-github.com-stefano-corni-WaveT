@@ -1,9 +1,9 @@
-1  ! numero che viene aggiunto ai nomi dei file .dat, manca ancora medium_t 
+2  ! numero che viene aggiunto ai nomi dei file .dat, manca ancora medium_t 
 20  ! numero stati eccitati ci
-0.2  10000 50 ! dt(au), numero step, stride del''output
-pip
-20 250 0.262961 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
-0.000 0.0 0.0 ! valore massimo del campo (vettore)
+0.2  20000 20 ! dt(au), numero step, stride del''output
+sin
+20 250 0.1 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
+0.000 0.0 0.00001 ! valore massimo del campo (vettore)
 nrad  !rad aggiunge lo smorzamento radiativo e un campo stocastico
 0.     0.     -0.75     ! molecular center of charge
 2.0                  ! tau spectrum
@@ -13,7 +13,7 @@ nan          ! vac, solvent(sol) or nanoparticle (nan)
 1  ! stride between updating the interaction potential
 ! input for dielectric function
 drl ! Debye (deb) vs Drude-Lorentz (drl)
-1000. 1.000 0.1458 10. 0.0 0.0    ! eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+1000. 1.000 0.1 0.01 0.0 0.0    ! eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
 !
 pcm ! coupling BEM (pcm) or dipolar (ons)
 ief ! propagation scheme:dip evolve onsager field, ief do IEF(d)

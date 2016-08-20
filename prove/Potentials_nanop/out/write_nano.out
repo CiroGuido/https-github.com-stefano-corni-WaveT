@@ -7,20 +7,33 @@
  Frequency (au):  0.262961000000000     
  Molecular center of charge
   0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ Excitation energies read from input, in Hartree
+           1  0.239112586453266     
+           2  0.241826934444482     
+           3  0.241826934444483     
+           4  0.248364097359873     
+           5  0.248364097359873     
+           6  0.263270199733100     
+           7  0.290161822174999     
+           8  0.290161822175000     
+           9  0.305231458544038     
+          10  0.330367998998101     
+          11  0.332490283548124     
+          12  0.332490283548125     
+          13  0.335926858919788     
+          14  0.335926858919788     
+          15  0.370836751304406     
+          16  0.370836751304407     
+          17  0.383498978420701     
+          18  0.392838853504006     
+          19  0.418787031104571     
+          20  0.418787031104575     
+ 
  Nanoparticle as external medium
  This is a standard PCM nanoparticle run
  This run just writes matrices and boundary
  Use GS RF as coded in the ci_energy.inp values
- GEPOL-GB: COUNTING TESSERAE
- nts_act         240
- GEPOL-GB: GENERATING TESSERAE
-
- TOTAL NUMBER OF SPHERES=    1
- SPHERE             CENTER  (X,Y,Z) (A)               RADIUS (A)      AREA(A*A)
-   1    0.000000000    0.000000000   63.501269909   52.917724924
-
- TOTAL NUMBER OF TESSERAE=     240
- SURFACE AREA=      35189.42681554(A**2)    CAVITY VOLUME=     620714.80281924 (A**3)
- nts_act         240
+Done reading input & setting up the field, took     0.001s
  Created output file with surface points
+ Created charges0.inp file with zero charges
  Matrixes S D have been written out, I'll stop now

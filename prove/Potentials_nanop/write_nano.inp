@@ -24,8 +24,7 @@ ief ! propagation scheme:dip evolve onsager field, ief do IEF(d)
 1
 ! is this a writing (
 write  ! read: read in matrix and cavity from somewhere else; write: preparare matrix and cavity and stop
-1  !number of spheres
-0. 0. 120. 100. ! x,y,z, radius
+file
 !
 NON     ! scf 
 0       ! Include local Field ?  Binary(1=yes,0=no)

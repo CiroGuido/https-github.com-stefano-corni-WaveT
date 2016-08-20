@@ -234,6 +234,8 @@
        ! init the state and the RF before propagation
 !SP 29/05/16: pot_gs replaces vts(1,1,:) to allow treating Fprop=ief and Fint=ons
        q0(:)=matmul(matq0,pot_gs)
+! SC: overwrite calculated charges if a charges0.inp file is present
+       call read_charges_gau
        g_eq_gs=0.5d0*dot_product(q0,pot_gs)
        write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
@@ -1070,5 +1072,28 @@
 !       enddo
        return
        end subroutine
+!
+      subroutine read_charges_gau
+       integer(4) :: i,nts
+       open(7,file="charges0.inp",status="old",err=10)
+       write (6,*) "Initial charges read from charges0.inp"
+         read(7,*) nts
+         if(nts_act.eq.0.or.nts.eq.nts_act) then
+           nts_act=nts
+         else
+           write(*,*) "Tesserae number conflict"
+           stop
+         endif
+         qtot0=zero
+         do i=1,nts_act 
+           read(7,*) q0(i)
+           qtot0=qtot0+q0(i)
+         enddo
+       close(7)
+       return
+10     write (6,*) "No file charges0.inp found,", &
+                    "charges calculated for the initial state"
+       return
+      end subroutine
 !
       end module

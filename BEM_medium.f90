@@ -35,14 +35,20 @@
        else
          if (Fbem.eq.'wri') then
            !Build the cavity/nanoparticle surface
-           if(mdm.eq.'sol') then
+           if(Fcav.eq.'fil') then 
+             call read_cav_from_file
+           else
+            if(mdm.eq.'sol') then
              call pedra_int('act')
-           elseif (mdm.eq.'nan') then
+            elseif (mdm.eq.'nan') then
              call pedra_int('met')
+            endif
            endif
            ! write out the cavity/nanoparticle surface
            call output_surf
            write(6,*) "Created output file with surface points"
+           call write_charges0
+           write(6,*) "Created charges0.inp file with zero charges"
          elseif (Fbem.eq.'rea') then
            ! read in the cavity/nanoparticle surface
            call read_interface_gau 
@@ -122,6 +128,16 @@
 !      close(unit=7)
       end subroutine
 !
+      subroutine write_charges0
+      integer :: i
+      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
+      write(7,*) nts_act
+      do i=1,nts_act
+       write(7,*) 0.d0
+      enddo
+      close(7)
+      end subroutine
+!
       subroutine deallocate_BEM     
        if (Fprop.eq.'dip') then
        else
@@ -171,18 +187,21 @@
 !
       subroutine do_PCM_propMat
       integer(i4b) :: i,j,info,lwork,liwork
-      real(dbl), dimension(nts_act,nts_act) :: scr4,scr1
-      real(dbl), dimension(nts_act,nts_act) :: scr2,scr3
+      real(8), allocatable :: scr4(:,:),scr1(:,:)
+      real(8), allocatable :: scr2(:,:),scr3(:,:)
       real(dbl), dimension(nts_act) :: fact1,fact2
       real(dbl), dimension(nts_act) :: Kdiag0,Kdiagd
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp
       character jobz,uplo
       integer(i4b) :: iwork(3+5*nts_act)
-      real(dbl) :: work(1+6*nts_act+2*nts_act*nts_act)
+      real(8),allocatable :: work(:)
 ! SC 11/08/2016 if this is a writing run, create the matrixes and stop.
 ! SC TO DO: all the automatic arrays are always created, but some of them
 !           are needed for fbem=rea and others for fbem=wri, move to allocatable
+      allocate(scr4(nts_act,nts_act),scr1(nts_act,nts_act))
+      allocate(scr2(nts_act,nts_act),scr3(nts_act,nts_act))
+      allocate(work(1+6*nts_act+2*nts_act*nts_act))
       allocate(cals(nts_act,nts_act))
       allocate(cald(nts_act,nts_act))
       ! Solvent or nanoparticle
@@ -330,6 +349,9 @@
          write(6,*) "Written out the propagation BEM matrixes"
       endif
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
+      deallocate(work)
+      deallocate(scr4,scr1)
+      deallocate(scr2,scr3)
       return
       end subroutine
 !

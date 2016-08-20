@@ -16,7 +16,7 @@
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,pref,nmodes,ncycmax
       integer(4), allocatable :: xmode(:),occmd(:)
-      character(3) :: Fint,Feps,Fprop,Fbem
+      character(3) :: Fint,Feps,Fprop,Fbem,Fcav
 ! SP 220216: added equilibrium reaction field eq_rf0
 ! SP 220216: added local field keyword localf
 ! SP 180516: added pot_file to see if a file with potentials is present
@@ -40,14 +40,15 @@
              pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
              iBEM, cals,cald,q0,fr_0,localf,mdm_dip,qtot0, &
              debug,vtsn,eq_rf0,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef,Fbem
+             ncycmax,thrshld,mix_coef,Fbem,Fcav
 !
       contains
 !
       subroutine read_medium
        implicit none
        integer(4):: i,lc,db,rf,sc
-       character(3) :: which_int, which_eps, which_prop,which_bound_mat
+       character(3) :: which_int, which_eps, which_prop, &
+                       which_bound_mat,which_cavity
        character(6) :: which_mdm_init_prop
        nts_act=0
 ! read frequency of updating the interaction potential
@@ -173,13 +174,23 @@
        endif
 !
 ! Read in potentials and charges from outside
-! matrices, and boundary data are read in BEM_medium
+! matrices are read in BEM_medium
        if(Fbem.eq.'rea') then
          call read_gau_out_medium
 !         call read_charges_gau
        elseif (Fbem.eq.'wri') then
 ! read in the data needed for building the cavity/nanoparticle
-         call read_act(5)
+         read(5,*) which_cavity
+         select case(which_cavity)
+         case ('fil','FIL','Fil')
+          Fcav='fil'             
+         case ('bui','Bui','BUI')
+          Fcav='bui'             
+          call read_act(5)
+         case default
+          write(6,*) "Please choose: build or read cavity?"
+          stop
+         end select
        endif
        read(5,*)
        read(5,*) which_mdm_init_prop
@@ -208,28 +219,6 @@
        return
       end subroutine
 !
-      subroutine read_charges_gau
-       integer(4) :: i,nts
-       open(7,file="charges0.inp",status="old")
-         read(7,*) nts
-         if(nts_act.eq.0.or.nts.eq.nts_act) then
-           nts_act=nts
-         else
-           write(*,*) "Tesserae number conflict"
-           stop
-         endif
-         if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
-         if(.not.allocated(q0)) allocate (q0(nts_act))
-         qtot0=zero
-         do i=1,nts_act 
-           read(7,*) q0(i),cts_act(i)%area
-           qtot0=qtot0+q0(i)
-         enddo
-! SP 16/05/2016: we don't have matq0 here now, correct in the propagation routine 
-         !q0=q0-matmul(matq0,vtsn)
-       close(7)
-       return
-      end subroutine
 !
 !
       ! read transition potentials on tesserae
@@ -279,6 +268,7 @@
        close(7)
        return
       end subroutine
+!
 !
       subroutine deallocate_medium
        if(allocated(q0)) deallocate(q0)

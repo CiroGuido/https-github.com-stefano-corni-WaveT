@@ -210,7 +210,10 @@
        end select
        read(5,*) 
        read(5,*) lc
-       if (lc.gt.0) localf=.true.   
+       if (lc.gt.0) then
+         localf=.true.   
+         write(6,*) "Local field effects are included"
+       endif
        read(5,*) db
        if (db.gt.0) debug=.true.   
        read(5,*) rf

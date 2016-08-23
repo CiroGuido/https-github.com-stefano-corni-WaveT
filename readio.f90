@@ -19,6 +19,7 @@
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
+      integer(4) :: dir_ft
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
       character(3) :: mdm,tfield,rad 
       integer(4) :: iseed  ! seed for random number generator
@@ -37,7 +38,7 @@
       private
       public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f
+             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft
 !
       contains
 !
@@ -73,6 +74,8 @@
 !    read spectra calculation parameters:
        read(5,*) tau       ! Artificial damping 
        read(5,*) start     ! Start point for FT calculation
+       read(5,*) dir_ft     ! direction along which the field is
+!                            oriented: TO BE IMPROVED
 !    read gaussian output for CIS propagation
        call read_gau_out
 !    read external medium type: sol, nan, vac

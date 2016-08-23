@@ -302,7 +302,14 @@
            fact2(:)=(twp-sgn*eigv(:))*eps_A/(two*twp)  
 ! SC: the first eigenvector should be 0 for the NP
            if (mdm.eq.'nan') fact2(1)=0.d0
+! SC: no spurious negative square frequencies
+           do i=1,nts_act
+            if(fact2(i).lt.0.d0) fact2(i)=0d0
+           enddo
+           if (eps_w0.eq.0.d0) eps_w0=1.d-8
            fact1(:)=fact2(:)+eps_w0*eps_w0  
+! SC: changed to this for drl to avoid instabilities upon starting
+           Kdiag0(:)=fact2(:)/fact1(:)
            write (6,*) "Squares of resonance frequencies, in a.u."
            do i=1,nts_act
             write(6,*) i,fact1(i)

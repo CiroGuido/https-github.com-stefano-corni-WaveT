@@ -7,6 +7,7 @@
       use, intrinsic :: iso_c_binding
 
       implicit none
+      real(8), parameter :: ev_to_au=0.0367493
       real(dbl), parameter :: TOANGS=0.52917724924D+00
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
 !LIGHT SPEED IN AU TO BE REVISED
@@ -30,7 +31,7 @@
        real(dbl), intent(INOUT):: qst(:)     
        complex(16), intent(INOUT) :: c_prev(:)
        integer(i4b) :: ncyc=1 
-       integer(i4b) :: its
+       integer(i4b) :: its,i,j
        logical :: docycle=.true. 
        real(dbl) :: thre,thrv                    
        real(dbl) :: e_scf, e_ini
@@ -67,10 +68,11 @@
        write(6,*) "SCF Done"
 ! write out the charges in the charge0.dat file
        if (Fprop.ne.'dip') then
-       open(unit=7,file="charges0.inp",status="unknown",form="formatted")
+       open(unit=7,file="charges0_scf.inp",status="unknown", &
+            form="formatted")
          write (7,*) nts_act
          do its=1,nts_act
-          write (7,'(E22.8,F22.10)') qst(its), cts_act(its)%area
+          write (7,'(E22.8,F22.10)') qst(its)
          enddo
        close(unit=7)
        write(6,*) "Written out the SCF charges"
@@ -84,14 +86,63 @@
           vts(:,:,its)=matmul(vts(:,:,its),eigt_c)
           vts(:,:,its)=matmul(transpose(eigt_c),vts(:,:,its))
          enddo
+         open(unit=7,file="ci_pot_scf.inp",status="unknown", &
+            form="formatted")
+         write (7,*) nts_act
+         write (7,*) "V0  check Vnuc"
+         do its=1,nts_act
+          write (7,*) vts(1,1,its)-vtsn(its),0.d0,vtsn(its)
+         enddo
+         do j=2,n_ci
+           write(7,*) 0,j-1
+           do its=1,nts_act
+            write(7,*) vts(1,j,its)
+           enddo
+         enddo
+         !Vij
+         do i=2,n_ci
+          do j=2,i-1   
+           write(7,*) i-1,j-1
+           do its=1,nts_act
+            write(7,*) vts(i,j,its)             
+           enddo
+          enddo
+           write(7,*) i-1,i-1
+           do its=1,nts_act
+            write(7,*) vts(i,i,its)-vtsn(its)             
+           enddo
+         enddo
+         close(unit=7)
+         write(6,*) "Written out the SCF potentials"
        endif
 ! Transform the dipoles to the new basis
        do its=1,3
         mut(:,:,its)=matmul(mut(:,:,its),eigt_c)
         mut(:,:,its)=matmul(transpose(eigt_c),mut(:,:,its))
        enddo
+! write out the scf dipoles
+       open(unit=7,file="ci_mut_scf.inp",status="unknown", &
+           form="formatted")
+       do i=1,n_ci
+        write(7,'(4i4,3f15.6)') 0,0,0,0,mut(1,i,1),mut(1,i,2),mut(1,i,3)
+       enddo
+       do i=2,n_ci
+         do j=2,i   
+           write(7,'(4i4,3f15.6)') 0,0,0,0,mut(i,j,1),mut(i,j,2),mut(i,j,3)
+         enddo
+       enddo
+       close(unit=7)
+       write(6,*) "Written out the SCF dipoles"
 ! Put the new diagonal energy of the hamiltonian
        e_ci=eigv_c
+       open(unit=7,file="ci_energy_scf.inp",status="unknown", &
+           form="formatted")
+       do i=2,n_ci
+        write(7,'(3i4,f15.8)') 0,0,0,(e_ci(i)-e_ci(1))/ev_to_au
+       enddo
+       close(unit=7)
+       write(6,*) "Written out the SCF energies,", &
+               " GS has been given zero energy!"
 !  find the new eigenvector that is most similar to the old one
        c_i=abs(matmul(c_i,eigt_c))
        max_p=maxloc(c_i)

@@ -204,20 +204,11 @@
          fl_t(:)=zero
          potx_t(:)=zero     
        endif
-       if(Feps.eq."drl") then
-         allocate(pot_tp(nts_act))
-         pot_tp(:)=pot_t(:)
-         if(localf) then
-           allocate(potx_tp(nts_act))      
-           potx_tp(:)=zero    
-         endif
-       elseif(Feps.eq."deb") then
-         allocate(pot_tp(nts_act))
-         pot_tp(:)=pot_t(:)
-         if(localf) then
-           allocate(potx_tp(nts_act))      
-           potx_tp(:)=zero    
-         endif
+       allocate(pot_tp(nts_act))
+       pot_tp(:)=pot_t(:)
+       if(localf) then
+         allocate(potx_tp(nts_act))      
+         potx_tp(:)=zero    
        endif
        return
       end subroutine
@@ -459,6 +450,13 @@
         mu_mdm(2)=mu_mdm(2)+q_t(its)*(cts_act(its)%y)
         mu_mdm(3)=mu_mdm(3)+q_t(its)*(cts_act(its)%z)
       enddo
+      if(localf) then
+       do its=1,nts_act
+        mu_mdm(1)=mu_mdm(1)+qext_t(its)*(cts_act(its)%x)
+        mu_mdm(2)=mu_mdm(2)+qext_t(its)*(cts_act(its)%y)
+        mu_mdm(3)=mu_mdm(3)+qext_t(its)*(cts_act(its)%z)
+       enddo
+      endif
       return
       end subroutine
 

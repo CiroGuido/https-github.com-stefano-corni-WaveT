@@ -29,8 +29,8 @@
 ! SP 220216: vtsn: nuclear potential on tesserae
 ! SC: q0 are the charges in equilibrium with ground state
       real(dbl), allocatable :: q0(:),vtsn(:)
-!     fr_0 is the Onsager reaction field in equilibrium with the GS
-      real(dbl) :: fr_0(3)
+!     fr0 is the Onsager reaction field in equilibrium with the GS
+      real(dbl) :: fr0(3)
       character(3) :: mdm_init_prop
 
       
@@ -38,7 +38,7 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
              pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
-             iBEM, cals,cald,q0,fr_0,localf,mdm_dip,qtot0, &
+             iBEM, cals,cald,q0,fr0,localf,mdm_dip,qtot0, &
              debug,vtsn,eq_rf0,mdm_init_prop, &
              ncycmax,thrshld,mix_coef,Fbem,Fcav
 !

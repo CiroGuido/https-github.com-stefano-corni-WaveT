@@ -126,7 +126,7 @@
        if (Fprop.eq.'dip') then
        ! Dipole propagation: 
          call prop_dip(c_prev,f_prev,f_prev2)
-         call do_gneq(c_prev,mut,dfr_t,fr_t,f_d_mat,3,-1)
+         call do_gneq(c_prev,mut,dfr_t,fr_t,fr0,f_d_mat,3,-1)
        else
        ! Charges propagation: 
          ! Calculate external potential on tesserae for local field       
@@ -149,9 +149,9 @@
        ! SC calculate free energy:
 !SP 29/05/16: changed to allow the calculation of g_neq for Fprop=ief and Fint=ons
          if (Fint.eq.'ons') then 
-           call do_gneq(c_prev,mut,dfr_t,fr_t,f_d_mat,3,-1)
+           call do_gneq(c_prev,mut,dfr_t,fr_t,fr0,f_d_mat,3,-1)
          else
-           call do_gneq(c_prev,vts,dq_t,q_t,matqd,nts_act,1)
+           call do_gneq(c_prev,vts,dq_t,q_t,q0,matqd,nts_act,1)
          endif
        endif
        ! Calculate a reference value (testing purposes)
@@ -265,7 +265,7 @@
        write(6,*) 'G_neq at t=0:',g_neq_0
        q_t(:)=q_tp(:)
        dq_t(:)=zero  
-       if(Fint.eq."ons") call do_field(q_t,fr_0)
+       if(Fint.eq."ons") call do_field(q_t,fr0)
        if(localf) then
          allocate(qext_t(nts_act))
          allocate(qext_tp(nts_act))
@@ -298,8 +298,8 @@
        real(dbl), intent(IN) :: f_prev(3)
        mu0(:)=mut(1,1,:)
        if (debug) mu0(:)=zero
-       fr_0(:)=f_0*mu0(:)
-       g_eq_gs=-0.5d0*dot_product(fr_0,mu0)
+       fr0(:)=f_0*mu0(:)
+       g_eq_gs=-0.5d0*dot_product(fr0,mu0)
        write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
        mu_prev(1)=dot_product(c_i,matmul(mut(:,:,1),c_i))
@@ -310,14 +310,14 @@
         case ('nsc')
 ! SC in principle a non equilibrium self consistency if eps_d=1 is needed
 !    here we use the non self-consitent dipole but use the correct RF
-         fr_t=fr_0+f_d*(mu_prev-mu0)
+         fr_t=fr0+f_d*(mu_prev-mu0)
          g_neq_0=0.5*f_d*dot_product(mu_prev,mu_prev) &
                 -f_d*dot_product(mu_prev,mu0) &
                 +0.5*f_d*dot_product(mu0,mu0)
          g_neq_0=-g_neq_0
          g_neq2_0=-0.5*f_d*dot_product(mu0,mu0)
         case ('sce')
-         fr_t=mix_coef*f_0*mu_prev+(1.-mix_coef)*fr_0
+         fr_t=mix_coef*f_0*mu_prev+(1.-mix_coef)*fr0
          call do_scf(fr_t,c_prev)
          mu_prev(1)=dot_product(c_prev,matmul(mut(:,:,1),c_prev))
          mu_prev(2)=dot_product(c_prev,matmul(mut(:,:,2),c_prev))
@@ -470,7 +470,7 @@
        h_mdm(:,:)=zero
        if (Fint.eq.'ons') then
          ft_t(:)=fr_t(:)
-!         write(6,*) "ft_t,fr_0",ft_t(3),fr_0(3)
+!         write(6,*) "ft_t,fr0",ft_t(3),fr0(3)
          if(localf) ft_t(:)=ft_t(:)+fl_t(:) 
          h_mdm(:,:)=-h_mdm0(:,:)-mut(:,:,1)*ft_t(1)-mut(:,:,2)*ft_t(2) &
                                                    -mut(:,:,3)*ft_t(3)
@@ -799,7 +799,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!! free-energy   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
 ! SC 06/02/2016 added routine to update non equilibrium
 !    free energy
-      subroutine do_gneq(c,mu_or_v,df_or_dq,f_or_q,fact_d, &
+      subroutine do_gneq(c,mu_or_v,df_or_dq,f_or_q,f_or_q0,fact_d, &
                            n_coor_or_ts,sig)
        implicit none
        complex(16), intent(in) :: c(n_ci)
@@ -807,18 +807,22 @@
        real(dbl),intent(in) :: mu_or_v(n_ci,n_ci,n_coor_or_ts)
        real(dbl),intent(in) :: df_or_dq(n_coor_or_ts), &
                                f_or_q(n_coor_or_ts),&
+                               f_or_q0(n_coor_or_ts),&
                                fact_d(n_coor_or_ts,n_coor_or_ts)
        real(dbl),allocatable :: v_avg(:)
+       real(dbl) :: de_a
        integer(i4b) :: its
        g_eq=0.d0
+       de_a=0.d0
        allocate(v_avg(n_coor_or_ts))
        do its=1,n_coor_or_ts
          v_avg(its)=dot_product(c,matmul(mu_or_v(:,:,its),c))
          g_neq1_part=g_neq1_part+sig*v_avg(its)*df_or_dq(its)
          g_eq=g_eq+sig*f_or_q(its)*v_avg(its)
+         de_a=de_a+sig*f_or_q0(its)*v_avg(its)
        enddo
        g_eq=0.5*g_eq
-       e_vac=2*(g_eq_gs-g_eq)
+       e_vac=2.*g_eq_gs-de_a
 !       g_neq1=g_neq_0+g_neq1_part-g_eq
        g_neq1=g_neq_0-g_neq1_part
        g_neq2=-sig*(dot_product((mu_or_v(1,1,:)-v_avg), &
@@ -830,7 +834,7 @@
 !               (f_or_q-matmul(fact_d,v_avg))), &
 !             -sig*0.5*dot_product(v_avg,matmul(fact_d,v_avg))
 !       write (6,*) 'g_eq,g_neq1_part',g_eq,g_neq1_part
-       g_eq=g_eq_gs-g_eq
+       g_eq=g_eq_gs+g_eq-de_a
 ! SC to be completed with other means to calculate gneq
 ! SC: Caricato et al. JCP 2006, currently only for Onsager
        deallocate(v_avg)

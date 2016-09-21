@@ -206,7 +206,7 @@
       case('dip')
        do j=1,n_ci
          do k=1,j   
-           Htot(k,j)=-dot_product(mut(k,j,:),qts(:)-fr_0(:))
+           Htot(k,j)=-dot_product(mut(k,j,:),qts(:)-fr0(:))
            Htot(j,k)=Htot(k,j)
          enddo
          Htot(j,j)=Htot(j,j)+e_ci(j)

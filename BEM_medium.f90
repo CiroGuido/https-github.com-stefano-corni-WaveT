@@ -74,6 +74,7 @@
       return
       end subroutine
 !
+!
       subroutine read_interface_gau
        integer(4) :: i,nts,nsphe
        real(dbl)  :: x,y,z,s,r      
@@ -86,21 +87,25 @@
            write(*,*) "Tesserae number conflict"
            stop
          endif
+         if(.not.allocated(sfe_act).and.nsphe.gt.0) &
+           allocate (sfe_act(nsphe))
          if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
          do i=1,nsphe
-          read(7,*)  x,y,z
+          read(7,*)  sfe_act(i)%x,sfe_act(i)%y, &
+                               sfe_act(i)%z
          enddo
          do i=1,nts_act 
-           read(7,*) x,y,z,s
+           read(7,*) x,y,z,s,r
            cts_act(i)%x=x!*antoau 
            cts_act(i)%y=y!*antoau
            cts_act(i)%z=z!*antoau 
            cts_act(i)%area=s!*antoau*antoau 
+           cts_act(i)%rsfe=r 
            ! SP: this is only for a sphere: test purposes
-           cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
-           cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
-           cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
-           cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
+           !cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
+           !cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
+           !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
+           !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
          enddo
        close(7)
        return
@@ -116,8 +121,8 @@
                                sfe_act(i)%z
        enddo
        do i=1,nts_act
-         write (7,'(4F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z, &
-                               cts_act(i)%area
+         write (7,'(5F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z, &
+                               cts_act(i)%area,cts_act(i)%rsfe
        enddo
       close(unit=7)
 !      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
@@ -177,7 +182,7 @@
        write (6,*) "f_0",f_0
        write (6,*) "f_d",f_d
        write (6,*) "tau_ons",tau_ons
-       if(localf) then
+       if(Floc.eq."loc") then
          fx_0=3.d0/b_cav/c_cav**2*eps_0/(two*eps_0+one)
          fx_d=3.d0/b_cav/c_cav**2*eps_d/(two*eps_d+one)
          taux_ons=(two*eps_d+one)/(two*eps_0+one)
@@ -476,7 +481,7 @@
       end subroutine
 !
       subroutine do_eps      
-       eps_gm=eps_gm+f_vel/sfe_act(1)%r
+       !eps_gm=eps_gm+f_vel/sfe_act(1)%r
        eps=dcmplx(eps_A,zero)/dcmplx(eps_w0**2-omega**2,-omega*eps_gm)
        eps=eps+onec
        eps_f=(eps-onec)/(eps+twoc)

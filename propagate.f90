@@ -107,7 +107,8 @@
        allocate (f(3,n_step))
        write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
        open (7,file=name_f,status="unknown")
-       select case (tfield)
+        f(:,:)=0.d0
+        select case (Ffld)
         case ("mdg")
          do i=1,n_step 
           t_a=dt*(i-1)
@@ -147,6 +148,17 @@
          do i=1,n_step
           t_a=dt*(i-1)
           f(:,i)=fmax(:)*sin(omega*t_a)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("snd")
+         do i=1,n_step
+          t_a=dt*(i-1)
+          if (t_a.gt.t_mid) then
+            f(:,i)=fmax(:)*sin(omega*t_a)
+          else
+            if (t_a.gt.0.d0) f(:,i)=fmax(:)*t_a/t_mid*sin(omega*t_a)
+          endif            
           if (mod(i,n_out).eq.0) &
             write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo

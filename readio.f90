@@ -21,14 +21,14 @@
       real(8) :: dt,tau,start
       integer(4) :: dir_ft
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
-      character(3) :: mdm,tfield,rad 
+      character(3) :: mdm,Ffld,rad 
       integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
 !     mdm=vac: no medium
 !
-!     tfield=gau: gaussian impulse
+!     Ffld=gau: gaussian impulse
 !SC
 !     rad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
@@ -36,7 +36,7 @@
 
       
       private
-      public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
+      public read_input,n_ci,n_step,dt,Ffld,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft
 !
@@ -51,8 +51,8 @@
        write (6,*) "Number of CIS states",n_ci
        read(5,*) dt,n_step,n_out
        write (6,*) "Time step (in au) and number of steps",dt,n_step
-       read(5,*) tfield             
-       write (6,*) "Time shape of the perturbing field",tfield
+       read(5,*) Ffld             
+       write (6,*) "Time shape of the perturbing field",Ffld
        read(5,*) t_mid,sigma,omega
        write (6,*) "time at the center of the pulse (au):",t_mid
        write (6,*) "Width of the pulse (time au):",sigma

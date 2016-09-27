@@ -14,20 +14,21 @@
       real(8), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
-      integer(4) :: n_q,pref,nmodes,ncycmax
+      integer(4) :: n_q,nmodes,ncycmax
       integer(4), allocatable :: xmode(:),occmd(:)
-      character(3) :: Fint,Feps,Fprop,Fbem,Fcav
+      character(3) :: Fint,Feps,Fprop,Fbem,Fcav,Fchr,Fdeb,Floc
 ! SP 220216: added equilibrium reaction field eq_rf0
 ! SP 220216: added local field keyword localf
 ! SP 180516: added pot_file to see if a file with potentials is present
 ! SC 11/08/2016: instead of automatic detection of pot_file, now it is part 
 !                of the Fbem mechanism (reading or writing)
-      logical :: molint,iBEM,localf,debug,eq_rf0
+      logical :: molint,iBEM
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
 ! SP 220216: vtsn: nuclear potential on tesserae
-! SC: q0 are the charges in equilibrium with ground state
+! SC: q0 are the charges in equilibrium with ground state 
+! SP: q0 are the initial charges if read_chr is true 
       real(dbl), allocatable :: q0(:),vtsn(:)
 !     fr0 is the Onsager reaction field in equilibrium with the GS
       real(dbl) :: fr0(3)
@@ -37,10 +38,10 @@
       private
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
-             pref,nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
-             iBEM, cals,cald,q0,fr0,localf,mdm_dip,qtot0, &
-             debug,vtsn,eq_rf0,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef,Fbem,Fcav
+             nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
+             iBEM, cals,cald,q0,fr0,Floc,mdm_dip,qtot0, &
+             Fdeb,vtsn,mdm_init_prop, &
+             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr     
 !
       contains
 !
@@ -48,8 +49,9 @@
        implicit none
        integer(4):: i,lc,db,rf,sc
        character(3) :: which_int, which_eps, which_prop, &
-                       which_bound_mat,which_cavity
-       character(6) :: which_mdm_init_prop
+                       which_bound_mat,which_cavity, which_charges, &
+                       which_debug,which_localF
+       character(6) :: which_mdm_init_prop 
        nts_act=0
 ! read frequency of updating the interaction potential
        read(5,*) n_q
@@ -139,7 +141,6 @@
           stop
          else 
           read (5,*)
-          read (5,*) pref    
           read (5,*) nmodes
           allocate(xmode(nmodes))
           allocate(occmd(nmodes))
@@ -208,16 +209,45 @@
          mdm_init_prop='nsc'
          write(6,*) "Use GS RF as coded in the ci_energy.inp values" 
        end select
-       read(5,*) 
-       read(5,*) lc
-       if (lc.gt.0) then
-         localf=.true.   
-         write(6,*) "Local field effects are included"
-       endif
-       read(5,*) db
-       if (db.gt.0) debug=.true.   
-       read(5,*) rf
-       if (rf.gt.0) eq_rf0=.true.
+       read(5,*) which_localF
+       select case(which_localF)
+       case ('loc','Loc','LOC')
+        Floc='loc'             
+        write(6,*) "Local field effects are included"
+       case default
+        write(6,*) "Local field effects are NOT included"
+       end select
+       read(5,*) which_charges
+       select case(which_charges)
+       case ('vac','VAC','Vac')
+        Fchr='vac'             
+       case ('fro','Fro','FRO')
+        Fchr='fro'             
+       case ('rea','Rea','REA')
+        Fchr='rea'             
+       case default
+        write(6,*) "Please choose how to initialize charges"
+        stop
+       end select
+       read(5,*) which_debug  
+       select case(which_debug)
+       case ('deb','Deb','DEB')
+        Fdeb='deb'             
+       case ('equ','Equ','EQU')
+        Fdeb='equ'             
+        write(6,*) "DEBUG: Equilibrium reaction field calculation"
+       case ('n-r','N-r','n-R','N-R')
+        Fdeb='n-r'             
+        Floc='non'
+        write(6,*) "DEBUG: Nanoparticle reaction field"
+       case ('n-l','N-l','n-L','N-L')
+        Fdeb='n-l'             
+        Ffld='snd'
+        Floc='loc'
+        write(6,*) "DEBUG: Nanoparticle local field"
+       case default
+        Fdeb='non'             
+       end select
 ! NEED TO CHECK COMBINATIONS OF OPTIONS THAT ARE NOT IMPLEMENTED YET
        return
       end subroutine

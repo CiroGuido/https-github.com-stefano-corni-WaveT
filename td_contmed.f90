@@ -835,19 +835,21 @@
                                f_or_q0(n_coor_or_ts),&
                                fact_d(n_coor_or_ts,n_coor_or_ts)
        real(dbl),allocatable :: v_avg(:)
-       real(dbl) :: de_a
+!       real(dbl) :: de_a
        integer(i4b) :: its
        g_eq=0.d0
-       de_a=0.d0
+!       de_a=0.d0
        allocate(v_avg(n_coor_or_ts))
        do its=1,n_coor_or_ts
          v_avg(its)=dot_product(c,matmul(mu_or_v(:,:,its),c))
          g_neq1_part=g_neq1_part+sig*v_avg(its)*df_or_dq(its)
          g_eq=g_eq+sig*f_or_q(its)*v_avg(its)
-         de_a=de_a+sig*f_or_q0(its)*v_avg(its)
+!         de_a=de_a+sig*f_or_q0(its)*v_avg(its)
        enddo
        g_eq=0.5*g_eq
-       e_vac=2.*g_eq_gs-de_a
+! SC 27/09/2016: corrected bug in expression of e_vac
+!       e_vac=2.*g_eq_gs-de_a
+       e_vac=-2.*g_eq+2.*g_eq_gs
 !       g_neq1=g_neq_0+g_neq1_part-g_eq
        g_neq1=g_neq_0-g_neq1_part
        g_neq2=-sig*(dot_product((mu_or_v(1,1,:)-v_avg), &
@@ -859,7 +861,7 @@
 !               (f_or_q-matmul(fact_d,v_avg))), &
 !             -sig*0.5*dot_product(v_avg,matmul(fact_d,v_avg))
 !       write (6,*) 'g_eq,g_neq1_part',g_eq,g_neq1_part
-       g_eq=g_eq_gs+g_eq-de_a
+       g_eq=-g_eq_gs+g_eq+e_vac
 ! SC to be completed with other means to calculate gneq
 ! SC: Caricato et al. JCP 2006, currently only for Onsager
        deallocate(v_avg)
@@ -935,12 +937,13 @@
        implicit none
        integer(4) :: its,i,j 
        if (Fint.eq.'ons') then
-         h_mdm0(:,:)=-mut(:,:,1)*fr_tp(1)-mut(:,:,2)*fr_tp(2) &
-                                       -mut(:,:,3)*fr_tp(3)
+         h_mdm0(:,:)=-mut(:,:,1)*fr0(1)-mut(:,:,2)*fr0(2) &
+                                       -mut(:,:,3)*fr0(3)
        elseif (Fint.eq.'pcm') then
 !SC 04/05/2016: updated to be coerent with both GS and SCF initialization
+!SC 27/09/2016: corrected bug introduced previously
          do its=1,nts_act     
-           h_mdm0(:,:)=h_mdm0(:,:)+q_tp(its)*vts(:,:,its)
+           h_mdm0(:,:)=h_mdm0(:,:)+q0(its)*vts(:,:,its)
          enddo
        endif
        write(6,*) "in correct hamiltonian"

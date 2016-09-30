@@ -245,6 +245,9 @@
         Ffld='snd'
         Floc='loc'
         write(6,*) "DEBUG: Nanoparticle local field"
+       case ('vmu','Vmu','VMU','VMu')
+        Fdeb='vmu'             
+        write(6,*) "DEBUG: Potentials calculated from Dipoles "
        case default
         Fdeb='non'             
        end select

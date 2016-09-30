@@ -195,7 +195,7 @@
        allocate(pot_t(nts_act))
        allocate(pot_gs(nts_act))
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
-!       call do_vts_from_dip
+       if (Fdeb.eq.'vmu') call do_vts_from_dip
        call do_potential_ts(c,pot_t)
        if (Fint.eq.'ons') call do_field(q0,fr_tp)
        c_gs(:)=zeroc
@@ -468,18 +468,12 @@
         mu_mdm(2)=mu_mdm(2)+q_t(its)*(cts_act(its)%y)
         mu_mdm(3)=mu_mdm(3)+q_t(its)*(cts_act(its)%z)
       enddo
+      if(Fdeb.eq."n-l") mu_mdm(:)=zero
       if(Floc.eq."loc") then
        do its=1,nts_act
         mu_mdm(1)=mu_mdm(1)+qext_t(its)*(cts_act(its)%x)
         mu_mdm(2)=mu_mdm(2)+qext_t(its)*(cts_act(its)%y)
         mu_mdm(3)=mu_mdm(3)+qext_t(its)*(cts_act(its)%z)
-       enddo
-      endif
-      if(Fdeb.eq."n-l") then
-       do its=1,nts_act
-        mu_mdm(1)=qext_t(its)*(cts_act(its)%x)
-        mu_mdm(2)=qext_t(its)*(cts_act(its)%y)
-        mu_mdm(3)=qext_t(its)*(cts_act(its)%z)
        enddo
       endif
       return

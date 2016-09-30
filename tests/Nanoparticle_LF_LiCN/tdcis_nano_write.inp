@@ -1,0 +1,35 @@
+3  ! numero che viene aggiunto ai nomi dei file .dat, manca ancora medium_t 
+10  ! numero stati eccitati ci
+0.2  100      1  ! dt(au), numero step, stride del''output
+sin
+50  10 0.262961 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
+0.      0.  0.     ! valore massimo del campo (vettore)
+nrad  !rad aggiunge lo smorzamento radiativo e un campo stocastico
+0.     0.     0.0     ! molecular center of charge
+1000                  ! tau spectrum
+20                   ! start FT
+1  ! direction for FT
+!input for medium
+nan          ! vac, solvent(sol) or nanoparticle (nan)
+1  ! stride between updating the interaction potential
+! input for dielectric function
+drl ! Debye (deb) vs Drude-Lorentz (drl)
+10000. 1.000 0.02347 .004 0.0 0.0    ! eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+!
+pcm ! coupling BEM (pcm) or dipolar (ons)
+ief ! propagation scheme:dip evolve onsager field, ief do IEF(d)
+! nanoparticle specific options
+0 ! Number of modes  of the plasmonic field (0 no quantization) just propagation
+1 ! which mode to couple to the plasmonic field
+1 ! occupation number of each mode
+! 
+write ! read: read in matrix and cavity from somewhere else; write: preparare matrix and cavity and stop
+fil   ! this is to read the cavity from FILe and generate matrices
+!
+SCF_ES  ! scf 
+10 0.2 600 !exp. of the threshold, mixing coefficient (1 update all, 0 nothing), max cycles
+NON     ! Local Field: LOCal includes the local field (by now the only option)          
+VAC     ! Initial charges: VACuum (all zero) FROzen (in the reaction field of the ci_ini.inp state) or REAd (from file) charges
+N-L     ! Debug options 29/09/16 : EQUilibrium for a propagation with the equilibrium reaction field, DEBug calculates potentials from dipoles, N-R calculates the nanoparticle reaction field for a non-polarizable dipole, N-L calculates the nanoparticle local field for a sin(wt) external field, VMU calculates the potentials from the dipoles. 
+
+

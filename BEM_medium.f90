@@ -81,12 +81,12 @@
        open(7,file="cavity.inp",status="old")
          !read(7,*)  
          read(7,*) nts,nsphe
-         if(nts_act.eq.0.or.nts.eq.nts_act) then
+!         if(nts_act.eq.0.or.nts.eq.nts_act) then
            nts_act=nts
-         else
-           write(*,*) "Tesserae number conflict"
-           stop
-         endif
+!         else
+!           write(*,*) "Tesserae number conflict"
+!           stop
+!         endif
          if(.not.allocated(sfe_act).and.nsphe.gt.0) &
            allocate (sfe_act(nsphe))
          if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
@@ -113,7 +113,7 @@
 !
       subroutine output_surf
       integer :: i
-! This routine also creates the same files also created by Gaussian
+! This routine creates the same files also created by Gaussian
       open(unit=7,file="cavity.inp",status="unknown",form="formatted")
        write (7,*) nts_act,nesf_act
        do i=1,nesf_act
@@ -123,6 +123,23 @@
        do i=1,nts_act
          write (7,'(5F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z, &
                                cts_act(i)%area,cts_act(i)%rsfe
+       enddo
+      close(unit=7)
+! SC 28/9/2016: write out cavity in GAMESS ineq format
+! WHICH UNITS ARE ASSUMED IN GAMESS? CHECK!!
+      open(unit=7,file="np_bem.cav",status="unknown",form="formatted")
+       write (7,*) nts_act
+       do i=1,nts_act
+         write (7,'(F22.10)') cts_act(i)%x
+       enddo
+       do i=1,nts_act
+         write (7,'(F22.10)') cts_act(i)%y
+       enddo
+       do i=1,nts_act
+         write (7,'(F22.10)') cts_act(i)%z
+       enddo
+       do i=1,nts_act
+         write (7,'(F22.10)') cts_act(i)%area
        enddo
       close(unit=7)
 !      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
@@ -359,6 +376,22 @@
          enddo
          close(7)
          write(6,*) "Written out the propagation BEM matrixes"
+         open(7,file="np_bem.mat",status="unknown")
+         do j=1,nts_act
+          do i=1,nts_act
+           write(7,'(D20.12)') matq0(i,j)/cts_act(i)%area
+          enddo
+         enddo
+         close(7)
+         write(6,*) "Written out the static matrix for gamess"
+         open(7,file="np_bem.mdy",status="unknown")
+         do j=1,nts_act
+          do i=1,nts_act
+           write(7,'(D20.12)') matqd(i,j)/cts_act(i)%area
+          enddo
+         enddo
+         close(7)
+         write(6,*) "Written out the static matrix for gamess"
       endif
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
       deallocate(work)

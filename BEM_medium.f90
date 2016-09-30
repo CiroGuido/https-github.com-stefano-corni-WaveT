@@ -47,8 +47,9 @@
            ! write out the cavity/nanoparticle surface
            call output_surf
            write(6,*) "Created output file with surface points"
-           call write_charges0
-           write(6,*) "Created charges0.inp file with zero charges"
+! SC: 30/09/2016: now explicitly set to zero by Fchr.
+           !call write_charges0
+           !write(6,*) "Created charges0.inp file with zero charges"
          elseif (Fbem.eq.'rea') then
            ! read in the cavity/nanoparticle surface
            call read_interface_gau 

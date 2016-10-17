@@ -31,8 +31,7 @@
       integer(i4b) :: i,isp,vdim,istart  
       integer*8 plan
       complex(cmp), allocatable :: Doutp(:),Foutp(:),src       
-      character(len=1):: num
-      character(len=12):: fname
+      character(len=15):: fname
 ! SC 15/01/2016: changed Makefile from Silvio's version
 !      find a better way to include this file
 !      than changing source back and forth from f to f03
@@ -59,8 +58,8 @@
         Doutp=zeroc
         Foutp=zeroc
         do i=1,vdim
-          Dinp(i)=Sdip(i+istart,3,isp)
-          Finp(i)=Sfld(i+istart,3)
+          Dinp(i)=Sdip(i+istart,dir_ft,isp)
+          Finp(i)=Sfld(i+istart,dir_ft)
         enddo
         call dfftw_plan_dft_r2c_1d(plan,vdim,Dinp,Doutp,FFTW_ESTIMATE)
         call dfftw_execute_dft_r2c(plan, Dinp, Doutp)
@@ -68,8 +67,12 @@
         call dfftw_plan_dft_r2c_1d(plan,vdim,Finp,Foutp,FFTW_ESTIMATE)
         call dfftw_execute_dft_r2c(plan, Finp, Foutp)
         call dfftw_destroy_plan(plan)
-        write(num,'(I1)') isp
-        fname="sp_"//num//".dat"
+        if (isp.eq.1) &
+            write(fname,'(a7,i0,a4)') "sp_mol_",n_f,".dat"
+        if (isp.eq.2) &
+            write(fname,'(a6,i0,a4)') "sp_np_",n_f,".dat"
+        if (isp.eq.3) &
+            write(fname,'(a9,i0,a4)') "sp_molnp_",n_f,".dat"
         open(unit=15,file=fname,status="unknown",form="formatted")
         do i=1,int(vdim/2)+1  
           modD=sqrt(real(Doutp(i))**2+aimag(Doutp(i))**2)

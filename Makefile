@@ -7,18 +7,26 @@ FFLAGS_P4= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xN
 FFLAGS_MIO= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xB -ipo
 FFLAGS_WS= -O3 -ftz -align -xP -no-prec-div -ipo
 FFLAGS_GF= -O3
+LDLAGS= 
+#LDLAGS= --static --disable-shared --enable-static
 FFLAGS= $(FFLAGS_DEB)
-LIBS = -L/usr/lib -llapack  -lblas 
-LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
+#LIBS = -L/usr/lib -llapack  -lblas 
+#LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
+LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
+#LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group
+#LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
 INC = -I/usr/include/ 
 
-OBJ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
+OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
 
 embem.x: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il
+
+random.o: random.f90
+	$(FC) -c $(FFLAGS) $<
 
 cav_types.o: cav_types.f90
 	$(FC) -c $(FFLAGS) $(INC) $<

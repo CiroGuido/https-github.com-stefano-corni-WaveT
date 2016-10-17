@@ -19,16 +19,16 @@
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8) :: dt,tau,start
+      integer(4) :: dir_ft
       real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
-      real(8), allocatable :: q0(:)
-      character(3) :: mdm,tfield,rad 
+      character(3) :: mdm,Ffld,rad 
       integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
 !     mdm=vac: no medium
 !
-!     tfield=gau: gaussian impulse
+!     Ffld=gau: gaussian impulse
 !SC
 !     rad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
@@ -36,9 +36,9 @@
 
       
       private
-      public read_input,n_ci,n_step,dt,tfield,t_mid,sigma,omega,fmax, & 
+      public read_input,n_ci,n_step,dt,Ffld,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f
+             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft
 !
       contains
 !
@@ -51,26 +51,13 @@
        write (6,*) "Number of CIS states",n_ci
        read(5,*) dt,n_step,n_out
        write (6,*) "Time step (in au) and number of steps",dt,n_step
-       read(5,*) tfield             
-       write (6,*) "Time shape of the perturbing field",tfield
+       read(5,*) Ffld             
+       write (6,*) "Time shape of the perturbing field",Ffld
        read(5,*) t_mid,sigma,omega
        write (6,*) "time at the center of the pulse (au):",t_mid
        write (6,*) "Width of the pulse (time au):",sigma
        write (6,*) "Frequency (au):",omega
        read(5,*) fmax
-!    read external medium type: sol, nan, vac
-       read(5,*) medium
-       select case (medium)
-        case ('sol','Sol','SOL')
-          write(*,*) "Solvent as external medium" 
-          mdm='sol'
-        case ('nan','Nan','NAN')
-          write(*,*) "Nanoparticle as external medium" 
-          mdm='nan'
-        case default
-          write(*,*) "No external medium, vacuum calculation" 
-          mdm='vac'
-       end select
 !SC
        read(5,*) radiative
        select case (radiative)
@@ -87,8 +74,24 @@
 !    read spectra calculation parameters:
        read(5,*) tau       ! Artificial damping 
        read(5,*) start     ! Start point for FT calculation
+       read(5,*) dir_ft     ! direction along which the field is
+!                            oriented: TO BE IMPROVED
 !    read gaussian output for CIS propagation
        call read_gau_out
+!    read external medium type: sol, nan, vac
+       read(5,*) 
+       read(5,*) medium
+       select case (medium)
+        case ('sol','Sol','SOL')
+          write(*,*) "Solvent as external medium" 
+          mdm='sol'
+        case ('nan','Nan','NAN')
+          write(*,*) "Nanoparticle as external medium" 
+          mdm='nan'
+        case default
+          write(*,*) "No external medium, vacuum calculation" 
+          mdm='vac'
+       end select
        return
       end subroutine
 !
@@ -102,10 +105,13 @@
        n_ci=n_ci+1
        allocate (e_ci(n_ci))
        e_ci(1)=0.d0
+       write (6,*) "Excitation energies read from input, in Hartree"
        do i=2,n_ci
          read(7,*) junk,junk,junk,e_ci(i)
          e_ci(i)=e_ci(i)*ev_to_au
+         write(6,*) i-1,e_ci(i)
        enddo
+       write (6,*) 
        close(7)
 !    read transition dipoles (also for pcm: useful for analysis)
        open(7,file="ci_mut.inp",status="old")

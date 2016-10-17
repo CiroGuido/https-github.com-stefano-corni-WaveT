@@ -15,7 +15,7 @@
       private
       public pedra_int, read_act, read_pro, dealloc_pedra, &
              nts_act, nts_pro,cts_act,cts_pro,nesf_pro,sfe_pro, &
-             nesf_act,sfe_act
+             nesf_act,sfe_act,read_cav_from_file
 !
       contains
 !
@@ -360,6 +360,7 @@
  320  CONTINUE
  300  CONTINUE
       NTS = NN
+!
       if (i_count.eq.1) then
 !
 !
@@ -437,7 +438,7 @@
 !
 ! Scrive su file le posizioni delle tessere
       if (i_count.eq.1) then
-       open(3,status="unknown",position="append")
+       open(3,file="tesseare.dat",status="unknown",position="append")
        write (3,*)
        write (3,*) nts
        do i=1,nts
@@ -475,8 +476,8 @@
                  '   RADIUS (A)      AREA(A*A)')
  9030 FORMAT(I4,4F15.9,F15.9)
  9040 FORMAT(/1X,'TOTAL NUMBER OF TESSERAE=',I8/ &
-              1X,'SURFACE AREA=',F14.8,'(A**2)',4X,'CAVITY VOLUME=', &
-                  F14.8,' (A**3)')
+              1X,'SURFACE AREA=',F20.8,'(A**2)',4X,'CAVITY VOLUME=', &
+                  F20.8,' (A**3)')
  9050 FORMAT(1X,'PEDRA: CONFUSION ABOUT SPHERE COUNTS. NESFP,NAT=',2I6)
  9060 FORMAT(/1X,'ADDITIONAL MEMORY NEEDED TO SETUP GRADIENT RUN=',I10)
  9061 FORMAT(/1X,'ADDITIONAL MEMORY NEEDED TO SETUP IEF RUN=',I10)
@@ -1026,6 +1027,152 @@
       DNORM3 = SQRT(P3(1)*P3(1) + P3(2)*P3(2) + P3(3)*P3(3))
       RETURN
       END subroutine
+!
+!      subroutine raffina(icount)
+!      integer(4) :: nagg,its,iaddtes,
+!C
+!C Verifica per tutti gli atomi la differenza tra 1/(centrotes-catm)**2
+!C  e la media di tale grandezza su nuove tessere. Se e' maggiore di
+!C una soglia crea le nuove tessere
+!       nagg=0
+!       its=1
+!10        iaddtes=0
+!         if (as(its).lt.4.d+00) then
+!          its=its+1
+!           goto 20
+!         endif
+!C Mette in PTS le coordinate dei tre nuovi vertici
+!         do icor=1,3
+!          do iver=1,3
+!           PTS(icor,iver)=0.D+00
+!          enddo
+!         enddo
+!         ism=isfem(xcts(its+nts),ycts(its+nts),zcts(its+nts))
+!         csfe(1)=xs(ism)
+!         csfe(2)=ys(ism)
+!         csfe(3)=zs(ism)
+!         rsfe=rs(ism)
+!C         write (6,*) (vert(i,1,its),i=1,3)
+!C         write (6,*) (vert(i,2,its),i=1,3)
+!CC         write (6,*) (vert(i,3,its),i=1,3)
+!         call newv(vert(1,1,its),vert(1,2,its),
+!     *     csfe(1),csfe(2),csfe(3),pts(1,1))
+!         call newv(vert(1,2,its),vert(1,3,its),
+!     *     csfe(1),csfe(2),csfe(3),pts(1,2))
+!         call newv(vert(1,1,its),vert(1,3,its),
+!     *     csfe(1),csfe(2),csfe(3),pts(1,3))
+!C      write (6,*) 'PTS'
+!C      write (6,*) (pts(i,1),i=1,3)
+!C      write (6,*) (pts(i,2),i=1,3)
+!C      write (6,*) (pts(i,3),i=1,3)
+!C Calcola le coord. dei tre nuovi punti rappresentativi e le mette
+!C   in CCC(icor,iver)
+!           do icor=1,3
+!            ccc(icor,1)=(pts(icor,1)+pts(icor,3)+vert(icor,1,its))/3
+!            ccc(icor,2)=(pts(icor,1)+pts(icor,2)+vert(icor,2,its))/3
+!            ccc(icor,3)=(pts(icor,2)+pts(icor,3)+vert(icor,3,its))/3
+!           enddo
+!           do iver=1,3
+!            dnorm=(ccc(1,iver)-csfe(1))**2+(ccc(2,iver)-csfe(2))**2+
+!     *           (ccc(3,iver)-csfe(3))**2
+!            dnorm=sqrt(dnorm)
+!            do icor=1,3
+!             ccc(icor,iver)=(ccc(icor,iver)-csfe(icor))*rsfe/dnorm+
+!     *          csfe(icor)
+!           enddo
+!           enddo
+!
+!        do iatm=1,natm
+!         x=xcts(its+nts)-c(1,iatm)
+!         y=ycts(its+nts)-c(2,iatm)
+!         z=zcts(its+nts)-c(3,iatm)
+!         dtes=1/sqrt(x**2+y**2+z**2)
+!         dtesp=dtes
+!         do i=1,3
+!           x=ccc(1,i)-c(1,iatm)
+!           y=ccc(2,i)-c(2,iatm)
+!           z=ccc(3,i)-c(3,iatm)
+!           dtesp=dtesp+1/sqrt(x**2+y**2+z**2)
+!         enddo
+!         diff=dabs(dtes-dtesp/4)
+!C         write (6,*) its,diff
+!         if (diff.gt.tols) iaddtes=1
+!        enddo
+!40       if (iaddtes.eq.1) then
+!         if ((2*nts+ntss+nagg+3).gt.mxts) then
+!           write (IW,*) 'TASSFE: troppe tessere'
+!          stop
+!         endif
+!C Scala le tessere successive a its di 3 posizioni
+!          do its1=nagg+nts+ntss,its+1,-1
+!         xcts(its1+3+nts)=xcts(its1+nts)
+!          ycts(its1+3+nts)=ycts(its1+nts)
+!          zcts(its1+3+nts)=zcts(its1+nts)
+!          as (its1+3)=as(its1)
+!          isphe(its1+3)=-3
+!           do iver=1,nvert(its1)
+!            do icor=1,3
+!             vert (icor,iver,its1+3)= vert (icor,iver,its1)
+!             centr (icor,iver,its1+3)= centr (icor,iver,its1)
+!            enddo
+!           intsph(its1+3,iver)=intsph(its1,iver)
+!           enddo
+!           nvert(its1+3)=nvert(its1)
+!         enddo
+!C Inserisce le nuove tessere nelle posizioni liberate
+!         area=as(its)
+!         do i=1,3
+!            k=its+i
+!           xcts(k+nts)=ccc(1,i)
+!           ycts(k+nts)=ccc(2,i)
+!           zcts(k+nts)=ccc(3,i)
+!           as(k)=area/4.D+00
+!           isphe(k)=-3
+!            nvert(k)=3
+!            do iver=1,3
+!             intsph(k,iver)=nesfp-nsfem+isfm
+!            do icor=1,3
+!              centr(icor,iver,k)=csfe(icor)
+!             enddo
+!            enddo
+!          enddo
+!           as(its)=area/4.D+00
+!           do icor=1,3
+!            vert(icor,1,its+1)=vert(icor,1,its)
+!            vert(icor,2,its+1)=pts(icor,1)
+!            vert(icor,3,its+1)=pts(icor,3)
+!            vert(icor,1,its+2)=vert(icor,2,its)
+!            vert(icor,2,its+2)=pts(icor,1)
+!            vert(icor,3,its+2)=pts(icor,2)
+!            vert(icor,1,its+3)=vert(icor,3,its)
+!            vert(icor,2,its+3)=pts(icor,2)
+!            vert(icor,3,its+3)=pts(icor,3)
+!            vert(icor,1,its)=pts(icor,1)
+!            vert(icor,2,its)=pts(icor,2)
+!            vert(icor,3,its)=pts(icor,3)
+!          enddo
+!         nagg=nagg+3
+!         its=its-1
+!        endif
+!        its=its+1
+!20        if (its.le.(nts+ntss+nagg)) goto 10
+!        ntss=ntss+nagg
+!C
+!C     Ha concluso il raffinamento
+!
+      subroutine read_cav_from_file
+      integer(4) :: i,j,its
+      open(7,file="cavity_full.inp",status="old")
+      read(7,*) nts_act
+      allocate(cts_act(nts_act))
+      do its=1,nts_act
+       read(7,*) cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+                 cts_act(its)%area,cts_act(its)%rsfe, &
+                 cts_act(its)%n(:) 
+      enddo
+      close(7)
+      return
+      end subroutine
 !
       subroutine dealloc_pedra
       if (allocated(sfe_act)) deallocate(sfe_act)

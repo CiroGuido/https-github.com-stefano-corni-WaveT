@@ -36,8 +36,8 @@
 !      find a better way to include this file
 !      than changing source back and forth from f to f03
 !      include '/usr/include/fftw3.f03'
-!      include '/usr/local/include/fftw3.f03'
-      include 'fftw3.f'
+      include '/usr/local/include/fftw3.f03'
+!      include 'fftw3.f'
     
       ! This is needed to improve the delta_omega and also the quality 
       ! of the DFT with respect to the FT

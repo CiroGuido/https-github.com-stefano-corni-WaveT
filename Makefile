@@ -1,12 +1,10 @@
-#FC = gfortran
-FC = ifort    
+FC = gfortran
 FFLAGS_XEON= -O3 -ftz -align -arch pn4 -tune pn4 -xN -tpp7
 FFLAGS_PAR= -parallel -par_threshold75 -par_report3
-#FFLAGS_DEB= -debug -C -g
-FFLAGS_DEB= -debug -traceback -C -g -diag-disable  warn
+FFLAGS_DEB= -debug -C -g
 FFLAGS_P3= -O3 -ftz -align -arch pn3 -tune pn3 -tpp6
 FFLAGS_P4= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xN
-FFLAGS_MIO= -O3 -ftz -align -xHost -parallel
+FFLAGS_MIO= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xB -ipo
 FFLAGS_WS= -O3 -ftz -align -xP -no-prec-div -ipo
 FFLAGS_GF= -O3
 LDLAGS= 
@@ -22,7 +20,7 @@ INC = -I/usr/include/
 OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
 
 embem.x: $(OBJ) 
-	$(FC) $(FFLAGS) $(LDLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
+	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il

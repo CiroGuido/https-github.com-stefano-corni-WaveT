@@ -306,7 +306,19 @@
       end subroutine
 !
 !
+      subroutine output_surf
+       integer :: i
+       open(unit=7,file="surface.xyz",status="unknown",form="formatted")
+        write (7,*) nts_act
+        do i=1,nts_act
+          write (7,'(3F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z
+        enddo
+       close(unit=7)
+      end subroutine
+!
       subroutine deallocate_medium
+       if(allocated(cals)) deallocate(cals)
+       if(allocated(cald)) deallocate(cald)
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
        if(allocated(xmode)) deallocate(xmode)

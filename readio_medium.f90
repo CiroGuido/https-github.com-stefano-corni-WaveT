@@ -41,9 +41,21 @@
              nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
              iBEM, cals,cald,q0,fr0,Floc,mdm_dip,qtot0, &
              Fdeb,vtsn,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr     
+             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq     
 !
       contains
+!
+      subroutine read_medium_freq
+      Fint='pcm'
+      Feps='drl'
+      Fprop='ief'
+      Fbem='rea'
+      Fcav='fil'             
+      read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+      read(5,*) fmax
+      
+      return
+      end subroutine
 !
       subroutine read_medium
        implicit none

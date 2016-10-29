@@ -53,7 +53,7 @@
       private
 !SC 07/02/16: added output_gneq
       public init_mdm,prop_mdm,end_mdm,qtot,ref,get_gneq, &
-             get_ons 
+             get_ons,do_freq_mat
       contains
 !     
 ! INTERFACE ROUTINES:
@@ -1136,4 +1136,23 @@
        return
       end subroutine
 !
+!
+      subroutine do_freq_mat(omega_list,n_omega)
+      real(8) :: omega_list(:)
+      integer(4):: n_omega,i
+      call read_cav_from_file
+      write(6,*) 'nts_act',nts_act
+      call allocate_TS_matrix
+      call do_PCM_freqMat
+      allocate(potx_t(nts_act))
+      call do_ext_potential(fmax)
+      do i=1,n_omega
+       call do_charge_freq(omega_list(i),potx_t)
+      enddo
+      call deallocate_TS_matrix
+      deallocate(potx_t)
+      return
+      end subroutine
+!
+!      
       end module

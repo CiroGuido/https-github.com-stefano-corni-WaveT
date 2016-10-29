@@ -17,6 +17,7 @@
       real(dbl), allocatable :: sm12(:,:),sp12(:,:)
       real(dbl), allocatable :: matq0(:,:),matqd(:,:)
       real(dbl), allocatable :: matqv(:,:),matqq(:,:)
+!      complex(16), allocatable :: matq_omega(:,:)
 !SP 22/02/16:  Onsager's factors for reaction and local(x) fields
       real(8) :: f_0,f_d,tau_ons,fx_0,fx_d,taux_ons
       complex(cmp) :: eps,eps_f
@@ -24,7 +25,9 @@
       private
       public init_BEM,deallocate_BEM,do_eps,eps,eps_f,eigv,eigt, &
              sm1,f_f,f_w,sm12,f_0,f_d,tau_ons,fx_0,fx_d,taux_ons, &
-             matqv,matqq,matqd,matq0
+             matqv,matqq,matqd,matq0,do_PCM_freqMat, &
+             do_charge_freq,allocate_TS_matrix,deallocate_TS_matrix
+
 
       contains
 !     
@@ -214,6 +217,7 @@
       real(8), allocatable :: scr2(:,:),scr3(:,:)
       real(dbl), dimension(nts_act) :: fact1,fact2
       real(dbl), dimension(nts_act) :: Kdiag0,Kdiagd
+      complex(16), allocatable :: Kdiag_omega(:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp
       character jobz,uplo
@@ -554,5 +558,163 @@
            stop 'Matrix inversion failed!'
         end if
       end function inv
+!
+      subroutine allocate_TS_matrix
+      allocate(eigv(nts_act))
+      allocate(eigt(nts_act,nts_act))
+      allocate(sm12(nts_act,nts_act))
+      allocate(sp12(nts_act,nts_act))
+!      allocate(matq_omega(nts_act,nts_act))
+      return
+      end subroutine
+!
+      subroutine deallocate_TS_matrix
+      deallocate(eigv)
+      deallocate(eigt)
+      deallocate(sm12)
+      deallocate(sp12)
+!      deallocate(matq_omega)
+      return
+      end subroutine
+!
+      subroutine do_PCM_freqMat
+      integer(i4b) :: i,j,info,lwork,liwork
+      real(8), allocatable :: scr4(:,:),scr1(:,:)
+      real(8), allocatable :: scr2(:,:),scr3(:,:)
+      real(dbl) :: sgn,fac_eps0,fac_epsd
+      real(dbl):: temp,fact1,fact2
+      character jobz,uplo
+      integer(i4b), allocatable :: iwork(:)
+      real(8),allocatable :: work(:)
+      allocate(scr4(nts_act,nts_act),scr1(nts_act,nts_act))
+      allocate(scr2(nts_act,nts_act),scr3(nts_act,nts_act))
+      allocate(work(1+6*nts_act+2*nts_act*nts_act))
+      allocate(iwork(3+5*nts_act))
+      allocate(cals(nts_act,nts_act))
+      allocate(cald(nts_act,nts_act))
+      sgn=-1
+!
+      open(7,file="mat_SD.inp",status="old")
+      read(7,*) nts_act
+      do j=1,nts_act
+       do i=j,nts_act
+        read(7,*) cals(i,j), cald(i,j)
+        cals(j,i)=cals(i,j)
+        cald(j,i)=cald(i,j)
+       enddo
+      enddo
+      close(7)
+      write(6,*) "Done reading in S and D"
+      ! Form S^1/2 and S^-1/2
+      ! Set parameters for diagonalization routine dsyevd
+      jobz = 'V'
+      uplo = 'U'
+      lwork = 1+6*nts_act+2*nts_act*nts_act
+      liwork = 3+5*nts_act
+      ! Copy the matrix in the eigenvector matrix
+      eigt = cals
+      call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
+        iwork,liwork,info)
+      do i=1,nts_act
+        scr1(:,i)=eigt(:,i)*sqrt(eigv(i))
+      enddo
+      sp12=matmul(scr1,transpose(eigt))                   
+      do i=1,nts_act
+        scr1(:,i)=eigt(:,i)/sqrt(eigv(i))
+      enddo
+      sm12=matmul(scr1,transpose(eigt))                   
+!     Test on S Diagonal passed 
+!     
+!     Form the S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 , and diagonalize it
+      !S^-1/2 D A S^1/2
+      do i=1,nts_act
+        scr1(:,i)=cald(:,i)*cts_act(i)%area
+      enddo
+      scr2=matmul(matmul(sm12,scr1),sp12)                   
+      !S^-1/2 D A S^1/2+S^1/2 A D* S^-1/2 and diagonalise
+      do j=1,nts_act
+       do i=1,nts_act
+        eigt(i,j)=0.5*(scr2(i,j)+scr2(j,i))
+       enddo
+      enddo
+      call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
+        iwork,liwork,info)
+      open(7,file="TSSK_matrices.mat",status="unknown")
+      write(7,*) nts_act
+      do j=1,nts_act
+       do i=j,nts_act
+        write(7,'(4E26.16)')eigt(i,j),sp12(i,j),sm12(i,j)
+       enddo
+      enddo
+      do j=1,nts_act
+        write(7,*)eigv(j)
+      enddo
+      close(7)
+      write (6,*) "Squares of resonance frequencies, in a.u."
+      do i=1,nts_act
+       fact2=(twp-sgn*eigv(i))*eps_A/(two*twp)  
+       fact1=fact2+eps_w0*eps_w0  
+       if (fact1.lt.0.d0) eigv(i)=-twp
+       write(6,*) i,fact1
+      enddo
+      if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
+      deallocate(work)
+      deallocate(scr4,scr1)
+      deallocate(scr2,scr3)
+      write(6,*) "Done setting up T and S" 
+      return
+      end subroutine
+!
+      subroutine do_charge_freq(omega_a,pot)
+      integer(4) :: its
+      complex(16), allocatable :: q_omega(:)
+      complex(16) :: mu_omega(3)
+      real(8) :: omega_a
+      real(8) :: pot(:)
+!      real(8), allocatable :: fact1(:),fact2(:)
+      complex(16), allocatable :: Kdiag_omega(:)
+!      complex(16), allocatable :: scr3(:,:),scr1(:,:)
+      integer(4) :: sgn,i
+      allocate(Kdiag_omega(nts_act))
+!      allocate(fact1(nts_act))
+!      allocate(fact2(nts_act))
+!      allocate(scr3(nts_act,nts_act))
+!      allocate(scr1(nts_act,nts_act))
+      sgn=-1
+      do i=1,nts_act
+       Kdiag_omega(i)=(twp-sgn*eigv(i))/ &
+          ((1.d0-omega_a*(omega_a+ui*eps_gm)*2.d0/eps_A)*twp-sgn*eigv(i))
+!       if (i.eq.2) write(6,*) omega_a,Kdiag_omega(i)
+      enddo
+!       write(6,*) 'i,Kdiag_omega(i)'
+!      do i=1,nts_act
+!       write(6,*) i,Kdiag_omega(i)
+!      enddo
+!     Buil S-1/2T in scr3
+      allocate (q_omega(nts_act))
+      q_omega=matmul(sm12,pot)
+      q_omega=matmul(transpose(eigt),q_omega)
+      q_omega=Kdiag_omega*q_omega
+      q_omega=matmul(eigt,q_omega)
+      q_omega=-matmul(sm12,q_omega)
+!      write(6,*) "q_omega"
+      mu_omega=0.d0
+      do its=1,nts_act
+!       write(6,*) its,q_omega(its)
+       mu_omega(1)=mu_omega(1)+q_omega(its)*(cts_act(its)%x)
+       mu_omega(2)=mu_omega(2)+q_omega(its)*(cts_act(its)%y)
+       mu_omega(3)=mu_omega(3)+q_omega(its)*(cts_act(its)%z)
+      enddo
+      write (6,'(7d15.6)') omega_a,real(mu_omega(:)),aimag(mu_omega(:))
+      deallocate (q_omega)
+!      scr3=matmul(sm12,eigt)
+!      do i=1,nts_act
+!        scr1(:,i)=scr3(:,i)*Kdiag_omega(i) 
+!      enddo
+!      deallocate(Kdiag_omega)
+!      matq_omega=-matmul(scr1,transpose(scr3)) 
+!      deallocate(scr1,scr3)
+      return
+      end subroutine
 !
       end module

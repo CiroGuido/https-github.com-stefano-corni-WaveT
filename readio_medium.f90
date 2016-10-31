@@ -292,26 +292,40 @@
         vts(1,1,its)=vts(1,1,its)+vtsn(its)
        enddo
        !V0j
-       do j=2,n_ci
+       do j=2,n_ci_read
          read(7,*) 
-         do its=1,nts_act
+         if (j.le.n_ci) then
+          do its=1,nts_act
           read(7,*) vts(1,j,its)
-         enddo
-         vts(j,1,:)=vts(1,j,:)
+          enddo
+          vts(j,1,:)=vts(1,j,:)
+         else
+          do its=1,nts_act
+           read(7,*)
+          enddo
+         endif
        enddo
        !Vij
-       do i=2,n_ci
+       do i=2,n_ci_read
         do j=2,i   
          read(7,*) 
-         do its=1,nts_act
-          read(7,*) vts(i,j,its)             
-         enddo
-         vts(j,i,:)=vts(i,j,:)
+         if (i.le.n_ci.and.j.le.n_ci) then
+          do its=1,nts_act
+           read(7,*) vts(i,j,its)             
+          enddo
+          vts(j,i,:)=vts(i,j,:)
+         else
+          do its=1,nts_act
+           read(7,*) 
+          enddo
+         endif
         enddo
         ! add nuclear potential
-        do its=1,nts_act
-         vts(i,i,its)=vts(i,i,its)+vtsn(its)
-        enddo
+        if (i.le.n_ci) then
+         do its=1,nts_act
+          vts(i,i,its)=vts(i,i,its)+vtsn(its)
+         enddo
+        endif
        enddo
        close(7)
        return

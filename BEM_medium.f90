@@ -347,10 +347,19 @@
          endif
 !        Buil S-1/2T in scr3
          scr3=matmul(sm12,eigt)
+! SC 31/10/2016: print out total charges associated with eigenvectors
+         write (6,*) "Total charge associated to each eigenvector"
+         do i=1,nts_act
+           write(6,*) i,sum(scr3(:,i))
+! SC 31/10/2016: experimental charge normalization
+!           scr3(:,i)=scr3(:,i)-sum(scr3(:,i))/nts_act
+!           scr3(:,i)=scr3(:,i)/sum(scr3(:,i)*scr3(:,i))
+         enddo
 !        Buil T*S1/2 in scr2
          scr2=matmul(transpose(eigt),sp12)  
 !        Buil T*S-1/2 in scr4
-         scr4=matmul(transpose(eigt),sm12)  
+!         scr4=matmul(transpose(eigt),sm12)  
+         scr4=transpose(scr3)
 !        Build matqq (R for debye)
          do i=1,nts_act
            scr1(:,i)=scr3(:,i)*fact1(i) 

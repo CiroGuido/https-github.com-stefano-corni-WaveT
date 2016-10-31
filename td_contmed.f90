@@ -39,7 +39,7 @@
 !SP 29/05/16:  pot_gs contains vts(1,1,:), but works also with Fint='ons'
       real(dbl), allocatable :: pot_t(:),pot_tp(:),pot_gs(:)
       real(dbl), allocatable :: potx_t(:),potx_tp(:)
-      real(dbl), allocatable :: q_t(:),dq_t(:)
+      real(dbl), allocatable :: q_t(:),dq_t(:),q_t_a(:)
       real(dbl), allocatable :: q_tp(:),dq_tp(:)
       real(dbl), allocatable :: qext_t(:),dqext_t(:)
       real(dbl), allocatable :: qext_tp(:),dqext_tp(:)
@@ -68,7 +68,7 @@
 ! OPEN FILES
       write(name_f,'(a9,i0,a4)') "medium_t_",n_f,".dat"
       open (file_med,file=name_f,status="unknown")
-      write(file_med,*) " step  time  dipole  field  qtot  qtot0"
+      write(file_med,*) "# step  time  dipole  field  qtot  qtot0"
       allocate(h_mdm(n_ci,n_ci),h_mdm0(n_ci,n_ci))
       h_mdm=zero
       h_mdm0=zero
@@ -221,6 +221,7 @@
        complex(16), intent(INOUT) :: c_prev(n_ci)
        integer(i4b):: its
        allocate(q_t(nts_act))
+       allocate(q_t_a(nts_act))
        allocate(q_tp(nts_act))
        allocate(dq_t(nts_act))
        if (.not.allocated(q0)) allocate (q0(nts_act))
@@ -229,11 +230,18 @@
        select case(Fchr)
         case ('vac') 
           q0(:)=0.d0                  
+          qtot0=0.d0
         case ('fro') 
           q0(:)=matmul(matq0,pot_gs)
+          qtot0=sum(q0)
         case ('rea') 
           call read_charges_gau
        end select
+! SC 31/10/2016: in case of nanoparticle, normalize initial charges to zero
+       if(mdm.eq.'nan') then
+         q0=q0-qtot0/nts_act
+         qtot0=0.d0
+       endif
 ! SC: overwrite calculated charges if a charges0.inp file is present
        g_eq_gs=0.5d0*dot_product(q0,pot_gs)
        write(6,*) 'Medium contribution to ground state free energy:', &
@@ -373,6 +381,7 @@
       if(allocated(pot_tp)) deallocate (pot_tp)
       if(allocated(potx_tp)) deallocate (potx_tp)
       if(allocated(q_t)) deallocate(q_t)
+      if(allocated(q_t_a)) deallocate(q_t_a)
       if(allocated(q_tp)) deallocate(q_tp)
       if(allocated(dq_t)) deallocate(dq_t)
       if(allocated(dq_tp)) deallocate(dq_tp)
@@ -460,13 +469,15 @@
       end subroutine
 !
       subroutine do_dipole
-      ! Builds dipole from BEM charges
+      ! Builds dipole from BEM charges, as well as do total charge
       integer(i4b) :: its  
       mu_mdm(:)=zero
+      qtot=0.d0
       do its=1,nts_act
         mu_mdm(1)=mu_mdm(1)+q_t(its)*(cts_act(its)%x)
         mu_mdm(2)=mu_mdm(2)+q_t(its)*(cts_act(its)%y)
         mu_mdm(3)=mu_mdm(3)+q_t(its)*(cts_act(its)%z)
+        qtot=qtot+q_t(its)
       enddo
       if(Fdeb.eq."n-l") mu_mdm(:)=zero
       if(Floc.eq."loc") then
@@ -474,6 +485,7 @@
         mu_mdm(1)=mu_mdm(1)+qext_t(its)*(cts_act(its)%x)
         mu_mdm(2)=mu_mdm(2)+qext_t(its)*(cts_act(its)%y)
         mu_mdm(3)=mu_mdm(3)+qext_t(its)*(cts_act(its)%z)
+        qtot=qtot+qext_t(its)
        enddo
       endif
       return
@@ -494,10 +506,13 @@
          h_mdm(:,:)=-h_mdm0(:,:)-mut(:,:,1)*ft_t(1)-mut(:,:,2)*ft_t(2) &
                                                    -mut(:,:,3)*ft_t(3)
        elseif(Fint.eq.'pcm') then
-         if(Floc.eq."loc") q_t(:)=q_t(:)+qext_t(:)
+         q_t_a=q_t
+         if(Floc.eq."loc") q_t_a(:)=q_t(:)+qext_t(:)
+! SC 31/10/2016: avoid including interaction with an unwanted net charge
+         q_t_a=q_t_a+sum(qtot0-q_t_a)/nts_act
          do j=1,n_ci   
            do i=1,j       
-             h_mdm(i,j)=-h_mdm0(i,j)+dot_product(q_t(:),vts(i,j,:))
+             h_mdm(i,j)=-h_mdm0(i,j)+dot_product(q_t_a(:),vts(i,j,:))
              h_mdm(j,i)=h_mdm(i,j)
            enddo
          enddo
@@ -641,6 +656,7 @@
       f3=1.d0-dt*eps_gm*(1.d0-dt*0.5*eps_gm)
       f4=0.5d0*dt
       f5=eps_gm*f2
+      write(6,*) "Initiated VV propagator"
       return
       end subroutine
 !
@@ -664,8 +680,6 @@
       q_t=q_tp+f1*dq_tp+f2*force_p
       force=-matmul(matqq,q_t)+matmul(matqv,pot_t)
       dq_t=f3*dq_tp+f4*(force+force_p)-f5*force_p
-! SC avoid developing a total charge
-      dq_t=dq_t-sum(dq_t)/nts_act
 !
       force_p=force
       dq_tp=dq_t
@@ -680,8 +694,6 @@
            f2*forcex_p
        forcex=-matmul(matqq,qext_t)+matmul(matqv,potx_t)
        dqext_t=f3*dqext_tp+f4*(forcex+forcex_p)-f5*forcex_p
-! SC avoid developing a total charge
-       dqext_t=dqext_t-sum(dqext_t)/nts_act
        forcex_p=forcex
        dqext_tp=dqext_t
        qext_tp=qext_t

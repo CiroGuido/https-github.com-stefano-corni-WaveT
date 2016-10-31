@@ -27,7 +27,7 @@
       implicit none
       real(dbl), allocatable :: Dinp(:),Finp(:)
       real(dbl) :: dw,fac,absD,refD,phiF,phiD,modF,modD    
-      real(dbl) :: Deq(3)    
+      real(dbl) :: Deq(3),Deq_np(3)    
       integer(i4b) :: i,isp,vdim,istart  
       integer*8 plan
       complex(cmp), allocatable :: Doutp(:),Foutp(:),src       
@@ -49,9 +49,10 @@
       dw=2*pi/dble(vdim)/dt
       ! The minus sign is for the electronic negative charge
       Deq(:)=Sdip(1+istart,:,1)
+      Deq_np(:)=Sdip(1+istart,:,2)
       do i=1,vdim
         Sdip(i+istart,:,1)=(Sdip(i+istart,:,1)-Deq(:))*exp(-i*dt/tau)
-        Sdip(i+istart,:,2)=Sdip(i+istart,:,2)!/(sfe_act(1)%r)**3
+        Sdip(i+istart,:,2)=(Sdip(i+istart,:,2)-Deq_np(:))*exp(-i*dt/tau)!/(sfe_act(1)%r)**3
         Sdip(i+istart,:,3)=Sdip(i+istart,:,1)+Sdip(i+istart,:,2)
       enddo
       do isp=1,3

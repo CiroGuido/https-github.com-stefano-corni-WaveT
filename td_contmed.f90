@@ -92,8 +92,8 @@
         call init_vv_propagator
       endif
       c_prev2=c_prev
-      if (mdm.eq.'sol'.or.mdm.eq.'nan')  call correct_hamiltonian
-      ! SP 25/02/16 Initial debug routine:
+      if (mdm.eq.'sol'.or.mdm.eq.'nan') call correct_hamiltonian
+      ! SP 25/02/16 Initial gebug routine:
       if(Fdeb.eq."deb") call test_dbg
 ! SC set the initial values of the solvent component of the 
 ! neq free energies

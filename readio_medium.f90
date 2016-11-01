@@ -66,6 +66,7 @@
        character(6) :: which_mdm_init_prop 
        nts_act=0
 ! read frequency of updating the interaction potential
+       read(5,*) 
        read(5,*) n_q
        read(5,*) 
 ! read dielectric function type and parameters
@@ -260,6 +261,9 @@
        case ('vmu','Vmu','VMU','VMu')
         Fdeb='vmu'             
         write(6,*) "DEBUG: Potentials calculated from Dipoles "
+       case ('off','Off','OFF')
+        Fdeb='off'             
+        write(6,*) "DEBUG: Molecule - Medium interaction turned off"
        case default
         Fdeb='non'             
        end select

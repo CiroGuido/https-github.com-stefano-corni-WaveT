@@ -17,16 +17,21 @@ FFLAGS= $(FFLAGS_LAP)
 LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
 #LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
-INC = -I/usr/include/ 
+#INC = -I/usr/include/ 
+INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
+OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
 
-embem.x: $(OBJ) 
+WaveT: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
 
 freq_bem.x: $(OBJ_FREQ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_FREQ)  $(LIBS) $(LIBSF)
+
+make_spectra.x: $(OBJ_SPECTRA) 
+	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA)  $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il
@@ -53,7 +58,7 @@ propagate.o: propagate.f90
 	$(FC) -c $(FFLAGS)  $<
 
 spectra.o: spectra.f90
-	$(FC) -c $(FFLAGS)  $<
+	$(FC) -c $(FFLAGS)  $(INC)  $<
 
 BEM_medium.o: BEM_medium.f90
 	$(FC) -c $(FFLAGS)  $<
@@ -68,5 +73,8 @@ main.o: main.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
 main_freq.o: main_freq.f90
+	$(FC) -c $(FFLAGS) $(INC) $<
+
+main_spectra.o: main_spectra.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 

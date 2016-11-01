@@ -92,8 +92,8 @@
         call init_vv_propagator
       endif
       c_prev2=c_prev
-      if (mdm.eq.'sol') call correct_hamiltonian
-      ! SP 25/02/16 Initial gebug routine:
+      if (mdm.eq.'sol'.or.mdm.eq.'nan')  call correct_hamiltonian
+      ! SP 25/02/16 Initial debug routine:
       if(Fdeb.eq."deb") call test_dbg
 ! SC set the initial values of the solvent component of the 
 ! neq free energies
@@ -157,7 +157,7 @@
          endif
        endif
        ! Build the interaction Hamiltonian Reaction/Local
-       call do_interaction_h
+       if(Fdeb.ne."off") call do_interaction_h
        if (i.eq.1) then
         write(6,*) "h_mdm at the first propagation step"
         do j=1,n_ci
@@ -239,10 +239,9 @@
        end select
 ! SC 31/10/2016: in case of nanoparticle, normalize initial charges to zero
        if(mdm.eq.'nan') then
-         q0=q0-qtot0/nts_act
+         !q0=q0-qtot0/nts_act
          qtot0=0.d0
        endif
-! SC: overwrite calculated charges if a charges0.inp file is present
        g_eq_gs=0.5d0*dot_product(q0,pot_gs)
        write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
@@ -479,7 +478,7 @@
         mu_mdm(3)=mu_mdm(3)+q_t(its)*(cts_act(its)%z)
         qtot=qtot+q_t(its)
       enddo
-      if(Fdeb.eq."n-l") mu_mdm(:)=zero
+      if((Fdeb.eq."n-l").or.(Fdeb.eq."off")) mu_mdm(:)=zero
       if(Floc.eq."loc") then
        do its=1,nts_act
         mu_mdm(1)=mu_mdm(1)+qext_t(its)*(cts_act(its)%x)
@@ -509,7 +508,7 @@
          q_t_a=q_t
          if(Floc.eq."loc") q_t_a(:)=q_t(:)+qext_t(:)
 ! SC 31/10/2016: avoid including interaction with an unwanted net charge
-         q_t_a=q_t_a+sum(qtot0-q_t_a)/nts_act
+         q_t_a=q_t_a+(qtot0-sum(q_t_a))/nts_act
          do j=1,n_ci   
            do i=1,j       
              h_mdm(i,j)=-h_mdm0(i,j)+dot_product(q_t_a(:),vts(i,j,:))
@@ -948,8 +947,9 @@
        elseif (Fint.eq.'pcm') then
 !SC 04/05/2016: updated to be coerent with both GS and SCF initialization
 !SC 27/09/2016: corrected bug introduced previously
+         q_t_a=q0+(qtot0-sum(q0))/nts_act
          do its=1,nts_act     
-           h_mdm0(:,:)=h_mdm0(:,:)+q0(its)*vts(:,:,its)
+           h_mdm0(:,:)=h_mdm0(:,:)+q_t_a(its)*vts(:,:,its)
          enddo
        endif
        write(6,*) "in correct hamiltonian"

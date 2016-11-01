@@ -18,9 +18,10 @@
       integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
-      real(8) :: dt,tau,start
-      integer(4) :: dir_ft
-      real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
+      real(8) :: dt,tau(2),start
+! SP 28/10/16: improved with a vector
+!      integer(4) :: dir_ft
+      real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
       character(3) :: mdm,Ffld,rad 
       integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
@@ -44,8 +45,9 @@
       contains
 !
       subroutine read_input
-       integer(4):: i
+       integer(4):: i,nspectra
        character(3) :: medium,radiative
+       read(5,*)    
        read(5,*) n_f
        write(6,*) "Number to append to dat file"
        read(5,*) n_ci_read,n_ci
@@ -73,11 +75,6 @@
        read(5,*) (mol_cc(i),i=1,3)
        write(*,*) 'Molecular center of charge'
        write(*,*) mol_cc
-!    read spectra calculation parameters:
-       read(5,*) tau       ! Artificial damping 
-       read(5,*) start     ! Start point for FT calculation
-       read(5,*) dir_ft     ! direction along which the field is
-!                            oriented: TO BE IMPROVED
 !    read gaussian output for CIS propagation
        call read_gau_out
 !    read external medium type: sol, nan, vac
@@ -94,6 +91,13 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+!    read spectra calculation parameters:
+       nspectra=1
+       tau(:)=zero
+       if(medium.ne.'vac') nspectra=2 
+       read(5,*) 
+       read(5,*) start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
+       read(5,*) (dir_ft(i),i=1,3)      ! direction along which the field is oriented
        return
       end subroutine
 !

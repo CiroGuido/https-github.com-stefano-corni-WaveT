@@ -49,12 +49,13 @@
        character(3) :: medium,radiative
        read(5,*)    
        read(5,*) n_f
-       write(6,*) "Number to append to dat file"
+       write(6,*) "Number to append to dat file", n_f
        read(5,*) n_ci_read,n_ci
        write (6,*) "Number of CIS states to be read",n_ci_read
        write (6,*) "Number of CIS states to be used",n_ci
        read(5,*) dt,n_step,n_out
-       write (6,*) "Time step (in au) and number of steps",dt,n_step
+       write (6,*) "Time step (in au), number of steps, stride",dt, &
+                 n_step,n_out
        read(5,*) Ffld             
        write (6,*) "Time shape of the perturbing field",Ffld
        read(5,*) t_mid,sigma,omega
@@ -62,6 +63,7 @@
        write (6,*) "Width of the pulse (time au):",sigma
        write (6,*) "Frequency (au):",omega
        read(5,*) fmax
+       write (6,*) "Maximum E field",fmax
 !SC
        read(5,*) radiative
        select case (radiative)

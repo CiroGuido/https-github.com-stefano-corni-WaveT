@@ -12,6 +12,7 @@
 !LIGHT SPEED IN AU TO BE REVISED
       real(dbl), parameter :: c=1.37036d2                
       real(dbl) :: f_f,f_w    
+      real(dbl), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(dbl), allocatable :: sm1(:,:)
       real(dbl), allocatable :: eigv(:),eigt(:,:)
       real(dbl), allocatable :: sm12(:,:),sp12(:,:)
@@ -25,7 +26,7 @@
       private
       public init_BEM,deallocate_BEM,do_eps,eps,eps_f,eigv,eigt, &
              sm1,f_f,f_w,sm12,f_0,f_d,tau_ons,fx_0,fx_d,taux_ons, &
-             matqv,matqq,matqd,matq0,do_PCM_freqMat, &
+             matqv,matqq,matqd,matq0,do_TS_matrix, &
              do_charge_freq,allocate_TS_matrix,deallocate_TS_matrix
 
 
@@ -58,10 +59,6 @@
            call read_interface_gau 
          endif
          if(Fprop.eq."ief") then
-           allocate(eigv(nts_act))
-           allocate(eigt(nts_act,nts_act))
-           allocate(sm12(nts_act,nts_act))
-           allocate(sp12(nts_act,nts_act))
            if(Fbem.eq."rea") then
             allocate(matqv(nts_act,nts_act))
             allocate(matqq(nts_act,nts_act))
@@ -73,7 +70,6 @@
            allocate(sm1(nts_act,nts_act))
            call do_ons_propMat  
          endif
-         if(allocated(eigt).and.allocated(eigv)) deallocate(eigt,eigv)
        endif
       return
       end subroutine
@@ -154,6 +150,26 @@
 !      close(unit=7)
       end subroutine
 !
+      subroutine output_charge_pqr(st)
+      integer :: its,i
+      character(18) :: fname
+      real(8) :: st(:,:)
+      real(8) :: area
+      area=sum(cts_act(:)%area)
+      do i=1,10
+       write (fname,'("charge_freq_",I0,".pqr")') i
+       open(unit=7,file=fname,status="unknown", &
+          form="formatted")
+       write (7,*) nts_act
+       do its=1,nts_act
+         write (7,'("ATOM ",I6," H    H  ",I6,3F11.3,F15.5,"  1.5")') &
+              its,its,cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+              st(its,i+1)/cts_act(its)%area*area
+       enddo
+       close(unit=7)
+      enddo
+      end subroutine
+!
       subroutine write_charges0
       integer :: i
       open(unit=7,file="charges0.inp",status="unknown",form="formatted")
@@ -172,8 +188,6 @@
          if (allocated(matqq)) deallocate(matqq)
          if (allocated(matqd)) deallocate(matqd)
          if (allocated(matq0)) deallocate(matq0)
-         if (allocated(sm12)) deallocate(sm12)
-         if (allocated(sp12)) deallocate(sp12)
          if (allocated(sm1)) deallocate(sm1)
        endif
       return
@@ -212,7 +226,7 @@
       end subroutine
 !
       subroutine do_PCM_propMat
-      integer(i4b) :: i,j,info,lwork,liwork
+      integer(i4b) :: i,j
       real(8), allocatable :: scr4(:,:),scr1(:,:)
       real(8), allocatable :: scr2(:,:),scr3(:,:)
       real(dbl), dimension(nts_act) :: fact1,fact2
@@ -220,23 +234,17 @@
       complex(16), allocatable :: Kdiag_omega(:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp
-      character jobz,uplo
-      integer(i4b) :: iwork(3+5*nts_act)
-      real(8),allocatable :: work(:)
 ! SC 11/08/2016 if this is a writing run, create the matrixes and stop.
 ! SC TO DO: all the automatic arrays are always created, but some of them
 !           are needed for fbem=rea and others for fbem=wri, move to allocatable
-      allocate(scr4(nts_act,nts_act),scr1(nts_act,nts_act))
-      allocate(scr2(nts_act,nts_act),scr3(nts_act,nts_act))
-      allocate(work(1+6*nts_act+2*nts_act*nts_act))
-      allocate(cals(nts_act,nts_act))
-      allocate(cald(nts_act,nts_act))
       ! Solvent or nanoparticle
       sgn=one                 
       if(mdm.eq."nan") sgn=-one  
 !
       If(Fbem.eq.'wri') then
       ! create calderon D, D* and S matrices
+       allocate(cals(nts_act,nts_act))
+       allocate(cald(nts_act,nts_act))
          do i=1,nts_act
           do j=1,nts_act
             call green_s(i,j,temp)
@@ -253,79 +261,33 @@
           enddo
          enddo
          close(7)
+         deallocate(cals,cald)
          write(6,*) "Matrixes S D have been written out, I'll stop now"
-         stop
+        stop
       elseif(Fbem.eq.'rea') then
-         open(7,file="mat_SD.inp",status="old")
-         read(7,*) nts_act
-         do j=1,nts_act
-          do i=j,nts_act
-           read(7,*) cals(i,j), cald(i,j)
-           cals(j,i)=cals(i,j)
-           cald(j,i)=cald(i,j)
-          enddo
-         enddo
-         close(7)
-         ! Form S^1/2 and S^-1/2
-         ! Set parameters for diagonalization routine dsyevd
-         jobz = 'V'
-         uplo = 'U'
-         lwork = 1+6*nts_act+2*nts_act*nts_act
-         liwork = 3+5*nts_act
-         ! Copy the matrix in the eigenvector matrix
-         eigt = cals
-         call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
-           iwork,liwork,info)
-         do i=1,nts_act
-           scr1(:,i)=eigt(:,i)*sqrt(eigv(i))
-         enddo
-         sp12=matmul(scr1,transpose(eigt))                   
-         do i=1,nts_act
-           scr1(:,i)=eigt(:,i)/sqrt(eigv(i))
-         enddo
-         sm12=matmul(scr1,transpose(eigt))                   
-!        Test on S Diagonal passed 
-!        
-!        Form the S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 , and diagonalize it
-         !S^-1/2 D A S^1/2
-         do i=1,nts_act
-           scr1(:,i)=cald(:,i)*cts_act(i)%area
-         enddo
-         scr2=matmul(matmul(sm12,scr1),sp12)                   
-         !S^-1/2 D A S^1/2+S^1/2 A D* S^-1/2 and diagonalise
-         do j=1,nts_act
-          do i=1,nts_act
-           eigt(i,j)=0.5*(scr2(i,j)+scr2(j,i))
-          enddo
-         enddo
-         call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
-           iwork,liwork,info)
-         open(7,file="TSSK_matrices.mat",status="unknown")
-         write(7,*) nts_act
-         do j=1,nts_act
-          do i=j,nts_act
-           write(7,'(4E26.16)')eigt(i,j),sp12(i,j),sm12(i,j)
-          enddo
-         enddo
-         do j=1,nts_act
-           write(7,*)eigv(j)
-         enddo
-         close(7)
+!SC 05/11/2016: use the same routine as for frequency calculation
+!   to build S^-1/2 (in sm12), S^1/2 (in sp12), T (in eigt) and Lambda (in eigv) 
+        call allocate_TS_matrix
+        call do_TS_matrix
+!
+        allocate(scr4(nts_act,nts_act),scr1(nts_act,nts_act))
+        allocate(scr2(nts_act,nts_act),scr3(nts_act,nts_act))
 !        Test on S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 Diagonal passed 
 !        
 !        Form the Q_w and Q_f and K_d and K_0 for debye propagation
-         fac_eps0=(eps_0+1)/(eps_0-1)
-         Kdiag0(:)=(twp-sgn*eigv(:))/(twp*fac_eps0-sgn*eigv(:))
-         fac_epsd=(eps_d+1)/(eps_d-1)
-         Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
          if (Feps.eq."deb") then
 !          debye dielectric function  
+           fac_eps0=(eps_0+1)/(eps_0-1)
+           Kdiag0(:)=(twp-sgn*eigv(:))/(twp*fac_eps0-sgn*eigv(:))
+           fac_epsd=(eps_d+1)/(eps_d-1)
+           Kdiagd(:)=(twp-sgn*eigv(:))/(twp*fac_epsd-sgn*eigv(:))
            ! SP: Need to check the signs of the second part for a debye medium localized in space  
            fact1(:)=((twp-sgn*eigv(:))*eps_0+twp+eigv(:))/ &
                     ((twp-sgn*eigv(:))*eps_d+twp+eigv(:))/tau_deb
            fact2(:)=Kdiag0(:)*fact1(:)
          elseif (Feps.eq."drl") then       
 !          Drude-Lorentz dielectric function
+           Kdiagd(:)=0.d0
            fact2(:)=(twp-sgn*eigv(:))*eps_A/(two*twp)  
 ! SC: the first eigenvector should be 0 for the NP
            if (mdm.eq.'nan') fact2(1)=0.d0
@@ -335,30 +297,30 @@
            enddo
            if (eps_w0.eq.0.d0) eps_w0=1.d-8
            fact1(:)=fact2(:)+eps_w0*eps_w0  
-! SC: changed to this for drl to avoid instabilities upon starting
            Kdiag0(:)=fact2(:)/fact1(:)
-           write (6,*) "Squares of resonance frequencies, in a.u."
-           do i=1,nts_act
-            write(6,*) i,fact1(i)
-           enddo
+! already printed in do_TS_matrix
+!           write (6,*) "Squares of resonance frequencies, in a.u."
+!           do i=1,nts_act
+!            write(6,*) i,fact1(i)
+!           enddo
          else
            write(6,*) "Wrong epsilon choice"
            stop
          endif
+!
 !        Buil S-1/2T in scr3
          scr3=matmul(sm12,eigt)
 ! SC 31/10/2016: print out total charges associated with eigenvectors
          write (6,*) "Total charge associated to each eigenvector"
          do i=1,nts_act
            write(6,*) i,sum(scr3(:,i))
-! SC 31/10/2016: experimental charge normalization
-!           scr3(:,i)=scr3(:,i)-sum(scr3(:,i))/nts_act
-!           scr3(:,i)=scr3(:,i)/sum(scr3(:,i)*scr3(:,i))
          enddo
+! SC 05/11/2016 write out the transition charges in pqr format
+         call output_charge_pqr(scr3)
+!
 !        Buil T*S1/2 in scr2
          scr2=matmul(transpose(eigt),sp12)  
 !        Buil T*S-1/2 in scr4
-!         scr4=matmul(transpose(eigt),sm12)  
          scr4=transpose(scr3)
 !        Build matqq (R for debye)
          do i=1,nts_act
@@ -407,10 +369,9 @@
          close(7)
          write(6,*) "Written out the static matrix for gamess"
       endif
-      if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
-      deallocate(work)
       deallocate(scr4,scr1)
       deallocate(scr2,scr3)
+      call deallocate_TS_matrix
       return
       end subroutine
 !
@@ -448,44 +409,7 @@
       return
       end subroutine
 !     
-      subroutine do_calderon    
-      integer(i4b):: i,j,info,lwork
-      real(dbl):: temp
-      ! create calderon D, D* and S matrices
-      do i=1,nts_act
-       do j=1,nts_act
-         call green_s(i,j,temp)
-         cals(i,j)=temp
-         call green_d(i,j,temp)
-         cald(i,j)=temp
-       enddo
-      enddo
-      return
-      end subroutine
-!
       subroutine do_ons_propMat   
-!      SC 11/8/2016: replaced the inversion with a routine found on the net, based
-!               on lapack routine for inversion rather than diagonalization
-!     integer(i4b) :: i,j,info,lwork,liwork
-!      real(dbl), dimension(nts_act,nts_act) :: scr1,scr2
-!     character jobz,uplo
-!     integer(i4b) :: iwork(3+5*nts_act)
-!     real(dbl) :: work(1+6*nts_act+2*nts_act*nts_act)
-!      ! Set parameters for diagonalization routine dsyevd
-!      jobz = 'V'
-!      uplo = 'U'
-!      lwork = 1+6*nts_act+2*nts_act*nts_act
-!      liwork = 3+5*nts_act
-!      ! Form S^-1
-!      eigt = cals
-!      call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
-!              iwork,liwork,info)
-!      do i=1,nts_act
-!        scr1(:,i)=eigt(:,i)/eigv(i)
-!      enddo
-!      scr2=transpose(eigt)
-!      sm1=matmul(scr1,scr2)                   
-!
       integer(i4b) :: i,j
       real(dbl) :: temp
 ! Same read/write phylosophy as for ief
@@ -509,6 +433,7 @@
         enddo
         close(7)
         write(6,*) "Written out the propagation S matrix, now I'll stop"
+        stop
        elseif(Fbem.eq."rea") then
         open(7,file="S_matrix.inp",status="old")
         write(7,*) nts_act
@@ -573,7 +498,6 @@
       allocate(eigt(nts_act,nts_act))
       allocate(sm12(nts_act,nts_act))
       allocate(sp12(nts_act,nts_act))
-!      allocate(matq_omega(nts_act,nts_act))
       return
       end subroutine
 !
@@ -582,26 +506,24 @@
       deallocate(eigt)
       deallocate(sm12)
       deallocate(sp12)
-!      deallocate(matq_omega)
       return
       end subroutine
 !
-      subroutine do_PCM_freqMat
+      subroutine do_TS_matrix
       integer(i4b) :: i,j,info,lwork,liwork
-      real(8), allocatable :: scr4(:,:),scr1(:,:)
-      real(8), allocatable :: scr2(:,:),scr3(:,:)
+      real(8), allocatable :: scr1(:,:),scr2(:,:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp,fact1,fact2
       character jobz,uplo
       integer(i4b), allocatable :: iwork(:)
       real(8),allocatable :: work(:)
-      allocate(scr4(nts_act,nts_act),scr1(nts_act,nts_act))
-      allocate(scr2(nts_act,nts_act),scr3(nts_act,nts_act))
+      allocate(scr1(nts_act,nts_act),scr2(nts_act,nts_act))
       allocate(work(1+6*nts_act+2*nts_act*nts_act))
       allocate(iwork(3+5*nts_act))
       allocate(cals(nts_act,nts_act))
       allocate(cald(nts_act,nts_act))
-      sgn=-1
+      sgn=one                 
+      if(mdm.eq."nan") sgn=-one  
 !
       open(7,file="mat_SD.inp",status="old")
       read(7,*) nts_act
@@ -659,17 +581,18 @@
         write(7,*)eigv(j)
       enddo
       close(7)
-      write (6,*) "Squares of resonance frequencies, in a.u."
-      do i=1,nts_act
-       fact2=(twp-sgn*eigv(i))*eps_A/(two*twp)  
-       fact1=fact2+eps_w0*eps_w0  
-       if (fact1.lt.0.d0) eigv(i)=-twp
-       write(6,*) i,fact1
-      enddo
+      if (Feps.eq.'drl') then
+       write (6,*) "Squares of resonance frequencies, in a.u."
+       do i=1,nts_act
+        fact2=(twp-sgn*eigv(i))*eps_A/(two*twp)  
+        fact1=fact2+eps_w0*eps_w0  
+        if (fact1.lt.0.d0) eigv(i)=-twp
+        write(6,*) i,fact1
+       enddo
+      endif
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
       deallocate(work)
-      deallocate(scr4,scr1)
-      deallocate(scr2,scr3)
+      deallocate(scr1,scr2)
       write(6,*) "Done setting up T and S" 
       return
       end subroutine
@@ -682,7 +605,6 @@
       real(8) :: pot(:)
 !      real(8), allocatable :: fact1(:),fact2(:)
       complex(16), allocatable :: Kdiag_omega(:)
-!      complex(16), allocatable :: scr3(:,:),scr1(:,:)
       integer(4) :: sgn,i
       allocate(Kdiag_omega(nts_act))
 !      allocate(fact1(nts_act))
@@ -699,7 +621,6 @@
 !      do i=1,nts_act
 !       write(6,*) i,Kdiag_omega(i)
 !      enddo
-!     Buil S-1/2T in scr3
       allocate (q_omega(nts_act))
       q_omega=matmul(sm12,pot)
       q_omega=matmul(transpose(eigt),q_omega)

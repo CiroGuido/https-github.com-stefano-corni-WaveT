@@ -11,7 +11,6 @@
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
       integer(4) :: nts
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
-      real(8), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,nmodes,ncycmax
@@ -39,13 +38,14 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
              nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
-             iBEM, cals,cald,q0,fr0,Floc,mdm_dip,qtot0, &
+             iBEM,q0,fr0,Floc,mdm_dip,qtot0, &
              Fdeb,vtsn,mdm_init_prop, &
              ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq     
 !
       contains
 !
       subroutine read_medium_freq
+      mdm='nan'
       Fint='pcm'
       Feps='drl'
       Fprop='ief'
@@ -347,8 +347,6 @@
       end subroutine
 !
       subroutine deallocate_medium
-       if(allocated(cals)) deallocate(cals)
-       if(allocated(cald)) deallocate(cald)
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
        if(allocated(xmode)) deallocate(xmode)

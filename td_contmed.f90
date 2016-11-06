@@ -1155,7 +1155,7 @@
       call read_cav_from_file
       write(6,*) 'nts_act',nts_act
       call allocate_TS_matrix
-      call do_PCM_freqMat
+      call do_TS_matrix
       allocate(potx_t(nts_act))
       call do_ext_potential(fmax)
       do i=1,n_omega

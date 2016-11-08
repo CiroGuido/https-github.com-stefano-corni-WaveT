@@ -41,6 +41,8 @@
            !Build the cavity/nanoparticle surface
            if(Fcav.eq.'fil') then 
              call read_cavity_full_file
+           elseif(Fcav.eq.'gms') then
+             call read_gmsh_file
            else
             if(mdm.eq.'sol') then
              call pedra_int('act')
@@ -85,7 +87,7 @@
                                sfe_act(i)%z
        enddo
        do i=1,nts_act
-         write (7,'(5F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z, &
+         write (7,'(4F22.10,D14.5)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z, &
                                cts_act(i)%area,cts_act(i)%rsfe
        enddo
       close(unit=7)

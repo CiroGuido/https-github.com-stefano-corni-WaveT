@@ -15,7 +15,8 @@
       private
       public pedra_int, read_act, read_pro, dealloc_pedra, &
              nts_act, nts_pro,cts_act,cts_pro,nesf_pro,sfe_pro, &
-             nesf_act,sfe_act,read_cavity_file,read_cavity_full_file
+             nesf_act,sfe_act,read_cavity_file,read_cavity_full_file,&
+             read_gmsh_file
 !
       contains
 !
@@ -1213,6 +1214,97 @@
        close(7)
        return
       end subroutine
+!
+      subroutine read_gmsh_file
+! this routine read in gmsh mesh files
+!  AFTER they have been massaged by a proper
+!  gawk script. To be revised with better coding
+      integer(4) :: n_nodes,i_nodes,its,jts,j_max
+      integer(4),allocatable :: el_nodes(:,:)
+      character(6) :: line, junk
+      real(8),allocatable :: c_nodes(:,:) 
+      real(8) :: vert(3,3),normal(3),area,dist,dist_v(3),dist_max 
+      nesf_act=0
+      open(7,file="surface_msh.inp",status="old")
+      read(7,*) n_nodes
+      allocate(c_nodes(3,n_nodes))
+      do i_nodes=1,n_nodes
+       read(7,*) c_nodes(:,i_nodes)
+      enddo
+      read(7,*) nts_act
+      allocate(cts_act(nts_act))
+      allocate(el_nodes(3,nts_act))
+      do its=1,nts_act
+       read(7,*) el_nodes(:,its)
+      enddo
+      close(7)
+!  And now do representative points, areas and normals
+      do its=1,nts_act
+        vert(:,1)=c_nodes(:,el_nodes(1,its))
+        vert(:,2)=c_nodes(:,el_nodes(2,its))
+        vert(:,3)=c_nodes(:,el_nodes(3,its))
+        cts_act(its)%x=sum(vert(1,:))/3.d0
+        cts_act(its)%y=sum(vert(2,:))/3.d0
+        cts_act(its)%z=sum(vert(3,:))/3.d0
+        normal=vec((vert(:,3)-vert(:,1)),(vert(:,2)-vert(:,1)))
+        area=sqrt(dot_product(normal,normal))
+        cts_act(its)%area=area/2.d0
+        cts_act(its)%n=-normal/area
+! very big as the tessera is planar, can be improved
+! by using info from nearby normals to estimate a local
+! curvature, TO BE DONE
+        cts_act(its)%rsfe=1.d20   
+      enddo
+! choose the outward normal, with an euristic procedure tha may not always work!!
+      do its=1,nts_act
+        dist_max=0.d0
+        j_max=its
+        do jts=1,nts_act
+         dist=(cts_act(its)%x-cts_act(jts)%x)**2+  &
+              (cts_act(its)%y-cts_act(jts)%y)**2+ &
+              (cts_act(its)%z-cts_act(jts)%z)**2
+         if(dist.gt.dist_max) then
+           dist_max=dist
+           j_max=jts
+         endif
+        enddo
+        dist_v(1)=cts_act(its)%x-cts_act(j_max)%x
+        dist_v(2)=cts_act(its)%y-cts_act(j_max)%y
+        dist_v(3)=cts_act(its)%z-cts_act(j_max)%z
+        cts_act(its)%n=cts_act(its)%n*sign(1.d0,dot_product(cts_act(its)%n,dist_v))
+      enddo
+! Save in files for subsequent calculations or checks
+      open(7,file="cavity_full.inp",status="unknown")
+      write(7,*) nts_act
+      do its=1,nts_act
+       write(7,'(8D14.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+                 cts_act(its)%area,cts_act(its)%rsfe, &
+                 cts_act(its)%n(:) 
+      enddo
+!      do its=1,nts_act
+!       write(7,'(8D14.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z
+!       write(7,'(8D14.5)') cts_act(its)%x+cts_act(its)%n(1)*0.3, &
+!                           cts_act(its)%y+cts_act(its)%n(2)*0.3, &
+!                           cts_act(its)%z+cts_act(its)%n(3)*0.3
+!      enddo
+      close(7)
+!      open(7,file="cavity.inp",status="unknown")
+!      write(7,*) nts_act,0
+!      do its=1,nts_act
+!       write(7,'(8D12.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+!                 cts_act(its)%area,cts_act(its)%rsfe
+!      enddo
+!      close(7)
+      return
+      end subroutine
+!
+      function vec(v1,v2)
+      real(8) :: vec(3),v1(3),v2(3)
+      vec(3)=v1(1)*v2(2)-v1(2)*v2(1)
+      vec(1)=v1(2)*v2(3)-v1(3)*v2(2)
+      vec(2)=v1(3)*v2(1)-v1(1)*v2(3)
+      return
+      end function
 !
       subroutine dealloc_pedra
       if (allocated(sfe_act)) deallocate(sfe_act)

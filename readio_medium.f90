@@ -199,6 +199,8 @@
          select case(which_cavity)
          case ('fil','FIL','Fil')
           Fcav='fil'             
+         case ('gms','GMS','Gms')
+          Fcav='gms'             
          case ('bui','Bui','BUI')
           Fcav='bui'             
           call read_act(5)
@@ -303,6 +305,8 @@
        select case(which_cavity)
        case ('fil','FIL','Fil')
         Fcav='fil'             
+       case ('gms','GMS','Gms')
+        Fcav='gms'             
        case ('bui','Bui','BUI')
         Fcav='bui'             
         call read_act(5)

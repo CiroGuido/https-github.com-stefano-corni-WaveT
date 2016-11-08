@@ -1152,7 +1152,7 @@
       subroutine do_freq_mat(omega_list,n_omega)
       real(8) :: omega_list(:)
       integer(4):: n_omega,i
-      call read_cav_from_file
+      call read_cavity_file
       write(6,*) 'nts_act',nts_act
       call allocate_TS_matrix
       call do_TS_matrix

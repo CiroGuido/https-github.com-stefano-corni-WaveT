@@ -40,7 +40,7 @@
          if (Fbem.eq.'wri') then
            !Build the cavity/nanoparticle surface
            if(Fcav.eq.'fil') then 
-             call read_cav_from_file
+             call read_cavity_full_file
            else
             if(mdm.eq.'sol') then
              call pedra_int('act')
@@ -56,7 +56,7 @@
            !write(6,*) "Created charges0.inp file with zero charges"
          elseif (Fbem.eq.'rea') then
            ! read in the cavity/nanoparticle surface
-           call read_interface_gau 
+           call read_cavity_file
          endif
          if(Fprop.eq."ief") then
            if(Fbem.eq."rea") then
@@ -74,42 +74,6 @@
       return
       end subroutine
 !
-!
-      subroutine read_interface_gau
-       integer(4) :: i,nts,nsphe
-       real(dbl)  :: x,y,z,s,r      
-       open(7,file="cavity.inp",status="old")
-         !read(7,*)  
-         read(7,*) nts,nsphe
-!         if(nts_act.eq.0.or.nts.eq.nts_act) then
-           nts_act=nts
-!         else
-!           write(*,*) "Tesserae number conflict"
-!           stop
-!         endif
-         if(.not.allocated(sfe_act).and.nsphe.gt.0) &
-           allocate (sfe_act(nsphe))
-         if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
-         do i=1,nsphe
-          read(7,*)  sfe_act(i)%x,sfe_act(i)%y, &
-                               sfe_act(i)%z
-         enddo
-         do i=1,nts_act 
-           read(7,*) x,y,z,s,r
-           cts_act(i)%x=x!*antoau 
-           cts_act(i)%y=y!*antoau
-           cts_act(i)%z=z!*antoau 
-           cts_act(i)%area=s!*antoau*antoau 
-           cts_act(i)%rsfe=r 
-           ! SP: this is only for a sphere: test purposes
-           !cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
-           !cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
-           !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
-           !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
-         enddo
-       close(7)
-       return
-      end subroutine
 !
       subroutine output_surf
       integer :: i

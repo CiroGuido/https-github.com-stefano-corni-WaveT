@@ -15,17 +15,21 @@
       private
       public pedra_int, read_act, read_pro, dealloc_pedra, &
              nts_act, nts_pro,cts_act,cts_pro,nesf_pro,sfe_pro, &
-             nesf_act,sfe_act,read_cav_from_file
+             nesf_act,sfe_act,read_cavity_file,read_cavity_full_file
 !
       contains
 !
       Subroutine read_act(iunit)
       integer(i4b) :: isfe,iunit
       read (iunit,*) nesf_act
+      write(6,*) "Number of spheres",nesf_act
+      write(6,*) "I_sphere  X     Y   Z   Radius"
       allocate(sfe_act(nesf_act))
       do isfe=1,nesf_act
        read (iunit,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
                   sfe_act(isfe)%r
+       write(6,'(I6,4F12.4)') isfe, sfe_act(isfe)%x,sfe_act(isfe)%y, &
+                 sfe_act(isfe)%z, sfe_act(isfe)%r
       enddo
       return
       end subroutine
@@ -1160,7 +1164,7 @@
 !C
 !C     Ha concluso il raffinamento
 !
-      subroutine read_cav_from_file
+      subroutine read_cavity_full_file
       integer(4) :: i,j,its
       open(7,file="cavity_full.inp",status="old")
       read(7,*) nts_act
@@ -1172,6 +1176,42 @@
       enddo
       close(7)
       return
+      end subroutine
+!
+      subroutine read_cavity_file
+       integer(4) :: i,nts,nsphe
+       real(dbl)  :: x,y,z,s,r      
+       open(7,file="cavity.inp",status="old")
+         !read(7,*)  
+         read(7,*) nts,nsphe
+!         if(nts_act.eq.0.or.nts.eq.nts_act) then
+           nts_act=nts
+!         else
+!           write(*,*) "Tesserae number conflict"
+!           stop
+!         endif
+         if(.not.allocated(sfe_act).and.nsphe.gt.0) &
+           allocate (sfe_act(nsphe))
+         if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
+         do i=1,nsphe
+          read(7,*)  sfe_act(i)%x,sfe_act(i)%y, &
+                               sfe_act(i)%z
+         enddo
+         do i=1,nts_act 
+           read(7,*) x,y,z,s,r
+           cts_act(i)%x=x!*antoau 
+           cts_act(i)%y=y!*antoau
+           cts_act(i)%z=z!*antoau 
+           cts_act(i)%area=s!*antoau*antoau 
+           cts_act(i)%rsfe=r 
+           ! SP: this is only for a sphere: test purposes
+           !cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
+           !cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
+           !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
+           !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
+         enddo
+       close(7)
+       return
       end subroutine
 !
       subroutine dealloc_pedra

@@ -22,9 +22,10 @@ INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
+OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
 OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
 
-all: WaveT.x freq_bem.x
+all: WaveT.x freq_bem.x make_spectra.x tdplas.x
 
 WaveT.x: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
@@ -34,6 +35,9 @@ freq_bem.x: $(OBJ_FREQ)
 
 make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA)  $(LIBS) $(LIBSF)
+
+tdplas.x: $(OBJ_TDPLAS) 
+	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS)  $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il
@@ -78,5 +82,8 @@ main_freq.o: main_freq.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
 main_spectra.o: main_spectra.f90
+	$(FC) -c $(FFLAGS) $(INC) $<
+
+main_tdplas.o: main_tdplas.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 

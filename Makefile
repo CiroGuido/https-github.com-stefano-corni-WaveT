@@ -2,6 +2,8 @@
 FC = ifort
 FFLAGS_XEON= -O3 -ftz -align -arch pn4 -tune pn4 -xN -tpp7
 FFLAGS_PAR= -parallel -par_threshold75 -par_report3
+FFLAGS_HYD= -O3 -ftz -align -xHost
+FFLAGS_HYD_PAR= -O3 -ftz -align -xHost -parallel -par_threshold75 -par_report3
 FFLAGS_DEB= -debug -C -traceback
 FFLAGS_P3= -O3 -ftz -align -arch pn3 -tune pn3 -tpp6
 FFLAGS_P4= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xN
@@ -11,7 +13,7 @@ FFLAGS_LAP= -O3 -ftz -align -xAVX -no-prec-div
 FFLAGS_GF= -O3
 LDLAGS= 
 #LDLAGS= --static --disable-shared --enable-static
-FFLAGS= $(FFLAGS_LAP)
+FFLAGS= $(FFLAGS_DEB)
 #LIBS = -L/usr/lib -llapack  -lblas 
 #LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
 LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread

@@ -477,13 +477,14 @@
 !
       subroutine do_TS_matrix
       integer(i4b) :: i,j,info,lwork,liwork
-      real(8), allocatable :: scr1(:,:),scr2(:,:)
+      real(8), allocatable :: scr1(:,:),scr2(:,:),eigt_t(:,:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp,fact1,fact2
       character jobz,uplo
       integer(i4b), allocatable :: iwork(:)
       real(8),allocatable :: work(:)
       allocate(scr1(nts_act,nts_act),scr2(nts_act,nts_act))
+      allocate(eigt_t(nts_act,nts_act))
       allocate(work(1+6*nts_act+2*nts_act*nts_act))
       allocate(iwork(3+5*nts_act))
       allocate(cals(nts_act,nts_act))
@@ -515,11 +516,12 @@
       do i=1,nts_act
         scr1(:,i)=eigt(:,i)*sqrt(eigv(i))
       enddo
-      sp12=matmul(scr1,transpose(eigt))                   
+      eigt_t=transpose(eigt)
+      sp12=matmul(scr1,eigt_t)                   
       do i=1,nts_act
         scr1(:,i)=eigt(:,i)/sqrt(eigv(i))
       enddo
-      sm12=matmul(scr1,transpose(eigt))                   
+      sm12=matmul(scr1,eigt_t)                   
 !     Test on S Diagonal passed 
 !     
 !     Form the S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 , and diagonalize it
@@ -558,7 +560,7 @@
       endif
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
       deallocate(work)
-      deallocate(scr1,scr2)
+      deallocate(scr1,scr2,eigt_t)
       write(6,*) "Done setting up T and S" 
       return
       end subroutine

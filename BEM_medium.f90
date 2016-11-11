@@ -514,6 +514,11 @@
       call dsyevd (jobz,uplo,nts_act,eigt,nts_act,eigv,work,lwork, &
         iwork,liwork,info)
       do i=1,nts_act
+        if(eigv(i).lt.0.d0) then
+         write(6,*) "WARNING:",i," eig of S is negative!"
+         write(6,*) "   I put it to 1e-8"
+         eigv(i)=1.d-8
+        endif
         scr1(:,i)=eigt(:,i)*sqrt(eigv(i))
       enddo
       eigt_t=transpose(eigt)

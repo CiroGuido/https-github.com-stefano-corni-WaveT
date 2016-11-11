@@ -1219,11 +1219,12 @@
 ! this routine read in gmsh mesh files
 !  AFTER they have been massaged by a proper
 !  gawk script. To be revised with better coding
-      integer(4) :: n_nodes,i_nodes,its,jts,j_max
+      integer(4) :: n_nodes,i_nodes,its,jts,j_max,its_a
       integer(4),allocatable :: el_nodes(:,:)
       character(6) :: line, junk
       real(8),allocatable :: c_nodes(:,:) 
-      real(8) :: vert(3,3),normal(3),area,dist,dist_v(3),dist_max 
+      real(8) :: vert(3,3),normal(3),area,dist,dist_v(3), &
+        dist_max,area_tot 
       nesf_act=0
       open(7,file="surface_msh.inp",status="old")
       read(7,*) n_nodes
@@ -1239,22 +1240,35 @@
       enddo
       close(7)
 !  And now do representative points, areas and normals
+      its_a=1
+      area_tot=0.d0
       do its=1,nts_act
         vert(:,1)=c_nodes(:,el_nodes(1,its))
         vert(:,2)=c_nodes(:,el_nodes(2,its))
         vert(:,3)=c_nodes(:,el_nodes(3,its))
-        cts_act(its)%x=sum(vert(1,:))/3.d0
-        cts_act(its)%y=sum(vert(2,:))/3.d0
-        cts_act(its)%z=sum(vert(3,:))/3.d0
+        cts_act(its_a)%x=sum(vert(1,:))/3.d0
+        cts_act(its_a)%y=sum(vert(2,:))/3.d0
+        cts_act(its_a)%z=sum(vert(3,:))/3.d0
+        do jts=1,its_a-1
+         dist=(cts_act(its_a)%x-cts_act(jts)%x)**2+  &
+              (cts_act(its_a)%y-cts_act(jts)%y)**2+ &
+              (cts_act(its_a)%z-cts_act(jts)%z)**2
+         if (dist.lt.1.d-20) goto 10
+        enddo
         normal=vec((vert(:,3)-vert(:,1)),(vert(:,2)-vert(:,1)))
         area=sqrt(dot_product(normal,normal))
-        cts_act(its)%area=area/2.d0
-        cts_act(its)%n=-normal/area
+        cts_act(its_a)%area=area/2.d0
+        area_tot=area_tot+area/2.d0
+        cts_act(its_a)%n=-normal/area
 ! very big as the tessera is planar, can be improved
 ! by using info from nearby normals to estimate a local
 ! curvature, TO BE DONE
-        cts_act(its)%rsfe=1.d20   
-      enddo
+        cts_act(its_a)%rsfe=1.d20   
+        its_a=its_a+1
+10    enddo
+      write(6,*) "nts,nts after eliminating replica",nts_act,its_a-1
+      write(6,*) "Tot. area",area_tot
+      nts_act=its_a-1
 ! choose the outward normal, with an euristic procedure tha may not always work!!
       do its=1,nts_act
         dist_max=0.d0
@@ -1281,12 +1295,18 @@
                  cts_act(its)%area,cts_act(its)%rsfe, &
                  cts_act(its)%n(:) 
       enddo
-!      do its=1,nts_act
-!       write(7,'(8D14.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z
-!       write(7,'(8D14.5)') cts_act(its)%x+cts_act(its)%n(1)*0.3, &
-!                           cts_act(its)%y+cts_act(its)%n(2)*0.3, &
-!                           cts_act(its)%z+cts_act(its)%n(3)*0.3
-!      enddo
+      close(7)
+!
+      open(7,file="nanoparticle.xyz",status="unknown")
+      write(7,*) 2*nts_act
+      write(7,*)
+      do its=1,nts_act
+       write(7,'("C ",8E14.5)') cts_act(its)%x,cts_act(its)%y, &
+                                cts_act(its)%z
+       write(7,'("H ",8E14.5)') cts_act(its)%x+cts_act(its)%n(1), &
+                           cts_act(its)%y+cts_act(its)%n(2), &
+                           cts_act(its)%z+cts_act(its)%n(3)
+      enddo
       close(7)
 !      open(7,file="cavity.inp",status="unknown")
 !      write(7,*) nts_act,0

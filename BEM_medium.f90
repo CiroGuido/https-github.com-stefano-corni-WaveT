@@ -555,13 +555,34 @@
       enddo
       close(7)
       if (Feps.eq.'drl') then
+! Do Q0 and Qd for Gamess
+       scr1=matmul(sm12,eigt)
+       scr2=transpose(scr1)
        write (6,*) "Squares of resonance frequencies, in a.u."
        do i=1,nts_act
         fact2=(twp-sgn*eigv(i))*eps_A/(two*twp)  
         fact1=fact2+eps_w0*eps_w0  
         if (fact1.lt.0.d0) eigv(i)=-twp
         write(6,*) i,fact1
+        scr1(:,i)=scr1(:,i)*fact2/fact1
        enddo
+       eigt_t=-matmul(scr1,scr2)
+         open(7,file="np_bem.mat",status="unknown")
+         do j=1,nts_act
+          do i=1,nts_act
+           write(7,'(D20.12)') eigt_t(i,j)/cts_act(i)%area
+          enddo
+         enddo
+         close(7)
+         write(6,*) "Written out the static matrix for gamess"
+         open(7,file="np_bem.mdy",status="unknown")
+         do j=1,nts_act
+          do i=1,nts_act
+           write(7,'(D20.12)') 0.d0
+          enddo
+         enddo
+         close(7)
+         write(6,*) "Written out the dynamic matrix for gamess"
       endif
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
       deallocate(work)

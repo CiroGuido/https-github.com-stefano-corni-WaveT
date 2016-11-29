@@ -15,12 +15,13 @@
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_f,n_ci,n_step,n_out
+      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
-      real(8) :: dt,tau,start
-      integer(4) :: dir_ft
-      real(8) :: t_mid,sigma,fmax(3),omega,mol_cc(3)
+      real(8) :: dt,tau(2),start
+! SP 28/10/16: improved with a vector
+!      integer(4) :: dir_ft
+      real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
       character(3) :: mdm,Ffld,rad 
       integer(4) :: iseed  ! seed for random number generator
 ! kind of surrounding medium and shape of the impulse
@@ -36,21 +37,25 @@
 
       
       private
-      public read_input,n_ci,n_step,dt,Ffld,t_mid,sigma,omega,fmax, & 
+      public read_input,n_ci,n_ci_read,n_step,dt, &
+             Ffld,t_mid,sigma,omega,fmax, & 
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft
 !
       contains
 !
       subroutine read_input
-       integer(4):: i
+       integer(4):: i,nspectra
        character(3) :: medium,radiative
+       read(5,*)    
        read(5,*) n_f
-       write(6,*) "Number to append to dat file"
-       read(5,*) n_ci
-       write (6,*) "Number of CIS states",n_ci
+       write(6,*) "Number to append to dat file", n_f
+       read(5,*) n_ci_read,n_ci
+       write (6,*) "Number of CIS states to be read",n_ci_read
+       write (6,*) "Number of CIS states to be used",n_ci
        read(5,*) dt,n_step,n_out
-       write (6,*) "Time step (in au) and number of steps",dt,n_step
+       write (6,*) "Time step (in au), number of steps, stride",dt, &
+                 n_step,n_out
        read(5,*) Ffld             
        write (6,*) "Time shape of the perturbing field",Ffld
        read(5,*) t_mid,sigma,omega
@@ -58,6 +63,7 @@
        write (6,*) "Width of the pulse (time au):",sigma
        write (6,*) "Frequency (au):",omega
        read(5,*) fmax
+       write (6,*) "Maximum E field",fmax
 !SC
        read(5,*) radiative
        select case (radiative)
@@ -71,11 +77,6 @@
        read(5,*) (mol_cc(i),i=1,3)
        write(*,*) 'Molecular center of charge'
        write(*,*) mol_cc
-!    read spectra calculation parameters:
-       read(5,*) tau       ! Artificial damping 
-       read(5,*) start     ! Start point for FT calculation
-       read(5,*) dir_ft     ! direction along which the field is
-!                            oriented: TO BE IMPROVED
 !    read gaussian output for CIS propagation
        call read_gau_out
 !    read external medium type: sol, nan, vac
@@ -92,6 +93,13 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+!    read spectra calculation parameters:
+       nspectra=1
+       tau(:)=zero
+       if(medium.ne.'vac') nspectra=2 
+       read(5,*) 
+       read(5,*) start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
+       read(5,*) (dir_ft(i),i=1,3)      ! direction along which the field is oriented
        return
       end subroutine
 !
@@ -103,6 +111,7 @@
        open(7,file="ci_energy.inp",status="old")
        ! add ground state
        n_ci=n_ci+1
+       n_ci_read=n_ci_read+1
        allocate (e_ci(n_ci))
        e_ci(1)=0.d0
        write (6,*) "Excitation energies read from input, in Hartree"
@@ -121,18 +130,24 @@
 ! SC 31/05/2016: now the GS data from gaussian is in debye and same format as others
 !       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
 !       mut(1,1,:)=mut(1,1,:)*debye_to_au
-       do i=1,n_ci
+       do i=1,n_ci_read
 !         read(7,*) junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
-        read(7,*)junk,junk,junk,junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
-        mut(i,1,:)=mut(1,i,:)
+        if (i.le.n_ci) then
+         read(7,*)junk,junk,junk,junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
+         mut(i,1,:)=mut(1,i,:)
+        else
+         read(7,*)
+        endif
        enddo
-       do i=2,n_ci
+       do i=2,n_ci_read
          do j=2,i   
+          if (i.le.n_ci.and.j.le.n_ci) then
            read(7,*)junk,junk,junk,junk,mut(i,j,1),mut(i,j,2),mut(i,j,3)
            mut(j,i,:)=mut(i,j,:)
+          else
+           read(7,*)
+          endif
          enddo
-!! Gaussian subtract the dipole moment for the ground state
-!         mut(i,i,:)=mut(i,i,:)+mut(1,1,:)
        enddo
 !       write(6,*) "mut"
 !       do i=1,n_ci

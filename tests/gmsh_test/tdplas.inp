@@ -1,0 +1,4 @@
+drl ! Debye (deb) vs Drude-Lorentz (drl)
+1000. 1.000 0.110224 0.00757576 0.0 0.0    ! eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+!
+gmsh 

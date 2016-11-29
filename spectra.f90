@@ -11,7 +11,7 @@
       complex(cmp), parameter :: zeroc=(zero,zero)                
       save
       private
-      public Sdip, Sfld, do_spectra, init_spectra
+      public Sdip, Sfld, do_spectra, init_spectra, read_arrays
 !
       contains
 !
@@ -21,13 +21,40 @@
        Sfld(:,:)=0.0d0
       return
       end subroutine
-          
-
+!
+      subroutine read_arrays  
+      integer(4) :: file_mol=10,file_fld=8,file_med=9,i,x
+      real(8) :: t
+       character(20) :: name_f
+       write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
+       open (file_mol,file=name_f,status="unknown")
+       if (mdm.ne.'vac') then 
+         write(name_f,'(a9,i0,a4)') "medium_t_",n_f,".dat"
+         open (file_med,file=name_f,status="unknown")
+       endif
+       write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
+       open (file_fld,file=name_f,status="unknown")
+       read(file_mol,*)
+       !read(file_fld,*)
+       if (mdm.ne.'vac') read(file_med,*)
+       do i=1,n_step
+         read (file_mol,'(i8,f14.4,3e22.10)') x,t,Sdip(i,:,1)       
+         if (mdm.ne.'vac') then
+           read (file_med,'(i8,f12.2,4e22.10)') x,t,Sdip(i,:,2)       
+         endif
+         read (file_fld,'(f12.2,3e22.10e3)') t,Sfld(i,:) 
+       enddo
+       close(file_mol)
+       close(file_fld)
+       if (mdm.ne.'vac') close(file_med)
+      return
+      end subroutine
+!
       subroutine do_spectra      
       implicit none
       real(dbl), allocatable :: Dinp(:),Finp(:)
-      real(dbl) :: dw,fac,absD,refD,phiF,phiD,modF,modD    
-      real(dbl) :: Deq(3)    
+      real(dbl) :: dw,fac,absD,refD,phiF,phiD,modF,modD,mdl    
+      real(dbl) :: Deq(3),Deq_np(3)    
       integer(i4b) :: i,isp,vdim,istart  
       integer*8 plan
       complex(cmp), allocatable :: Doutp(:),Foutp(:),src       
@@ -36,8 +63,8 @@
 !      find a better way to include this file
 !      than changing source back and forth from f to f03
 !      include '/usr/include/fftw3.f03'
-      include '/usr/local/include/fftw3.f03'
-!      include 'fftw3.f'
+!      include '/usr/local/include/fftw3.f03'
+      include 'fftw3.f'
     
       ! This is needed to improve the delta_omega and also the quality 
       ! of the DFT with respect to the FT
@@ -49,17 +76,24 @@
       dw=2*pi/dble(vdim)/dt
       ! The minus sign is for the electronic negative charge
       Deq(:)=Sdip(1+istart,:,1)
+      Deq_np(:)=Sdip(1+istart,:,2)
       do i=1,vdim
-        Sdip(i+istart,:,1)=(Sdip(i+istart,:,1)-Deq(:))*exp(-i*dt/tau)
-        Sdip(i+istart,:,2)=Sdip(i+istart,:,2)!/(sfe_act(1)%r)**3
+        Sdip(i+istart,:,1)=(Sdip(i+istart,:,1)-Deq(:))*    & 
+                                     exp(-i*dt/tau(1))
+        Sdip(i+istart,:,2)=(Sdip(i+istart,:,2)-Deq_np(:))* & 
+                                     exp(-i*dt/tau(2))
         Sdip(i+istart,:,3)=Sdip(i+istart,:,1)+Sdip(i+istart,:,2)
       enddo
+      ! SP 28/10/16: normalize the dir_ft
+      mdl=dir_ft(1)*dir_ft(1)+dir_ft(2)*dir_ft(2)+dir_ft(3)*dir_ft(3) 
+      dir_ft(:)=dir_ft(:)/sqrt(mdl)
       do isp=1,3
         Doutp=zeroc
         Foutp=zeroc
         do i=1,vdim
-          Dinp(i)=Sdip(i+istart,dir_ft,isp)
-          Finp(i)=Sfld(i+istart,dir_ft)
+          ! SP 28/10/16: FT in the dir_ft direction
+          Dinp(i)=dot_product(Sdip(i+istart,:,isp),dir_ft(:)) 
+          Finp(i)=dot_product(Sfld(i+istart,:),dir_ft(:))
         enddo
         call dfftw_plan_dft_r2c_1d(plan,vdim,Dinp,Doutp,FFTW_ESTIMATE)
         call dfftw_execute_dft_r2c(plan, Dinp, Doutp)

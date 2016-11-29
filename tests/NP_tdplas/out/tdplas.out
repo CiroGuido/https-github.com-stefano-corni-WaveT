@@ -1,0 +1,20 @@
+ Drude-Lorentz dielectric constant
+ Number of spheres           2
+ I_sphere  X     Y   Z   Radius
+     1    103.9300      0.0000      0.0000     94.4858
+     2    179.5230      0.0000      0.0000     94.4858
+Done reading input, took     0.000s
+ GEPOL-GB: COUNTING TESSERAE
+ nts_act         364
+ GEPOL-GB: GENERATING TESSERAE
+
+ TOTAL NUMBER OF SPHERES=    2
+ SPHERE             CENTER  (X,Y,Z) (A)               RADIUS (A)      AREA(A*A)
+   1   54.997391514    0.000000000    0.000000000   49.999735736
+   2   94.999487315    0.000000000    0.000000000   49.999735736
+
+ TOTAL NUMBER OF TESSERAE=     364
+ SURFACE AREA=      43982.55706370(A**2)    CAVITY VOLUME=     820792.97169983 (A**3)
+ nts_act         364
+ Created output file with surface points
+ Matrixes S D have been written out, I'll stop now

@@ -11,7 +11,6 @@
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
       integer(4) :: nts
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
-      real(8), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,nmodes,ncycmax
@@ -39,11 +38,25 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
              nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
-             iBEM, cals,cald,q0,fr0,Floc,mdm_dip,qtot0, &
+             iBEM,q0,fr0,Floc,mdm_dip,qtot0, &
              Fdeb,vtsn,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr     
+             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq,&
+             read_medium_tdplas     
 !
       contains
+!
+      subroutine read_medium_freq
+      mdm='nan'
+      Fint='pcm'
+      Feps='drl'
+      Fprop='ief'
+      Fbem='rea'
+      Fcav='fil'             
+      read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+      read(5,*) fmax
+      
+      return
+      end subroutine
 !
       subroutine read_medium
        implicit none
@@ -54,6 +67,7 @@
        character(6) :: which_mdm_init_prop 
        nts_act=0
 ! read frequency of updating the interaction potential
+       read(5,*) 
        read(5,*) n_q
        read(5,*) 
 ! read dielectric function type and parameters
@@ -185,6 +199,8 @@
          select case(which_cavity)
          case ('fil','FIL','Fil')
           Fcav='fil'             
+         case ('gms','GMS','Gms')
+          Fcav='gms'             
          case ('bui','Bui','BUI')
           Fcav='bui'             
           call read_act(5)
@@ -248,6 +264,9 @@
        case ('vmu','Vmu','VMU','VMu')
         Fdeb='vmu'             
         write(6,*) "DEBUG: Potentials calculated from Dipoles "
+       case ('off','Off','OFF')
+        Fdeb='off'             
+        write(6,*) "DEBUG: Molecule - Medium interaction turned off"
        case default
         Fdeb='non'             
        end select
@@ -255,6 +274,50 @@
        return
       end subroutine
 !
+      subroutine read_medium_tdplas
+       implicit none
+       integer(4):: i,lc,db,rf,sc
+       character(3) :: which_eps,which_cavity
+       nts_act=0
+       mdm='nan'
+! read dielectric function type and parameters
+       read(5,*) which_eps
+       select case (which_eps)
+         case ('deb','Deb','DEB')
+           Feps='deb'
+           read(5,*) eps_0,eps_d,tau_deb
+           write(6,*) "Debye dielectric constant"
+         case ('drl','Drl','DRL')
+           Feps='drl'
+! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
+           read(5,*) eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel
+           write(6,*) "Drude-Lorentz dielectric constant"
+         case default
+           write(*,*) "Error, specify eps(omega) type DEB or DRL"
+           stop
+       end select
+       read(5,*) 
+! Interaction is PCM
+       Fint='pcm'
+! This run prepare matrices
+       Fbem='wri'
+       read(5,*) which_cavity
+       select case(which_cavity)
+       case ('fil','FIL','Fil')
+        Fcav='fil'             
+       case ('gms','GMS','Gms')
+        Fcav='gms'             
+       case ('bui','Bui','BUI')
+        Fcav='bui'             
+        call read_act(5)
+       case default
+        write(6,*) "Please choose: build or read cavity?"
+        stop
+       end select
+! This is to follow the correct route in init_BEM
+       Fprop='ief'
+       return
+      end subroutine
 !
 !
       ! read transition potentials on tesserae
@@ -280,26 +343,40 @@
         vts(1,1,its)=vts(1,1,its)+vtsn(its)
        enddo
        !V0j
-       do j=2,n_ci
+       do j=2,n_ci_read
          read(7,*) 
-         do its=1,nts_act
+         if (j.le.n_ci) then
+          do its=1,nts_act
           read(7,*) vts(1,j,its)
-         enddo
-         vts(j,1,:)=vts(1,j,:)
+          enddo
+          vts(j,1,:)=vts(1,j,:)
+         else
+          do its=1,nts_act
+           read(7,*)
+          enddo
+         endif
        enddo
        !Vij
-       do i=2,n_ci
+       do i=2,n_ci_read
         do j=2,i   
          read(7,*) 
-         do its=1,nts_act
-          read(7,*) vts(i,j,its)             
-         enddo
-         vts(j,i,:)=vts(i,j,:)
+         if (i.le.n_ci.and.j.le.n_ci) then
+          do its=1,nts_act
+           read(7,*) vts(i,j,its)             
+          enddo
+          vts(j,i,:)=vts(i,j,:)
+         else
+          do its=1,nts_act
+           read(7,*) 
+          enddo
+         endif
         enddo
         ! add nuclear potential
-        do its=1,nts_act
-         vts(i,i,its)=vts(i,i,its)+vtsn(its)
-        enddo
+        if (i.le.n_ci) then
+         do its=1,nts_act
+          vts(i,i,its)=vts(i,i,its)+vtsn(its)
+         enddo
+        endif
        enddo
        close(7)
        return
@@ -317,8 +394,6 @@
       end subroutine
 !
       subroutine deallocate_medium
-       if(allocated(cals)) deallocate(cals)
-       if(allocated(cald)) deallocate(cald)
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
        if(allocated(xmode)) deallocate(xmode)

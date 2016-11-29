@@ -232,7 +232,9 @@
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
-        Sfld(i,:)=f(:,i-1)
+        !Sfld(i,:)=f(:,i-1)
+        ! SP 25/10/16: changed for FT
+        Sfld(i,:)=f(:,i)
        return
       end subroutine
 !

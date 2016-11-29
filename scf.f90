@@ -68,15 +68,19 @@
        write(6,*) "SCF Done"
 ! write out the charges in the charge0.dat file
        if (Fprop.ne.'dip') then
-       open(unit=7,file="charges0_scf.inp",status="unknown", &
-            form="formatted")
-         write (7,*) nts_act
-         do its=1,nts_act
-          write (7,'(E22.8,F22.10)') qst(its)
-         enddo
-       close(unit=7)
-       write(6,*) "Written out the SCF charges"
+        open(unit=7,file="charges0_scf.inp",status="unknown", &
+             form="formatted")
+          write (7,*) nts_act
+          do its=1,nts_act
+           write (7,'(E22.8,F22.10)') qst(its)
+          enddo
+        close(unit=7)
+        write(6,*) "Written out the SCF charges"
+        ! SP 23/10/16: update the q0 vector to have a consistent correction if a
+        !              propagation is performed after the SCF cycle
+        q0(:)=qst(:)
        endif
+
 !       write(6,*) "Max Diff on Eigenvalue ", maxe
 !       write(6,*) "Max Diff on Eigenvector ", maxv
 ! Transform the potentials to the new basis

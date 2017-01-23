@@ -6,6 +6,8 @@
       use pedra_friends  
       use spectra
       use random
+      use dissipation
+
       implicit none
       real(8),allocatable :: f(:,:)
 ! SC mu_a is the dipole moment at current step,
@@ -21,13 +23,16 @@
 !
       subroutine prop
        implicit none
-       integer(4) :: i,j
-       complex(16), allocatable :: c(:),c_prev(:),c_prev2(:)
-       real(8), allocatable :: h_int(:,:)
-       real(8) :: f_prev(3),f_prev2(3)
-       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
-                  mu_prev5(3)
-       character(20) :: name_f
+       integer(4)                :: i,j,k
+       complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:)
+       real(8),     allocatable  :: h_int(:,:), h_dis(:,:), h_rnd(:,:)
+       real(8)                   :: f_prev(3),f_prev2(3)
+       real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
+                                    mu_prev4(3), mu_prev5(3)
+       real(8)                   :: eps  
+       real(8),     allocatable  :: w(:), w_prev(:)
+       character(20)             :: name_f
+       logical                   :: first=.true. 
 ! OPEN FILES
        write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
        open (file_c,file=name_f,status="unknown")
@@ -40,6 +45,11 @@
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
+       if (dis) allocate (h_dis(n_ci,n_ci))
+       if (dis.and..not.qjump) then 
+          allocate (h_rnd(n_ci,n_ci))
+          allocate (w(n_ci), w_prev(n_ci))
+       endif
 
 ! STEP ZERO: build interaction matrices to do a first evolution
        c_prev2=c_i
@@ -54,16 +64,43 @@
        mu_prev4=0.d0
        mu_prev5=0.d0
        int_rad_int=0.d0
-       if(rad.eq."arl") call seed_random_number_sc(iseed)
+       if(rad.eq."arl".or.dis) call seed_random_number_sc(iseed)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
            call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
        endif
        call add_int_vac(f_prev,h_int)
+
+! EC 20/12/16
+! Dissipation according to the Markovian SSE (eq 25 J. Phys: Condens.
+! Matter vol. 24 (2012) 273201)
+! OR
+! Dissipation according to the non-Markovian SSE (eq 24 J. Phys:
+! Condens. Matter vol. 24 (2012) 273201) 
+! Add a random fluctuation for the stochastic propagation (.not.qjump)
+       if (dis) then
+          call define_h_dis(h_dis,n_ci,tdis)
+          if (.not.qjump) call add_h_rnd(h_rnd,n_ci) 
+       endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
+! SIGN PROBLEM FOR UI?
        c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       if (dis) then
+          c=c_prev-0.5d0*dt*matmul(h_dis,c_prev)
+          if (.not.qjump) then
+             call rnd_noise(w,w_prev,n_ci,first)
+             first=.false.
+             if (tdis.eq.0) then
+             ! Euler-Maruyama 
+                c=c_prev-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
+             elseif (tdis.eq.1) then
+             ! Leimkuhler-Matthews
+                c=c_prev-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+             endif
+          endif
+       endif
        c=c/sqrt(dot_product(c,c))
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
@@ -73,15 +110,48 @@
        do i=3,n_step
          f_prev2=f(:,i-2)
          f_prev=f(:,i-1)
-         h_int=zero   
+         h_int=zero 
          if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
                                                       f_prev2,h_int)
          call add_int_vac(f_prev,h_int)
 ! SC field
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-         c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-         c=c/sqrt(dot_product(c,c))
+
+!No dissipation in the propagation -> .not.dis
+!Markovian dissipation (quantum jump) -> dis.and.qjump
+!Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
+
+         if (.not.dis.or.(dis.and.qjump)) then
+            c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
+! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
+            if (dis) then
+               c = c - dt*matmul(h_dis,c_prev)
+               call loss_norm(c,n_ci)
+! loss_norm computes: 
+! norm = 1 - dtot
+! dtot = dsp + dnr + dde
+! Loss of the norm, dissipative events simulated
+! eps -> uniform random number in [0,1]
+               call random_number(eps)   
+               if (dtot.ge.eps) call quan_jump(c,n_ci) 
+            endif
+! Deteministic evolution without dissipation (dis=.false.)
+! OR
+! No quantum jump in the SSE evolution (dis=.true.and.dtot.lt.eps)
+            if (.not.dis.or.(dis.and.dtot.lt.eps)) c=c/sqrt(dot_product(c,c))
+         elseif (dis.and..not.qjump) then
+            call rnd_noise(w,w_prev,n_ci,first)
+            if (tdis.eq.0) then
+            ! Euler-Maruyama 
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev) + matmul(h_dis,c_prev)) + sqrt(dt)*matmul(h_rnd,c_prev)*w
+            elseif (tdis.eq.1) then
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev) + matmul(h_dis,c_prev)) + 0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+            endif
+            c=c/sqrt(dot_product(c,c))
+         endif
+
          c_prev2=c_prev
          c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
@@ -90,6 +160,15 @@
 
 ! DEALLOCATION AND CLOSING
        deallocate (c,c_prev,c_prev2,h_int)
+       if (dis) then
+          call deallocate_dis()
+          deallocate(h_dis)
+          if (.not.qjump) then
+             deallocate(h_rnd)
+             deallocate(w)
+             deallocate(w_prev)
+          endif 
+       endif
        close (file_c)
        close (file_e)
        close (file_mu)

@@ -17,6 +17,7 @@
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
       integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Markovian, tdis=1 nonMarkvian
+      integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
@@ -54,7 +55,7 @@
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
-             deallocate_dis,qjump
+             deallocate_dis,qjump,i_sp,i_nr,i_de
 !
       contains
 !
@@ -129,7 +130,7 @@
            case ('qjump', 'Qjump', 'QJump')
              qjump=.true.
              write(*,*) 'Quantum jump algorithm'
-           case default
+           case ('Euler', 'EUler', 'EULER', 'euler')
              qjump=.false.
              write(*,*) 'Continuous stochastic propagator'
           end select
@@ -255,7 +256,7 @@
        term=4.d0/(3.d0*slight)
        do i=1,nexc
           sp_gam(i) = term*e_ci(i+1)**3
-          sp_gam(i) = 0.d0
+          write(999,*) i, sp_gam(i)
        enddo
 
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  

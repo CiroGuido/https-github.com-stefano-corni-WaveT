@@ -45,6 +45,8 @@ module dissipation
       h_dis(i,i) = h_dis(i,i) + de_gam(i-1)
    enddo
 
+   h_dis=0.5d0*h_dis
+
    return
 
   end subroutine add_dis_m
@@ -100,12 +102,11 @@ module dissipation
    dde=0.d0
 
    do i=1,nexc
-      tmp=dble(cmplx(c(i+1))*c(i+1))
-      if (tmp.lt.0.d0) tmp=0.d0
-      weight=tmom2_0i(i)*tmp
+      tmp=abs(c(i+1))
+      weight=tmom2_0i(i)*tmp**2
       dsp = dsp + sp_gam(i)*weight
       dnr = dnr + nr_gam(i)*weight
-      dde = dde + de_gam(i)
+      dde = dde + de_gam(i)*tmp**2
    enddo
    dsp = dsp*dt
    dnr = dnr*dt
@@ -129,10 +130,10 @@ module dissipation
    complex(16), intent(inout)   :: c(nci)
    integer(4),  intent(in)      :: nci
    integer(4)                   :: istate
-   real(8)                      :: eta, eta1, tmp1, tmp2, modc, creal, ireal
+   real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
    logical                      :: state=.false.
 
-! (0)|------dsp/dtot-----|---dnr/dtot---|--dsp/dtot--|(1) 
+! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
 ! a kinetic Monte Carlo strategy (JCP vol. 111 (1999) 10126)   
 
@@ -140,6 +141,9 @@ module dissipation
 
    tmp1 = dsp/dtot
    tmp2 = (dsp+dnr)/dtot
+   tmp3 = (dsp+dnr+dde)/dtot
+
+   state=.false.
 
 ! Select the relaxation channel
 ! j = n + FLOOR((m+1-n)*rnd), rnd [0,1) -> [n,m] 
@@ -153,24 +157,32 @@ module dissipation
 
 ! Spontaneous occurring 
    if (eta.ge.0.and.eta.lt.tmp1) then
-      creal = real(c(istate+1))*sp_gam(istate)*tmom2_0i(istate)
+      if (istate.eq.1) istate=istate+1
+      creal = real(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal) 
-      c(2:n_ci) = zeroc 
+      c(2:nci) = zeroc
+      c=c/abs(c(1))
+      i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
    ! Select the relaxation channel
-      creal = real(c(istate+1))*nr_gam(istate)*tmom2_0i(istate)
-      ireal = aimag(c(istate+1))*nr_gam(istate)*tmom2_0i(istate)
+      if (istate.eq.1) istate=istate+1
+      creal = real(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+      ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal)
-      c(2:n_ci) = zeroc 
+      c(2:nci) = zeroc
+      c=c/abs(c(1)) 
+      i_nr = i_nr +1
 ! Pure dephasing occurring 
-   else 
+   elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       creal = real(c(istate+1))*cos(delta(istate))
       ireal = aimag(c(istate+1))*sin(delta(istate))  
       c(istate+1)  = cmplx(creal,ireal)
-      c(1:istate) = 0.d0
-      c(istate+2:nexc) = 0.d0
+      c(1:istate) = zeroc 
+      c(istate+2:nci) = 0.d0
+      c=c/abs(c(istate+1))
+      i_de = i_de + 1 
    endif
 
    return

@@ -86,9 +86,10 @@
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
 ! SIGN PROBLEM FOR UI?
-       c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+      ! c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        if (dis) then
-          c=c_prev-0.5d0*dt*matmul(h_dis,c_prev)
+          c=c_prev-dt*matmul(h_dis,c_prev)
           if (.not.qjump) then
              call rnd_noise(w,w_prev,n_ci,first)
              first=.false.
@@ -123,11 +124,11 @@
 !Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
 
          if (.not.dis.or.(dis.and.qjump)) then
-            c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
             if (dis) then
-               c = c - dt*matmul(h_dis,c_prev)
+               c = c - 2.d0*dt*matmul(h_dis,c_prev)
                call loss_norm(c,n_ci)
 ! loss_norm computes: 
 ! norm = 1 - dtot
@@ -135,19 +136,21 @@
 ! Loss of the norm, dissipative events simulated
 ! eps -> uniform random number in [0,1]
                call random_number(eps)   
-               if (dtot.ge.eps) call quan_jump(c,n_ci) 
+               if (dtot.ge.eps)  then
+                  call quan_jump(c,n_ci)
+               endif   
             endif
 ! Deteministic evolution without dissipation (dis=.false.)
 ! OR
 ! No quantum jump in the SSE evolution (dis=.true.and.dtot.lt.eps)
-            if (.not.dis.or.(dis.and.dtot.lt.eps)) c=c/sqrt(dot_product(c,c))
+            if (.not.dis.or.(dis.and.dtot.lt.eps)) c=c/sqrt(dot_product(c,c)) 
          elseif (dis.and..not.qjump) then
             call rnd_noise(w,w_prev,n_ci,first)
             if (tdis.eq.0) then
             ! Euler-Maruyama 
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev) + matmul(h_dis,c_prev)) + sqrt(dt)*matmul(h_rnd,c_prev)*w
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
             elseif (tdis.eq.1) then
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev) + matmul(h_dis,c_prev)) + 0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
             endif
             c=c/sqrt(dot_product(c,c))
          endif
@@ -168,6 +171,14 @@
              deallocate(w)
              deallocate(w_prev)
           endif 
+          if (qjump) then
+             write(*,*)
+             write(*,*) 'Total number of quantum jumps', i_sp+i_nr+i_de, '(',  real(i_sp+i_nr+i_de)/real(n_step),')'
+             write(*,*) 'Spontaneous emission quantum jumps', i_sp,'(',  real(i_sp)/real(n_step),')'
+             write(*,*) 'Nonradiarive relaxation quantum jumps', i_nr,'(', real(i_nr)/real(n_step),')'
+             write(*,*) 'Dephasing relaxation quantum jumps', i_de, '(', real(i_de)/real(n_step),')'
+             write(*,*)
+          endif
        endif
        close (file_c)
        close (file_e)

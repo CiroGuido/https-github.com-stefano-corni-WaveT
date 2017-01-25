@@ -204,18 +204,19 @@ module dissipation
    integer                :: i
 
 ! Matrix elements of S_alpha in the basis of the system eigenstates 
-   h_rnd=0.d0
+   h_rnd=zero
 
    do i=2, nci
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
-      h_rnd(i,i) = h_rnd(i,i) + sqrt(sp_gam(i-1)*tmom2_0i(i-1))
+      h_rnd(1,i) = h_rnd(1,i) + sqrt(sp_gam(i-1)*tmom2_0i(i-1))
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
-      h_rnd(i,i) = h_rnd(i,i) + sqrt(nr_gam(i-1)*tmom2_0i(i-1))
+      h_rnd(1,i) = h_rnd(1,i) + sqrt(nr_gam(i-1)*tmom2_0i(i-1))
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      h_rnd(i,i) = h_rnd(i,i) + sqrt(de_gam(i-1))
+      h_rnd(1,i) = h_rnd(1,i) + sqrt(de_gam(i-1))
+      h_rnd(i,1) = h_rnd(1,i)
    enddo
 
    return
@@ -237,6 +238,7 @@ module dissipation
    integer                :: i
 
    h_dis=zero
+
    if (tdis.eq.0) then 
       call add_dis_m(h_dis,n_ci)
    elseif (tdis.eq.1) then 

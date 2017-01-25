@@ -256,7 +256,6 @@
        term=4.d0/(3.d0*slight)
        do i=1,nexc
           sp_gam(i) = term*e_ci(i+1)**3
-          write(999,*) i, sp_gam(i)
        enddo
 
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  

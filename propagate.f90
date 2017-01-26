@@ -85,20 +85,19 @@
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
-! SIGN PROBLEM FOR UI?
       ! c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        if (dis) then
-          c=c_prev-dt*matmul(h_dis,c_prev)
+          c=c-dt*matmul(h_dis,c_prev)
           if (.not.qjump) then
-             call rnd_noise(w,w_prev,n_ci,first)
+             call rnd_noise(w,w_prev,n_ci,first,tdis)
              first=.false.
              if (tdis.eq.0) then
-             ! Euler-Maruyama 
-                c=c_prev-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
+             ! Euler-Maruyama
+                c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
              elseif (tdis.eq.1) then
              ! Leimkuhler-Matthews
-                c=c_prev-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+                c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
              endif
           endif
        endif
@@ -118,10 +117,9 @@
 ! SC field
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-
-!No dissipation in the propagation -> .not.dis
-!Markovian dissipation (quantum jump) -> dis.and.qjump
-!Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
+! No dissipation in the propagation -> .not.dis
+! Markovian dissipation (quantum jump) -> dis.and.qjump
+! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
 
          if (.not.dis.or.(dis.and.qjump)) then
              c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
@@ -145,7 +143,7 @@
 ! No quantum jump in the SSE evolution (dis=.true.and.dtot.lt.eps)
             if (.not.dis.or.(dis.and.dtot.lt.eps)) c=c/sqrt(dot_product(c,c)) 
          elseif (dis.and..not.qjump) then
-            call rnd_noise(w,w_prev,n_ci,first)
+            call rnd_noise(w,w_prev,n_ci,first,tdis)
             if (tdis.eq.0) then
             ! Euler-Maruyama 
                 c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w

@@ -249,7 +249,7 @@ module dissipation
  
   end subroutine define_h_dis
 
-  subroutine rnd_noise(w,w_prev,nci,first) 
+  subroutine rnd_noise(w,w_prev,nci,first,tdis) 
 !------------------------------------------------------------------------
 ! Define the random fluctuating term in the
 ! stochastic propagator
@@ -259,20 +259,26 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   integer, intent(in)    :: nci
+   integer, intent(in)    :: nci, tdis
    real(8), intent(inout) :: w(nci), w_prev(nci)
    logical, intent(in)    :: first
    integer                :: i
 
-   if (first) then
-      do i=1,nci 
-         w(i) = random_normal()
-         w_prev(i) = random_normal()
-      enddo
-   else 
+   if (tdis.eq.1) then
+      if (first) then
+         do i=1,nci 
+            w(i) = random_normal()
+            w_prev(i) = random_normal()
+         enddo
+      else 
+         do i=1,nci
+            w(i) =  w_prev(i)
+            w_prev(i) = random_normal()
+         enddo
+      endif
+   elseif (tdis.eq.0) then
       do i=1,nci
-         w(i) =  w_prev(i)
-         w_prev(i) = random_normal()
+         w(i) = random_normal()
       enddo
    endif
 

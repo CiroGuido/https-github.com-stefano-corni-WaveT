@@ -77,7 +77,7 @@ module dissipation
 
   end subroutine add_dis_nm
 
-  subroutine loss_norm(c,nci)
+  subroutine loss_norm(c,nci,pjump)
 !------------------------------------------------------------------------
 ! Contributions to the loss of norm 
 ! Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
@@ -94,6 +94,7 @@ module dissipation
    implicit none
    complex(16), intent(in)   :: c(nci)
    integer,     intent(in)   :: nci
+   real(8),     intent(inout):: pjump(3*nexc)
    integer                   :: i
    real(8)                   :: weight, tmp
 
@@ -109,17 +110,24 @@ module dissipation
       dsp = dsp + sp_gam(i)*weight
       dnr = dnr + nr_gam(i)*weight
       dde = dde + de_gam(i)*tmp**2
+      pjump(i) = sp_gam(i)*weight
+      pjump(i+nexc) = nr_gam(i)*weight
+      pjump(i+2*nexc) = de_gam(i)*tmp**2
    enddo
    dsp = dsp*dt
    dnr = dnr*dt
    dde = dde*dt
    dtot = dsp + dnr + dde
 
+   pjump(1:nexc)=pjump/dsp
+   pjump(nexc+1:2*nexc)=pjump/dnr
+   pjump(2*nexc+1:3*nexc)=pjump/dde
+
    return
 
   end subroutine loss_norm 
 
-  subroutine quan_jump(c,nci)
+  subroutine quan_jump(c,nci,pjump)
 !------------------------------------------------------------------------
 ! Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
 ! Random events: dissipation, nonradiative and dephasing
@@ -131,7 +139,8 @@ module dissipation
    implicit none
    complex(16), intent(inout)   :: c(nci)
    integer(4),  intent(in)      :: nci
-   integer(4)                   :: istate
+   real(8),     intent(in)      :: pjump(3*nexc)
+   integer(4)                   :: i,istate
    real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
    logical                      :: state=.false.
 
@@ -150,16 +159,19 @@ module dissipation
 ! Select the relaxation channel
 ! j = n + FLOOR((m+1-n)*rnd), rnd [0,1) -> [n,m] 
 ! In our case [1,nexc]
-   do while (.not.state)
-      call random_number(eta1)
-      istate = 1 + floor(nexc*eta1)
-      modc = sqrt(real(c(istate+1))**2 + aimag(c(istate+1))**2)
-      if (modc.ne.0.d0) state=.true.
-   enddo
 
 ! Spontaneous occurring 
    if (eta.ge.0.and.eta.lt.tmp1) then
-      if (istate.eq.1) istate=istate+1
+      do while (.not.state)
+          call random_number(eta1)
+          do i=1,nexc-1
+            if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
+                istate = 1 + floor(nexc*eta1)
+            endif
+            modc = abs(c(istate+1))
+            if (modc.ne.0.d0) state=.true.
+          enddo
+      enddo
       creal = real(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal) 
@@ -168,8 +180,16 @@ module dissipation
       i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
-   ! Select the relaxation channel
-      if (istate.eq.1) istate=istate+1
+      do while (.not.state)
+          call random_number(eta1)
+          do i=nexc+1,2*nexc-1
+             if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
+                istate = 1 + floor(nexc*eta1)
+             endif
+             modc = abs(c(istate+1))
+             if (modc.ne.0.d0) state=.true.
+          enddo
+      enddo
       creal = real(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal)
@@ -178,6 +198,16 @@ module dissipation
       i_nr = i_nr +1
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
+      do while (.not.state)
+          call random_number(eta1)
+          do i=2*nexc+1,3*nexc-1
+             if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
+                 istate = 1 + floor(nexc*eta1)
+             endif
+             modc = abs(c(istate+1))
+             if (modc.ne.0.d0) state=.true.
+          enddo
+      enddo
       creal = real(c(istate+1))*cos(delta(istate))
       ireal = aimag(c(istate+1))*sin(delta(istate))  
       c(istate+1)  = cmplx(creal,ireal)

@@ -26,6 +26,7 @@
        integer(4)                :: i,j,k,istop
        complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:)
        real(8),     allocatable  :: h_int(:,:), h_dis(:,:), h_rnd(:,:)
+       real(8),     allocatable  :: pjump(:) 
        real(8)                   :: f_prev(3),f_prev2(3)
        real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
                                     mu_prev4(3), mu_prev5(3)
@@ -45,10 +46,14 @@
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
-       if (dis) allocate (h_dis(n_ci,n_ci))
-       if (dis.and..not.qjump) then 
-          allocate (h_rnd(n_ci,n_ci))
-          allocate (w(n_ci), w_prev(n_ci))
+       if (dis) then
+          allocate (h_dis(n_ci,n_ci))
+          if (qjump) then
+             allocate (pjump(3*nexc))
+          elseif (dis.and..not.qjump) then 
+             allocate (h_rnd(n_ci,n_ci))
+             allocate (w(n_ci), w_prev(n_ci))
+          endif
        endif
 
 ! STEP ZERO: build interaction matrices to do a first evolution
@@ -117,20 +122,6 @@
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
 
-!         if (.not.dis.or.(dis.and.qjump)) then
-!             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-!            if (dis) then
-!               c = c - 2.d0*dt*matmul(h_dis,c_prev)
-!               call loss_norm(c,n_ci)
-!               write(888,*) i, dtot, abs(c(1)), abs(c_prev(1))
-!               call random_number(eps)   
-!               if (dtot.ge.eps)  then
-!                  call quan_jump(c,n_ci)
-!                  istop=i
-!               endif   
-!            endif
-
-
 ! No dissipation in the propagation -> .not.dis
 ! Markovian dissipation (quantum jump) -> dis.and.qjump
 ! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
@@ -147,10 +138,10 @@
 ! dtot = dsp + dnr + dde
 ! Loss of the norm, dissipative events simulated
 ! eps -> uniform random number in [0,1]
-            call loss_norm(c,n_ci)
+            call loss_norm(c,n_ci,pjump)
             call random_number(eps)  
             if (dtot.ge.eps)  then
-               call quan_jump(c,n_ci)
+               call quan_jump(c,n_ci,pjump)
             else
                c=c/sqrt(dot_product(c,c))  
             endif

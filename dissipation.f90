@@ -47,6 +47,8 @@ module dissipation
 
    h_dis=0.5d0*h_dis
 
+   !h_dis(1,1)=0.5d0
+
    return
 
   end subroutine add_dis_m
@@ -215,8 +217,7 @@ module dissipation
       h_rnd(1,i) = h_rnd(1,i) + sqrt(nr_gam(i-1)*tmom2_0i(i-1))
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      h_rnd(1,i) = h_rnd(1,i) + sqrt(de_gam(i-1))
-      h_rnd(i,1) = h_rnd(1,i)
+      h_rnd(i,i) = h_rnd(i,i) + sqrt(de_gam(i-1))
    enddo
 
    return

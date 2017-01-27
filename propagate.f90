@@ -23,7 +23,7 @@
 !
       subroutine prop
        implicit none
-       integer(4)                :: i,j,k
+       integer(4)                :: i,j,k,istop
        complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:)
        real(8),     allocatable  :: h_int(:,:), h_dis(:,:), h_rnd(:,:)
        real(8)                   :: f_prev(3),f_prev2(3)
@@ -85,7 +85,6 @@
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
-      ! c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        if (dis) then
           c=c-dt*matmul(h_dis,c_prev)
@@ -117,32 +116,46 @@
 ! SC field
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
+
+!         if (.not.dis.or.(dis.and.qjump)) then
+!             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+!            if (dis) then
+!               c = c - 2.d0*dt*matmul(h_dis,c_prev)
+!               call loss_norm(c,n_ci)
+!               write(888,*) i, dtot, abs(c(1)), abs(c_prev(1))
+!               call random_number(eps)   
+!               if (dtot.ge.eps)  then
+!                  call quan_jump(c,n_ci)
+!                  istop=i
+!               endif   
+!            endif
+
+
 ! No dissipation in the propagation -> .not.dis
 ! Markovian dissipation (quantum jump) -> dis.and.qjump
 ! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
-
-         if (.not.dis.or.(dis.and.qjump)) then
-             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+         if (.not.dis) then
+            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+            c=c/sqrt(dot_product(c,c))
+            c_prev2=c_prev
+         elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
-            if (dis) then
-               c = c - 2.d0*dt*matmul(h_dis,c_prev)
-               call loss_norm(c,n_ci)
+            c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
 ! loss_norm computes: 
 ! norm = 1 - dtot
 ! dtot = dsp + dnr + dde
 ! Loss of the norm, dissipative events simulated
 ! eps -> uniform random number in [0,1]
-               call random_number(eps)   
-               if (dtot.ge.eps)  then
-                  call quan_jump(c,n_ci)
-               endif   
+            call loss_norm(c,n_ci)
+            call random_number(eps)  
+            if (dtot.ge.eps)  then
+               call quan_jump(c,n_ci)
+            else
+               c=c/sqrt(dot_product(c,c))  
             endif
-! Deteministic evolution without dissipation (dis=.false.)
-! OR
-! No quantum jump in the SSE evolution (dis=.true.and.dtot.lt.eps)
-            if (.not.dis.or.(dis.and.dtot.lt.eps)) c=c/sqrt(dot_product(c,c)) 
          elseif (dis.and..not.qjump) then
+! Dissipation by a continuous stochastic propagation
             call rnd_noise(w,w_prev,n_ci,first,tdis)
             if (tdis.eq.0) then
             ! Euler-Maruyama 
@@ -153,10 +166,11 @@
             c=c/sqrt(dot_product(c,c))
          endif
 
-         c_prev2=c_prev
+         !c_prev2=c_prev
          c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
          if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int)
+         
        enddo
 
 ! DEALLOCATION AND CLOSING

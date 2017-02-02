@@ -18,6 +18,7 @@
       complex(16), parameter :: ui=(zero,one)
       integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Markovian, tdis=1 nonMarkvian
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
+      integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
@@ -55,7 +56,7 @@
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
-             deallocate_dis,qjump,i_sp,i_nr,i_de
+             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd
 !
       contains
 !
@@ -132,7 +133,9 @@
              write(*,*) 'Quantum jump algorithm'
            case ('Euler', 'EUler', 'EULER', 'euler')
              qjump=.false.
+             read(*,*) nrnd
              write(*,*) 'Continuous stochastic propagator'
+             write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
           end select
         case ('nma', 'NMa', 'NMA', 'Nma')
           dis=.true.
@@ -242,20 +245,22 @@
        nexc = n_ci - 1
 
        allocate(nr_gam(nexc))
-       allocate(de_gam(nexc))
+       allocate(de_gam(nexc+1))
        allocate(sp_gam(nexc))
        allocate(tmom2_0i(nexc))
-       allocate(delta(nexc))
+       allocate(delta(nexc+1))
 
 ! Read nonradiative and dephasing terms
        do i=1,nexc
           read(8,*) idum, nr_gam(i)
           read(9,*) idum, de_gam(i)
        enddo
+       read(9,*) idum, de_gam(nexc+1)
 ! Define spontaneous emission terms 
        term=4.d0/(3.d0*slight)
        do i=1,nexc
           sp_gam(i) = term*e_ci(i+1)**3
+          sp_gam(i) = 0.d0
        enddo
 
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  
@@ -264,9 +269,10 @@
        enddo
 
 ! Read phase randomly added during the propagation
-       do i=1,nexc
+       do i=1,nexc+1
           read(10,*) idum, delta(i)
        enddo 
+
 
 100    if (ierr0.ne.0) then
           write(*,*)

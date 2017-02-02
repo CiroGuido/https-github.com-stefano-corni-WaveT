@@ -42,12 +42,11 @@ module dissipation
       h_dis(i,i) = h_dis(i,i) + nr_gam(i-1)*tmom2_0i(i-1)
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      h_dis(i,i) = h_dis(i,i) + de_gam(i-1)
+      h_dis(i,i) = h_dis(i,i) + de_gam(i)
    enddo
-
+   h_dis(1,1) = de_gam(1)
    h_dis=0.5d0*h_dis
 
-   !h_dis(1,1)=0.5d0
 
    return
 
@@ -94,7 +93,7 @@ module dissipation
    implicit none
    complex(16), intent(in)   :: c(nci)
    integer,     intent(in)   :: nci
-   real(8),     intent(inout):: pjump(3*nexc)
+   real(8),     intent(inout):: pjump(3*nexc+1)
    integer                   :: i
    real(8)                   :: weight, tmp
 
@@ -109,19 +108,20 @@ module dissipation
       weight=tmom2_0i(i)*tmp**2
       dsp = dsp + sp_gam(i)*weight
       dnr = dnr + nr_gam(i)*weight
-      dde = dde + de_gam(i)*tmp**2
+      dde = dde + de_gam(i+1)*tmp**2
       pjump(i) = sp_gam(i)*weight
       pjump(i+nexc) = nr_gam(i)*weight
-      pjump(i+2*nexc) = de_gam(i)*tmp**2
+      pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
    enddo
+   pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
    dsp = dsp*dt
    dnr = dnr*dt
-   dde = dde*dt
+   dde = (dde+pjump(1+2*nexc))*dt
    dtot = dsp + dnr + dde
 
-   pjump(1:nexc)=pjump/dsp
-   pjump(nexc+1:2*nexc)=pjump/dnr
-   pjump(2*nexc+1:3*nexc)=pjump/dde
+   pjump(1:nexc)=pjump(1:nexc)*dt/dsp
+   pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
+   pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
 
    return
 
@@ -139,10 +139,10 @@ module dissipation
    implicit none
    complex(16), intent(inout)   :: c(nci)
    integer(4),  intent(in)      :: nci
-   real(8),     intent(in)      :: pjump(3*nexc)
+   real(8),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
    real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
-   logical                      :: state=.false.
+   real(8)                      :: left, right 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
@@ -154,66 +154,67 @@ module dissipation
    tmp2 = (dsp+dnr)/dtot
    tmp3 = (dsp+dnr+dde)/dtot
 
-   state=.false.
-
 ! Select the relaxation channel
 ! j = n + FLOOR((m+1-n)*rnd), rnd [0,1) -> [n,m] 
 ! In our case [1,nexc]
 
 ! Spontaneous occurring 
    if (eta.ge.0.and.eta.lt.tmp1) then
-      do while (.not.state)
-          call random_number(eta1)
-          do i=1,nexc-1
-            if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
-                istate = 1 + floor(nexc*eta1)
-            endif
-            modc = abs(c(istate+1))
-            if (modc.ne.0.d0) state=.true.
-          enddo
+      call random_number(eta1)
+      left=0.d0
+      right=pjump(1)
+      do i=1,nexc-1
+         if (eta1.ge.left.and.eta1.lt.right) then
+            istate=i
+            exit
+         endif 
+         left  = right
+         right = left + pjump(i+1)
       enddo
       creal = real(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
-      c=c/abs(c(1))
+      c(1)=c(1)/sqrt(pjump(istate)/dt)
       i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
-      do while (.not.state)
-          call random_number(eta1)
-          do i=nexc+1,2*nexc-1
-             if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
-                istate = 1 + floor(nexc*eta1)
-             endif
-             modc = abs(c(istate+1))
-             if (modc.ne.0.d0) state=.true.
-          enddo
+      call random_number(eta1)
+      left=0.d0
+      right=pjump(nexc+1)
+      do i=nexc+1,2*nexc-1
+         if (eta1.ge.left.and.eta1.lt.right) then
+            istate=i-nexc 
+            exit
+         endif
+         left  = right
+         right = left + pjump(i+1)
       enddo
       creal = real(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c(istate+1))
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
-      c=c/abs(c(1)) 
+      c(1)=c(1)/sqrt(pjump(istate+nexc)/dt) 
       i_nr = i_nr +1
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
-      do while (.not.state)
-          call random_number(eta1)
-          do i=2*nexc+1,3*nexc-1
-             if (eta1.ge.pjump(i).and.eta1.lt.pjump(i+1)) then
-                 istate = 1 + floor(nexc*eta1)
-             endif
-             modc = abs(c(istate+1))
-             if (modc.ne.0.d0) state=.true.
-          enddo
+      call random_number(eta1)
+      left=0.d0
+      right=pjump(2*nexc+1)
+      do i=2*nexc+1,3*nexc
+         if (eta1.ge.left.and.eta1.lt.right) then
+            istate=i-2*nexc
+            exit  
+         endif
+         left  = right 
+         right = left + pjump(i+1)
       enddo
-      creal = real(c(istate+1))*cos(delta(istate))
-      ireal = aimag(c(istate+1))*sin(delta(istate))  
-      c(istate+1)  = cmplx(creal,ireal)
-      c(1:istate) = zeroc 
-      c(istate+2:nci) = 0.d0
-      c=c/abs(c(istate+1))
+      creal = real(c(istate))*cos(delta(istate))
+      ireal = aimag(c(istate))*sin(delta(istate))  
+      c(istate)  = cmplx(creal,ireal)
+      c(1:istate-1) = zeroc 
+      c(istate+1:nci) = zeroc 
+      c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)/dt)
       i_de = i_de + 1 
    endif
 
@@ -293,7 +294,7 @@ module dissipation
    integer, intent(in)    :: nci, tdis
    real(8), intent(inout) :: w(nci), w_prev(nci)
    logical, intent(in)    :: first
-   integer                :: i
+   integer                :: i,j
 
    if (tdis.eq.1) then
       if (first) then
@@ -308,8 +309,11 @@ module dissipation
          enddo
       endif
    elseif (tdis.eq.0) then
-      do i=1,nci
-         w(i) = random_normal()
+      w=0
+      do j=1,nrnd
+         do i=1,nci
+            w(i) = w(i) + random_normal()
+         enddo
       enddo
    endif
 

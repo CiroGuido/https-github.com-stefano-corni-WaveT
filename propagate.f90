@@ -49,7 +49,7 @@
        if (dis) then
           allocate (h_dis(n_ci,n_ci))
           if (qjump) then
-             allocate (pjump(3*nexc))
+             allocate (pjump(3*nexc+1))
           elseif (dis.and..not.qjump) then 
              allocate (h_rnd(n_ci,n_ci))
              allocate (w(n_ci), w_prev(n_ci))
@@ -104,6 +104,7 @@
                 c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
              endif
           endif
+          !c_prev=c
        endif
        c=c/sqrt(dot_product(c,c))
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
@@ -139,6 +140,7 @@
 ! Loss of the norm, dissipative events simulated
 ! eps -> uniform random number in [0,1]
             call loss_norm(c,n_ci,pjump)
+
             call random_number(eps)  
             if (dtot.ge.eps)  then
                call quan_jump(c,n_ci,pjump)

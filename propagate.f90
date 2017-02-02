@@ -14,7 +14,7 @@
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11
       save
       private
       public create_field, prop
@@ -41,6 +41,8 @@
        open (file_e,file=name_f,status="unknown")
        write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
        open (file_mu,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
+       open (file_p,file=name_f,status="unknown")
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
@@ -188,6 +190,7 @@
        close (file_c)
        close (file_e)
        close (file_mu)
+       close (file_p)
        if(mdm.ne.'vac') then 
          call  end_mdm
        endif
@@ -325,6 +328,7 @@
         endif
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
+        write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)

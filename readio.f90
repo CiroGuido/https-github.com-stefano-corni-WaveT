@@ -19,10 +19,12 @@
       integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Markovian, tdis=1 nonMarkvian
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
+      integer(4) :: nr_typ !type of decay for the internal conversion
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
       real(8), allocatable :: sp_gam(:) !decay rate for spontaneous emission  
+      real(8), allocatable :: sp_fact(:) !multiplicative factor for the decay rate for spontaneous emission
       real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
       real(8), allocatable :: delta(:) !phases randomly added during the propagation 
       real(8) :: dt,tau(2),start
@@ -56,7 +58,7 @@
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
-             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd
+             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ
 !
       contains
 !
@@ -136,6 +138,13 @@
              read(*,*) nrnd
              write(*,*) 'Continuous stochastic propagator'
              write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
+          end select
+          read(*,*) nr_typ
+          select case (nr_typ)
+           case (0)
+            write(*,*) 'Internal conversion relaxation via dipole'
+           case (1)
+            write(*,*) 'Internal conversion relaxation via given matrix'
           end select
         case ('nma', 'NMa', 'NMA', 'Nma')
           dis=.true.
@@ -235,12 +244,13 @@
 !------------------------------------------------------------------------
      
        implicit none
-       integer   :: i, idum, ierr0, ierr1, ierr2, err   
+       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, err   
        real(8)  :: term  
 
        open(8,file='nr_rate.inp',status="old",iostat=ierr0,err=100)
        open(9,file='de_rate.inp',status="old",iostat=ierr1,err=101)
        open(10,file='de_phase.inp',status="old",iostat=ierr2,err=102)
+       open(11,file='sp_rate.inp',status="old",iostat=ierr3,err=103)
 
        nexc = n_ci - 1
 
@@ -249,18 +259,19 @@
        allocate(sp_gam(nexc))
        allocate(tmom2_0i(nexc))
        allocate(delta(nexc+1))
+       allocate(sp_fact(nexc))
 
 ! Read nonradiative and dephasing terms
        do i=1,nexc
           read(8,*) idum, nr_gam(i)
           read(9,*) idum, de_gam(i)
+          read(11,*) idum, sp_fact(i)
        enddo
        read(9,*) idum, de_gam(nexc+1)
 ! Define spontaneous emission terms 
        term=4.d0/(3.d0*slight)
        do i=1,nexc
-          sp_gam(i) = term*e_ci(i+1)**3
-          sp_gam(i) = 0.d0
+          sp_gam(i) = sp_fact(i)*term*e_ci(i+1)**3
        enddo
 
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  
@@ -296,11 +307,20 @@
           write(*,*) 'An error occurred during reading de_phase.inp'
           write(*,*)
           stop
-       endif 
+       endif
+
+103    if (ierr3.ne.0) then
+          write(*,*)
+          write(*,*) 'Dissipation:'
+          write(*,*) 'An error occurred during reading sp_rate.inp'
+          write(*,*)
+          stop
+       endif
  
        close(8)
        close(9)
        close(10) 
+       close(11)
 
        return
 
@@ -317,6 +337,7 @@
        deallocate(nr_gam)
        deallocate(de_gam)
        deallocate(sp_gam)
+       deallocate(sp_fact)
        deallocate(tmom2_0i)
        deallocate(delta)
 

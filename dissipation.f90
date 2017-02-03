@@ -30,6 +30,7 @@ module dissipation
    integer, intent(in)    :: nci
    real(8), intent(inout) :: h_dis(nci,nci)    
    integer                :: i
+   real(8)                :: rate
 
 ! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
 
@@ -39,14 +40,18 @@ module dissipation
       h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2_0i(i-1)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
-      h_dis(i,i) = h_dis(i,i) + nr_gam(i-1)*tmom2_0i(i-1)
+      if (nr_typ.eq.0) then
+         rate = nr_gam(i-1)*tmom2_0i(i-1)
+      elseif (nr_typ.eq.1) then
+         rate = nr_gam(i-1)
+      endif
+      h_dis(i,i) = h_dis(i,i) + rate 
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
       h_dis(i,i) = h_dis(i,i) + de_gam(i)
    enddo
    h_dis(1,1) = de_gam(1)
    h_dis=0.5d0*h_dis
-
 
    return
 
@@ -107,10 +112,18 @@ module dissipation
       tmp=abs(c(i+1))
       weight=tmom2_0i(i)*tmp**2
       dsp = dsp + sp_gam(i)*weight
-      dnr = dnr + nr_gam(i)*weight
+      if (nr_typ.eq.0) then
+         dnr = dnr + nr_gam(i)*weight
+      elseif (nr_typ.eq.1) then
+         dnr = dnr + nr_gam(i)*tmp**2
+      endif   
       dde = dde + de_gam(i+1)*tmp**2
       pjump(i) = sp_gam(i)*weight
-      pjump(i+nexc) = nr_gam(i)*weight
+      if (nr_typ.eq.0) then
+         pjump(i+nexc) = nr_gam(i)*weight
+      elseif (nr_typ.eq.1) then
+         pjump(i+nexc) = nr_gam(i)*tmp**2
+      endif
       pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
    enddo
    pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
@@ -122,6 +135,7 @@ module dissipation
    pjump(1:nexc)=pjump(1:nexc)*dt/dsp
    pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
    pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
+
 
    return
 
@@ -142,7 +156,7 @@ module dissipation
    real(8),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
    real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
-   real(8)                      :: left, right 
+   real(8)                      :: left, right, ph 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
@@ -209,8 +223,9 @@ module dissipation
          left  = right 
          right = left + pjump(i+1)
       enddo
-      creal = real(c(istate))*cos(delta(istate))
-      ireal = aimag(c(istate))*sin(delta(istate))  
+      ph = atan2(aimag(c(istate)),real(c(istate)))
+      creal = abs(c(istate))*cos(ph+delta(istate))
+      ireal = abs(c(istate))*sin(ph+delta(istate))  
       c(istate)  = cmplx(creal,ireal)
       c(1:istate-1) = zeroc 
       c(istate+1:nci) = zeroc 
@@ -235,6 +250,7 @@ module dissipation
    integer, intent(in)    :: nci
    real(8), intent(inout) :: h_rnd(nci,nci)
    integer                :: i
+   real(8)                :: rate 
 
 ! Matrix elements of S_alpha in the basis of the system eigenstates 
    h_rnd=zero
@@ -245,7 +261,12 @@ module dissipation
       h_rnd(1,i) = h_rnd(1,i) + sqrt(sp_gam(i-1)*tmom2_0i(i-1))
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
-      h_rnd(1,i) = h_rnd(1,i) + sqrt(nr_gam(i-1)*tmom2_0i(i-1))
+      if (nr_typ.eq.0) then
+         rate = sqrt(nr_gam(i-1)*tmom2_0i(i-1))
+      elseif (nr_typ.eq.1) then
+         rate = sqrt(nr_gam(i-1))
+      endif
+      h_rnd(1,i) = h_rnd(1,i) + rate 
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
       h_rnd(i,i) = h_rnd(i,i) + sqrt(de_gam(i-1))

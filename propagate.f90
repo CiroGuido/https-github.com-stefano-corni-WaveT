@@ -14,7 +14,8 @@
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11 
+      integer(4) :: file_dm=12, file_dp=13
       save
       private
       public create_field, prop
@@ -43,6 +44,10 @@
        open (file_mu,file=name_f,status="unknown")
        write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
        open (file_p,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
+       open (file_dm,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
+       open (file_dp,file=name_f,status="unknown")
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
@@ -144,7 +149,7 @@
             call loss_norm(c,n_ci,pjump)
 
             call random_number(eps)  
-            if (dtot.ge.eps)  then
+            if (dtot.gt.eps)  then
                call quan_jump(c,n_ci,pjump)
             else
                c=c/sqrt(dot_product(c,c))  
@@ -329,6 +334,7 @@
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
+        call wrt_decoherence(i,t,file_dm,file_dp,fmt_ci,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)
@@ -400,4 +406,48 @@
       return
       end subroutine
 !
+      subroutine wrt_decoherence(i,t,int1,int2,char20,c,nci)
+!------------------------------------------------------------------------
+! Print the tridiagional C*_iC_j (i.ne.j) matrix 
+! corresponding to the decoherence 
+! 
+! Created   : E. Coccia 3 Feb 2017
+! Modified  :
+!------------------------------------------------------------------------
+  
+        implicit none
+
+        integer(4),    intent(in)    :: i, nci
+        integer(4),    intent(in)    :: int1, int2
+        character(20), intent(in)    :: char20 
+        real(8),       intent(in)    :: t
+        complex(16),   intent(in)    :: c(nci)
+        integer(4)                   :: j, k
+        complex(16)                  :: tmp
+        real(8)                      :: r(nci,nci*(nci-1)/2)
+        real(8)                      :: p(nci,nci*(nci-1)/2)
+
+        do j=2,nci
+           tmp = conjg(c(j))*c(1)
+           write(*,*) j, c(j) 
+           r(1,j) = abs(tmp)
+           p(1,j) = atan2(aimag(tmp),real(tmp))
+        enddo  
+
+        do j=2,nci
+           do k=j+1,nci
+              tmp = conjg(c(k))*c(j)
+              r(j,k) = abs(tmp)
+              p(j,k) = atan2(aimag(tmp),real(tmp)) 
+           enddo
+         enddo
+
+         write(int1,*) i, t, ((r(j,k), k=j+1,nci), j=1,nci)
+         write(int2,*) i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+         !((FORM(K,L), L=1,10), K=1,10,2)
+    
+         return
+
+      end subroutine wrt_decoherence
+
       end module

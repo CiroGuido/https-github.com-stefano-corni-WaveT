@@ -105,7 +105,7 @@
              first=.false.
              if (tdis.eq.0) then
              ! Euler-Maruyama
-                c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
+                c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w*dt
              elseif (tdis.eq.1) then
              ! Leimkuhler-Matthews
                 c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
@@ -169,7 +169,7 @@
          !c_prev2=c_prev
          c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-         if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int)
+         if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
          
        enddo
 
@@ -316,7 +316,7 @@
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
-       character(20) :: fmt_ci
+       character(20) :: fmt_ci,fmt_ci1
         t=(i-1)*dt
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
@@ -332,9 +332,10 @@
          write (file_e,'(i8,f14.4,3e22.10)') i,t,e_a,int_rad,int_rad_int
         endif
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
+        write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') n_ci*(n_ci-1)/2
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
-        call wrt_decoherence(i,t,file_dm,file_dp,fmt_ci,c,n_ci)
+        call wrt_decoherence(i,t,file_dm,file_dp,fmt_ci1,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)
@@ -429,7 +430,6 @@
 
         do j=2,nci
            tmp = conjg(c(j))*c(1)
-           write(*,*) j, c(j) 
            r(1,j) = abs(tmp)
            p(1,j) = atan2(aimag(tmp),real(tmp))
         enddo  
@@ -442,8 +442,8 @@
            enddo
          enddo
 
-         write(int1,*) i, t, ((r(j,k), k=j+1,nci), j=1,nci)
-         write(int2,*) i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+         write(int1,char20) i, t, ((r(j,k), k=j+1,nci), j=1,nci)
+         write(int2,char20) i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
          !((FORM(K,L), L=1,10), K=1,10,2)
     
          return

@@ -186,7 +186,7 @@ module dissipation
          right = left + pjump(i+1)
       enddo
       creal = real(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c(istate+1))
+      ireal = aimag(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate)/dt)
@@ -205,7 +205,7 @@ module dissipation
          right = left + pjump(i+1)
       enddo
       creal = real(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c(istate+1))
+      ireal = aimag(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate+nexc)/dt) 
@@ -224,8 +224,8 @@ module dissipation
          right = left + pjump(i+1)
       enddo
       ph = atan2(aimag(c(istate)),real(c(istate)))
-      creal = abs(c(istate))*cos(ph+delta(istate))
-      ireal = abs(c(istate))*sin(ph+delta(istate))  
+      creal = abs(c(istate))*cos(ph+delta(istate))*sqrt(de_gam(istate))
+      ireal = abs(c(istate))*sin(ph+delta(istate))*sqrt(de_gam(istate))  
       c(istate)  = cmplx(creal,ireal)
       c(1:istate-1) = zeroc 
       c(istate+1:nci) = zeroc 

@@ -11,7 +11,7 @@ module dissipation
   save 
   private
   public norm, dtot, dsp, dnr, dde, add_dis_m, add_dis_nm, loss_norm
-  public quan_jump, add_h_rnd, define_h_dis, rnd_noise 
+  public quan_jump, add_h_rnd, define_h_dis, rnd_noise, add_h_rnd2 
 !
   contains
 
@@ -50,7 +50,7 @@ module dissipation
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
       h_dis(i,i) = h_dis(i,i) + de_gam(i)
    enddo
-   h_dis(1,1) = de_gam(1)
+   h_dis(1,1) = de_gam(1) + 1.d0
    h_dis=0.5d0*h_dis
 
    return
@@ -247,18 +247,20 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   integer, intent(in)    :: nci
-   real(8), intent(inout) :: h_rnd(nci,nci)
-   integer                :: i
-   real(8)                :: rate 
+   integer, intent(in)        :: nci
+   complex(16), intent(inout) :: h_rnd(nci,nci)
+   integer                    :: i
+   real(8)                    :: rate, rtmp, itmp 
 
 ! Matrix elements of S_alpha in the basis of the system eigenstates 
-   h_rnd=zero
+   h_rnd=zeroc
 
+   itmp=0.d0
    do i=2, nci
+      rtmp=0.d0 
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
-      h_rnd(1,i) = h_rnd(1,i) + sqrt(sp_gam(i-1)*tmom2_0i(i-1))
+      rtmp = rtmp + sqrt(sp_gam(i-1)*tmom2_0i(i-1))
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
       if (nr_typ.eq.0) then
@@ -266,11 +268,19 @@ module dissipation
       elseif (nr_typ.eq.1) then
          rate = sqrt(nr_gam(i-1))
       endif
-      h_rnd(1,i) = h_rnd(1,i) + rate 
+      rtmp = rtmp + rate
+      h_rnd(1,i) = cmplx(rtmp,itmp)
+   enddo
+
+   do i=1, nci
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      h_rnd(i,i) = h_rnd(i,i) + sqrt(de_gam(i-1))
+      rtmp = sqrt(de_gam(i))*cos(delta(i))
+      itmp = sqrt(de_gam(i))*sin(delta(i)) 
+      h_rnd(i,i) = cmplx(rtmp,itmp)
    enddo
+
+   h_rnd(1,1) = h_rnd(1,1) + 1.d0
 
    return
 
@@ -330,9 +340,9 @@ module dissipation
          enddo
       endif
    elseif (tdis.eq.0) then
-      w=0
-      do j=1,nrnd
-         do i=1,nci
+      w=0.d0
+      do i=1,nci
+         do j=1,nrnd
             w(i) = w(i) + random_normal()
          enddo
       enddo
@@ -342,5 +352,41 @@ module dissipation
 
  end subroutine rnd_noise
 
-end module dissipation
+  subroutine add_h_rnd2(h_rnd2,nci)
+!------------------------------------------------------------------------
+! Define the square of the dissipation/dephasing operator 
+! Random events: dissipation, nonradiative and dephasing
+!
+! Created   : E. Coccia 10 Feb 2017
+! Modified  :
+!------------------------------------------------------------------------
 
+   implicit none
+   integer, intent(in)        :: nci
+   complex(16), intent(inout) :: h_rnd2(nci,nci)
+   integer                    :: i
+   real(8)                    :: rtmp, itmp 
+
+! Matrix elements of S^2_alpha in the basis of the system eigenstates 
+   h_rnd2=zeroc
+
+! Sp and nr dissipation
+! S^2_alpha = 0 (alpha.ne.0, by construction) 
+! S^2_alpha = 1 (alpha.eq.0) FALSE
+   h_rnd2(1,1) = 1.d0  
+
+! Pure dephasing (de)
+! S^2_alpha = de_gam_alpha exp(i 2*delta_alpha) |Phi_alpha> <Phi_alpha|
+   do i=1, nci
+      rtmp = de_gam(i)*cos(2.d0*delta(i))
+      itmp = de_gam(i)*sin(2.d0*delta(i)) 
+      h_rnd2(i,i) = h_rnd2(i,i) + cmplx(rtmp,itmp)
+   enddo
+
+   h_rnd2 = 0.5d0
+
+   return
+
+  end subroutine add_h_rnd2
+
+end module 

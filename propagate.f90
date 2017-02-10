@@ -25,8 +25,8 @@
       subroutine prop
        implicit none
        integer(4)                :: i,j,k,istop
-       complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:)
-       real(8),     allocatable  :: h_int(:,:), h_dis(:,:), h_rnd(:,:)
+       complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       real(8),     allocatable  :: h_int(:,:), h_dis(:,:)
        real(8),     allocatable  :: pjump(:) 
        real(8)                   :: f_prev(3),f_prev2(3)
        real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
@@ -47,7 +47,7 @@
        write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
        open (file_dm,file=name_f,status="unknown")
        write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
-       open (file_dp,file=name_f,status="unknown")
+       open (file_dp,file=name_f,status="unknown") 
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
@@ -59,6 +59,7 @@
              allocate (pjump(3*nexc+1))
           elseif (dis.and..not.qjump) then 
              allocate (h_rnd(n_ci,n_ci))
+             allocate (h_rnd2(n_ci,n_ci))
              allocate (w(n_ci), w_prev(n_ci))
           endif
        endif
@@ -93,7 +94,10 @@
 ! Add a random fluctuation for the stochastic propagation (.not.qjump)
        if (dis) then
           call define_h_dis(h_dis,n_ci,tdis)
-          if (.not.qjump) call add_h_rnd(h_rnd,n_ci) 
+          if (.not.qjump) then 
+             call add_h_rnd(h_rnd,n_ci) 
+             call add_h_rnd2(h_rnd2,n_ci)
+          endif
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
@@ -105,15 +109,16 @@
              first=.false.
              if (tdis.eq.0) then
              ! Euler-Maruyama
-                c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w*dt
+                !c=c-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)
+                 c=c-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)-dt*matmul(h_rnd2,c_prev) 
              elseif (tdis.eq.1) then
              ! Leimkuhler-Matthews
-                c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+                c=c-ui*0.5d0*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),(w+w_prev))
              endif
           endif
-          !c_prev=c
        endif
        c=c/sqrt(dot_product(c,c))
+       if (dis) c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
@@ -159,9 +164,10 @@
             call rnd_noise(w,w_prev,n_ci,first,tdis)
             if (tdis.eq.0) then
             ! Euler-Maruyama 
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)*w
+                !c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)-dt*matmul(h_rnd2,c_prev) 
             elseif (tdis.eq.1) then
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)*(w+w_prev)
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),(w+w_prev))
             endif
             c=c/sqrt(dot_product(c,c))
          endif
@@ -180,6 +186,7 @@
           deallocate(h_dis)
           if (.not.qjump) then
              deallocate(h_rnd)
+             deallocate(h_rnd2)
              deallocate(w)
              deallocate(w_prev)
           endif 
@@ -317,6 +324,7 @@
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
        character(20) :: fmt_ci,fmt_ci1
+       integer(4)    :: itmp
         t=(i-1)*dt
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
@@ -331,8 +339,9 @@
         else
          write (file_e,'(i8,f14.4,3e22.10)') i,t,e_a,int_rad,int_rad_int
         endif
+        itmp = n_ci*(n_ci-1)/2
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
-        write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') n_ci*(n_ci-1)/2
+        write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') itmp 
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
         call wrt_decoherence(i,t,file_dm,file_dp,fmt_ci1,c,n_ci)
@@ -428,10 +437,10 @@
         real(8)                      :: r(nci,nci*(nci-1)/2)
         real(8)                      :: p(nci,nci*(nci-1)/2)
 
-        do j=2,nci
-           tmp = conjg(c(j))*c(1)
-           r(1,j) = abs(tmp)
-           p(1,j) = atan2(aimag(tmp),real(tmp))
+        do k=2,nci
+           tmp = conjg(c(k))*c(1)
+           r(1,k) = abs(tmp)
+           p(1,k) = atan2(aimag(tmp),real(tmp))
         enddo  
 
         do j=2,nci
@@ -442,8 +451,8 @@
            enddo
          enddo
 
-         write(int1,char20) i, t, ((r(j,k), k=j+1,nci), j=1,nci)
-         write(int2,char20) i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+         write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
+         write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
          !((FORM(K,L), L=1,10), K=1,10,2)
     
          return

@@ -35,6 +35,7 @@
        real(8),     allocatable  :: w(:), w_prev(:)
        character(20)             :: name_f
        logical                   :: first=.true. 
+
 ! OPEN FILES
        write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
        open (file_c,file=name_f,status="unknown")
@@ -56,11 +57,15 @@
        if (dis) then
           allocate (h_dis(n_ci,n_ci))
           if (qjump) then
-             allocate (pjump(3*nexc+1))
+             if (idep.eq.0) then
+                allocate (pjump(3*nexc+1))
+             elseif (idep.eq.1) then
+                allocate (pjump(3*nexc))
+             endif
           elseif (dis.and..not.qjump) then 
              allocate (h_rnd(n_ci,n_ci))
              allocate (h_rnd2(n_ci,n_ci))
-             allocate (w(n_ci), w_prev(n_ci))
+             allocate (w(3*n_ci), w_prev(3*n_ci))
           endif
        endif
 
@@ -95,7 +100,9 @@
        if (dis) then
           call define_h_dis(h_dis,n_ci,tdis)
           if (.not.qjump) then 
-             call add_h_rnd(h_rnd,n_ci) 
+             call rnd_noise(w,w_prev,n_ci,first,tdis)
+             first=.false.
+             call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis) 
              call add_h_rnd2(h_rnd2,n_ci)
           endif
        endif
@@ -105,15 +112,12 @@
        if (dis) then
           c=c-dt*matmul(h_dis,c_prev)
           if (.not.qjump) then
-             call rnd_noise(w,w_prev,n_ci,first,tdis)
-             first=.false.
              if (tdis.eq.0) then
              ! Euler-Maruyama
-                !c=c-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)
-                 c=c-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)-dt*matmul(h_rnd2,c_prev) 
+               c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)               
              elseif (tdis.eq.1) then
              ! Leimkuhler-Matthews
-                c=c-ui*0.5d0*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),(w+w_prev))
+               c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)
              endif
           endif
        endif
@@ -162,16 +166,15 @@
          elseif (dis.and..not.qjump) then
 ! Dissipation by a continuous stochastic propagation
             call rnd_noise(w,w_prev,n_ci,first,tdis)
+            call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis)
             if (tdis.eq.0) then
             ! Euler-Maruyama 
-                !c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),w)-dt*matmul(h_rnd2,c_prev) 
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
             elseif (tdis.eq.1) then
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*dot_product(matmul(h_rnd,c_prev),(w+w_prev))
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)
             endif
             c=c/sqrt(dot_product(c,c))
          endif
-
          !c_prev2=c_prev
          c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)

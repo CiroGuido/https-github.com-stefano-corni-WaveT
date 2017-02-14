@@ -20,6 +20,7 @@
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
       integer(4) :: nr_typ !type of decay for the internal conversion
+      integer(4) :: idep !choose the dephasing operator
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
@@ -58,7 +59,8 @@
              mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
-             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ
+             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
+             idep
 !
       contains
 !
@@ -126,6 +128,13 @@
         case ('mar', 'Mar', 'MAR')
           dis=.true.
           tdis=0
+          read(*,*) idep
+          select case (idep)
+           case (0)
+            write(*,*) 'Use sqrt(gamma_i) exp(i delta_i)|i><i|(i=0,nci)'
+           case (1)
+            write(*,*) 'Use sqrt(gamma_i) (|i><i|-|0><0|)'
+          end select
           write(*,*) 'Markovian dissipation'
           if (rad.eq.'non') read(5,*) iseed
           read(*,*) dis_prop
@@ -254,11 +263,28 @@
 
        nexc = n_ci - 1
 
+! idep=0 nci terms needed for the dephasing
+! idep=1 nexc terms needed for the dephasing
+
+       if (idep.ne.0.and.idep.ne.1) then
+          write(*,*) 'Invalid value for idep, must be 0 or 1'
+          stop
+       endif
+
+       if (nr_typ.ne.0.and.nr_typ.ne.1) then
+          write(*,*) 'Invalid value for nr_typ, must be 0 or 1'
+          stop
+       endif 
+
        allocate(nr_gam(nexc))
-       allocate(de_gam(nexc+1))
+       if (idep.eq.0) then
+          allocate(de_gam(nexc+1))
+          allocate(delta(nexc+1))
+       elseif (idep.eq.1) then
+          allocate(de_gam(nexc))
+       endif
        allocate(sp_gam(nexc))
        allocate(tmom2_0i(nexc))
-       allocate(delta(nexc+1))
        allocate(sp_fact(nexc))
 
 ! Read nonradiative and dephasing terms
@@ -267,7 +293,7 @@
           read(9,*) idum, de_gam(i)
           read(11,*) idum, sp_fact(i)
        enddo
-       read(9,*) idum, de_gam(nexc+1)
+       if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
 ! Define spontaneous emission terms 
        term=4.d0/(3.d0*slight)
        do i=1,nexc
@@ -280,10 +306,11 @@
        enddo
 
 ! Read phase randomly added during the propagation
-       do i=1,nexc+1
-          read(10,*) idum, delta(i)
-       enddo 
-
+       if (idep.eq.0) then
+          do i=1,nexc+1
+             read(10,*) idum, delta(i)
+          enddo 
+       endif
 
 100    if (ierr0.ne.0) then
           write(*,*)
@@ -339,7 +366,7 @@
        deallocate(sp_gam)
        deallocate(sp_fact)
        deallocate(tmom2_0i)
-       deallocate(delta)
+       if (idep.eq.0) deallocate(delta)
 
        return
 

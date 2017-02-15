@@ -48,8 +48,14 @@ module dissipation
       h_dis(i,i) = h_dis(i,i) + rate 
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      h_dis(i,i) = h_dis(i,i) + de_gam(i)
+      if (idep.eq.0) then
+         h_dis(i,i) = h_dis(i,i) + de_gam(i)
+! S_alpha = sqrt(de_gam_alpha) * (|Phi_alpha> <Phi_alpha| - |Phi_0> <Phi_0|)
+      elseif (idep.eq.1) then
+         h_dis(i,i) = h_dis(i,i) + de_gam(i-1)
+      endif
    enddo
+
    if (idep.eq.0) then
       h_dis(1,1) = de_gam(1) !+ 1.d0
    elseif (idep.eq.1) then
@@ -57,6 +63,7 @@ module dissipation
          h_dis(1,1) = h_dis(1,1) + de_gam(i-1)
       enddo
    endif
+
    h_dis=0.5d0*h_dis
 
    return
@@ -114,6 +121,8 @@ module dissipation
    dnr=0.d0
    dde=0.d0
 
+   pjump(3*nexc+1)=0.d0
+
    do i=1,nexc
       tmp=abs(c(i+1))
       weight=tmom2_0i(i)*tmp**2
@@ -123,22 +132,20 @@ module dissipation
       elseif (nr_typ.eq.1) then
          dnr = dnr + nr_gam(i)*tmp**2
       endif   
-      !dde = dde + de_gam(i+1)*tmp**2
       pjump(i) = sp_gam(i)*weight
       if (nr_typ.eq.0) then
          pjump(i+nexc) = nr_gam(i)*weight
       elseif (nr_typ.eq.1) then
          pjump(i+nexc) = nr_gam(i)*tmp**2
       endif
-      !pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
    enddo
    if (idep.eq.0) then
       pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
       dde = dde + pjump(1+2*nexc)
       do i=1,nexc
-        tmp=abs(c(i+1))
-        pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
-        dde = dde + pjump(i+1+2*nexc)
+         tmp=abs(c(i+1))
+         pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
+         dde = dde + pjump(i+1+2*nexc)
       enddo
    elseif (idep.eq.1) then
       do i=1,nexc
@@ -146,11 +153,10 @@ module dissipation
          pjump(i+2*nexc) = de_gam(i)*(tmp**2 + abs(c(1))**2)
          dde = dde + pjump(i+2*nexc)
       enddo
-      
    endif
    dsp = dsp*dt
    dnr = dnr*dt
-   dde = (dde+pjump(1+2*nexc))*dt
+   dde = dde*dt
    dtot = dsp + dnr + dde
 
    pjump(1:nexc)=pjump(1:nexc)*dt/dsp
@@ -165,7 +171,7 @@ module dissipation
 
   end subroutine loss_norm 
 
-  subroutine quan_jump(c,nci,pjump)
+  subroutine quan_jump(c,c_prev,nci,pjump)
 !------------------------------------------------------------------------
 ! Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
 ! Random events: dissipation, nonradiative and dephasing
@@ -176,6 +182,7 @@ module dissipation
 
    implicit none
    complex(16), intent(inout)   :: c(nci)
+   complex(16), intent(in)      :: c_prev(nci)
    integer(4),  intent(in)      :: nci
    real(8),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
@@ -210,11 +217,11 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      creal = real(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
+      creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
+      ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate)/dt)
+      c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
@@ -229,11 +236,11 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      creal = real(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+      creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+      ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate+nexc)/dt) 
+      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
       i_nr = i_nr +1
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
@@ -249,13 +256,13 @@ module dissipation
             left  = right 
             right = left + pjump(i+1)
          enddo
-         ph = atan2(aimag(c(istate)),real(c(istate)))
-         creal = abs(c(istate))*cos(ph+delta(istate))*sqrt(de_gam(istate))
-         ireal = abs(c(istate))*sin(ph+delta(istate))*sqrt(de_gam(istate))  
+         ph = atan2(aimag(c_prev(istate)),real(c_prev(istate)))
+         creal = abs(c_prev(istate))*cos(ph+delta(istate))*sqrt(de_gam(istate))
+         ireal = abs(c_prev(istate))*sin(ph+delta(istate))*sqrt(de_gam(istate))  
          c(istate)  = cmplx(creal,ireal)
          c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
-         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)/dt)
+         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
       elseif (idep.eq.1) then
          do i=2*nexc+1,3*nexc-1
             if (eta1.ge.left.and.eta1.lt.right) then
@@ -265,14 +272,16 @@ module dissipation
             left  = right
             right = left + pjump(i+1)
          enddo
-         creal = abs(c(istate+1))*sqrt(de_gam(istate))
-         ireal = abs(c(istate+1))*sqrt(de_gam(istate))
-         c(istate+1)  = cmplx(creal,ireal)
-         c(1) = - c(1)*sqrt(de_gam(istate))
+         !creal = abs(c(istate+1))*sqrt(de_gam(istate))
+         !ireal = abs(c(istate+1))*sqrt(de_gam(istate))
+         !c(istate+1)  = cmplx(creal,ireal)
+         c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
+         c(1) = - c_prev(1)*sqrt(de_gam(istate))
+         write(*,*) istate,c(istate+1), c(1)
          c(2:istate) = zeroc
          c(istate+2:nci) = zeroc
+         c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
       endif
-      write(*,*), 'CIAO', istate     
       i_de = i_de + 1 
    endif
 
@@ -324,15 +333,21 @@ module dissipation
       h_rnd(1,i) = cmplx(rtmp,itmp)
    enddo
 
-   do i=1, nci
+
+   if (idep.eq.0) then
+      do i=1, nci
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      rtmp = sqrt(de_gam(i))*cos(delta(i))*wrnd(i+2*nci)
-      itmp = sqrt(de_gam(i))*sin(delta(i))*wrnd(i+2*nci) 
-      h_rnd(i,i) = cmplx(rtmp,itmp)
-   enddo
-
-   !h_rnd(1,1) = h_rnd(1,1) + wrnd(1) !+ wrnd(1+nci)
+         rtmp = sqrt(de_gam(i))*cos(delta(i))*wrnd(i+2*nci)
+         itmp = sqrt(de_gam(i))*sin(delta(i))*wrnd(i+2*nci) 
+         h_rnd(i,i) = cmplx(rtmp,itmp)
+      enddo
+   elseif (idep.eq.1) then 
+      do i=2,nci
+          h_rnd(i,i) = sqrt(de_gam(i-1))*wrnd(i+2*nci)
+          h_rnd(1,1) = h_rnd(1,1) + h_rnd(i,i)
+      enddo 
+   endif  
 
    return
 
@@ -436,11 +451,20 @@ module dissipation
 
 ! Pure dephasing (de)
 ! S^2_alpha = de_gam_alpha exp(i 2*delta_alpha) |Phi_alpha> <Phi_alpha|
-   do i=1, nci
-      rtmp = de_gam(i)*cos(2.d0*delta(i))
-      itmp = de_gam(i)*sin(2.d0*delta(i)) 
-      h_rnd2(i,i) = h_rnd2(i,i) + cmplx(rtmp,itmp)
-   enddo
+   if (idep.eq.0) then
+      do i=1, nci
+         rtmp = de_gam(i)*cos(2.d0*delta(i))
+         itmp = de_gam(i)*sin(2.d0*delta(i)) 
+         h_rnd2(i,i) = h_rnd2(i,i) + cmplx(rtmp,itmp)
+      enddo
+   elseif (idep.eq.1) then
+! S^2_alpha = de_gam_alpha * (|Phi_alpha> <Phi_alpha| + |Phi_0> <Phi_0|)
+     do i=2,nci
+        h_rnd2(i,i) = h_rnd2(i,i) + de_gam(i-1)
+     enddo 
+     h_rnd2(1,1) = h_rnd2(1,1) + sum(de_gam) 
+   endif 
+
    h_rnd2 = 0.5d0*h_rnd2
 
    return

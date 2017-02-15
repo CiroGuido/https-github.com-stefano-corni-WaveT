@@ -99,6 +99,7 @@
 ! Add a random fluctuation for the stochastic propagation (.not.qjump)
        if (dis) then
           call define_h_dis(h_dis,n_ci,tdis)
+          h_dis=0.d0
           if (.not.qjump) then 
              call rnd_noise(w,w_prev,n_ci,first,tdis)
              first=.false.
@@ -119,8 +120,12 @@
              ! Leimkuhler-Matthews
                c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)
              endif
+          !elseif (qjump) then
+          !   call loss_norm(c_prev,n_ci,pjump)
+          !   c=c/sqrt(1.d0-dtot)
           endif
        endif
+       !if (.not.dis) c=c/sqrt(dot_product(c,c))
        c=c/sqrt(dot_product(c,c))
        if (dis) c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
@@ -155,13 +160,13 @@
 ! dtot = dsp + dnr + dde
 ! Loss of the norm, dissipative events simulated
 ! eps -> uniform random number in [0,1]
-            call loss_norm(c,n_ci,pjump)
-
+            call loss_norm(c_prev,n_ci,pjump)
             call random_number(eps)  
             if (dtot.gt.eps)  then
-               call quan_jump(c,n_ci,pjump)
+               call quan_jump(c,c_prev,n_ci,pjump)
             else
-               c=c/sqrt(dot_product(c,c))  
+                c=c/sqrt(dot_product(c,c))
+                !c=c/sqrt(1.d0-dtot)
             endif
          elseif (dis.and..not.qjump) then
 ! Dissipation by a continuous stochastic propagation

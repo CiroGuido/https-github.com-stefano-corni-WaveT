@@ -115,8 +115,6 @@ module dissipation
    integer                   :: i
    real(8)                   :: weight, tmp
 
-   norm = dot_product(c,c)
-
    dsp=0.d0
    dnr=0.d0
    dde=0.d0
@@ -154,17 +152,17 @@ module dissipation
          dde = dde + pjump(i+2*nexc)
       enddo
    endif
-   dsp = dsp*dt
-   dnr = dnr*dt
-   dde = dde*dt
+   dsp = 2.d0*dsp*dt
+   dnr = 2.d0*dnr*dt
+   dde = 2.d0*dde*dt
    dtot = dsp + dnr + dde
 
-   pjump(1:nexc)=pjump(1:nexc)*dt/dsp
-   pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
+   pjump(1:nexc)=pjump(1:nexc)*2.d0*dt/dsp
+   pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*2.d0*dt/dnr
    if (idep.eq.0) then
-      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
+      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*2.d0*dt/dde
    elseif (idep.eq.1) then
-      pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*dt/dde
+      pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*2.d0*dt/dde
    endif
 
    return
@@ -221,7 +219,7 @@ module dissipation
       ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
+      c(1)=c(1)/sqrt(pjump(istate)*dsp/(2.d0*dt))
       i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
@@ -240,7 +238,7 @@ module dissipation
       ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
+      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/(2.d0*dt)) 
       i_nr = i_nr +1
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
@@ -262,7 +260,7 @@ module dissipation
          c(istate)  = cmplx(creal,ireal)
          c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
-         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
+         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/(2.d0*dt))
       elseif (idep.eq.1) then
          do i=2*nexc+1,3*nexc-1
             if (eta1.ge.left.and.eta1.lt.right) then
@@ -277,10 +275,9 @@ module dissipation
          !c(istate+1)  = cmplx(creal,ireal)
          c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
          c(1) = - c_prev(1)*sqrt(de_gam(istate))
-         write(*,*) istate,c(istate+1), c(1)
          c(2:istate) = zeroc
          c(istate+2:nci) = zeroc
-         c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
+         c=c/sqrt(pjump(istate+2*nexc)*dde/(2.d0*dt))
       endif
       i_de = i_de + 1 
    endif
@@ -353,9 +350,9 @@ module dissipation
 
   end subroutine add_h_rnd
 
-  subroutine define_h_dis(h_dis,nci,tdis)
+  subroutine define_h_dis(h_dis,nci,imar)
 !------------------------------------------------------------------------    
-! Define the Markovian (tdis=0) or non-Markovian (tdis=1)
+! Define the Markovian (imar=0) or non-Markovian (imar=1)
 ! dissipative term in the system Hamiltonian
 !
 ! Created   : E. Coccia 20 Jan 2017
@@ -363,15 +360,15 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none  
-   integer, intent(in)    :: nci, tdis
+   integer, intent(in)    :: nci, imar 
    real(8), intent(inout) :: h_dis(nci,nci)
    integer                :: i
 
    h_dis=zero
 
-   if (tdis.eq.0) then 
+   if (imar.eq.0) then 
       call add_dis_m(h_dis,n_ci)
-   elseif (tdis.eq.1) then 
+   elseif (imar.eq.1) then 
       call add_dis_nm(h_dis,n_ci) 
    endif 
 

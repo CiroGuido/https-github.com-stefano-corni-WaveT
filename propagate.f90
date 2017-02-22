@@ -15,7 +15,7 @@
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
       integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11 
-      integer(4) :: file_dm=12, file_dp=13
+      integer(4) :: file_dm=12, file_dp=13, file_d=14
       save
       private
       public create_field, prop
@@ -49,6 +49,8 @@
        open (file_dm,file=name_f,status="unknown")
        write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
        open (file_dp,file=name_f,status="unknown") 
+       write(name_f,'(a4,i0,a4)') "d_t_",n_f,".dat"
+       open (file_d,file=name_f,status="unknown")
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
@@ -98,8 +100,7 @@
 ! Condens. Matter vol. 24 (2012) 273201) 
 ! Add a random fluctuation for the stochastic propagation (.not.qjump)
        if (dis) then
-          call define_h_dis(h_dis,n_ci,tdis)
-          h_dis=0.d0
+          call define_h_dis(h_dis,n_ci,imar)
           if (.not.qjump) then 
              call rnd_noise(w,w_prev,n_ci,first,tdis)
              first=.false.
@@ -118,7 +119,7 @@
                c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)               
              elseif (tdis.eq.1) then
              ! Leimkuhler-Matthews
-               c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)
+               c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
              endif
           !elseif (qjump) then
           !   call loss_norm(c_prev,n_ci,pjump)
@@ -127,7 +128,7 @@
        endif
        !if (.not.dis) c=c/sqrt(dot_product(c,c))
        c=c/sqrt(dot_product(c,c))
-       if (dis) c_prev=c
+       c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
@@ -154,7 +155,8 @@
          elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
-            c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
+            !c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
+            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
 ! loss_norm computes: 
 ! norm = 1 - dtot
 ! dtot = dsp + dnr + dde
@@ -164,9 +166,13 @@
             call random_number(eps)  
             if (dtot.gt.eps)  then
                call quan_jump(c,c_prev,n_ci,pjump)
+               c_prev2=c
+               c_prev=c
             else
                 c=c/sqrt(dot_product(c,c))
                 !c=c/sqrt(1.d0-dtot)
+                c_prev2=c_prev
+                c_prev=c
             endif
          elseif (dis.and..not.qjump) then
 ! Dissipation by a continuous stochastic propagation
@@ -176,12 +182,12 @@
             ! Euler-Maruyama 
                 c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
             elseif (tdis.eq.1) then
-                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
             endif
             c=c/sqrt(dot_product(c,c))
+            c_prev2=c_prev
+            c_prev=c
          endif
-         !c_prev2=c_prev
-         c_prev=c
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
          if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
          
@@ -352,7 +358,7 @@
         write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') itmp 
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
-        call wrt_decoherence(i,t,file_dm,file_dp,fmt_ci1,c,n_ci)
+        call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)
@@ -424,7 +430,7 @@
       return
       end subroutine
 !
-      subroutine wrt_decoherence(i,t,int1,int2,char20,c,nci)
+      subroutine wrt_decoherence(i,t,int1,int2,int3,char20,c,nci)
 !------------------------------------------------------------------------
 ! Print the tridiagional C*_iC_j (i.ne.j) matrix 
 ! corresponding to the decoherence 
@@ -436,10 +442,11 @@
         implicit none
 
         integer(4),    intent(in)    :: i, nci
-        integer(4),    intent(in)    :: int1, int2
+        integer(4),    intent(in)    :: int1, int2, int3
         character(20), intent(in)    :: char20 
         real(8),       intent(in)    :: t
         complex(16),   intent(in)    :: c(nci)
+        complex(16)                  :: cc(nci,nci*(nci-1)/2)
         integer(4)                   :: j, k
         complex(16)                  :: tmp
         real(8)                      :: r(nci,nci*(nci-1)/2)
@@ -449,6 +456,7 @@
            tmp = conjg(c(k))*c(1)
            r(1,k) = abs(tmp)
            p(1,k) = atan2(aimag(tmp),real(tmp))
+           !cc(1,k) = tmp
         enddo  
 
         do j=2,nci
@@ -456,14 +464,16 @@
               tmp = conjg(c(k))*c(j)
               r(j,k) = abs(tmp)
               p(j,k) = atan2(aimag(tmp),real(tmp)) 
+              !cc(j,k) = tmp
            enddo
-         enddo
+        enddo
 
-         write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
-         write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+        write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
+        write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+        !write(int3,char20,advance='no') i, t, ((cc(j,k), k=j+1,nci),j=1,nci)
          !((FORM(K,L), L=1,10), K=1,10,2)
     
-         return
+        return
 
       end subroutine wrt_decoherence
 

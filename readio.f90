@@ -16,7 +16,8 @@
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Markovian, tdis=1 nonMarkvian
+      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Euler, tdis=1 Matthews 
+      integer(4) :: imar !imar=0 Markvian, imar=1, nonMarkovian
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
       integer(4) :: nr_typ !type of decay for the internal conversion
@@ -60,7 +61,7 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep
+             idep, imar
 !
       contains
 !
@@ -127,7 +128,7 @@
        select case (dissipative)
         case ('mar', 'Mar', 'MAR')
           dis=.true.
-          tdis=0
+          imar=0
           read(*,*) idep
           select case (idep)
            case (0)
@@ -147,6 +148,13 @@
              read(*,*) nrnd
              write(*,*) 'Continuous stochastic propagator'
              write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
+             read(*,*) tdis
+             select case (tdis)
+              case (0)
+                write(*,*) 'Euler-Maruyama algorithm'
+              case (1)
+                write(*,*) 'Leimkuhler-Matthews algorithm'
+             end select
           end select
           read(*,*) nr_typ
           select case (nr_typ)
@@ -157,7 +165,7 @@
           end select
         case ('nma', 'NMa', 'NMA', 'Nma')
           dis=.true.
-          tdis=1
+          imar=1
           write(*,*) 'NonMarkovian dissipation'
           if (rad.eq.'non') read(5,*) iseed
           read(*,*) dis_prop

@@ -137,6 +137,7 @@ module dissipation
          pjump(i+nexc) = nr_gam(i)*tmp**2
       endif
    enddo
+
    if (idep.eq.0) then
       pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
       dde = dde + pjump(1+2*nexc)
@@ -157,12 +158,28 @@ module dissipation
    dde = 2.d0*dde*dt
    dtot = dsp + dnr + dde
 
-   pjump(1:nexc)=pjump(1:nexc)*2.d0*dt/dsp
-   pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*2.d0*dt/dnr
+   if (dsp.ne.0.d0) then
+      pjump(1:nexc)=pjump(1:nexc)*2.d0*dt/dsp
+   else
+      pjump(1:nexc)=0.d0
+   endif
+   if (dnr.ne.0.d0) then
+      pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*2.d0*dt/dnr
+   else
+      pjump(nexc+1:2*nexc)=0.d0
+   endif 
    if (idep.eq.0) then
-      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*2.d0*dt/dde
+      if (dde.ne.0.d0) then 
+         pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*2.d0*dt/dde
+      else
+         pjump(2*nexc+1:3*nexc+1)=0.d0
+      endif
    elseif (idep.eq.1) then
-      pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*2.d0*dt/dde
+      if (dde.ne.0.d0) then
+         pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*2.d0*dt/dde
+      else
+         pjump(2*nexc+1:3*nexc)=0.d0
+      endif
    endif
 
    return
@@ -234,8 +251,13 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+      if (nr_typ.eq.0) then
+         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+      elseif (nr_typ.eq.1) then
+         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate))
+         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate))
+      endif
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/(2.d0*dt)) 
@@ -270,9 +292,6 @@ module dissipation
             left  = right
             right = left + pjump(i+1)
          enddo
-         !creal = abs(c(istate+1))*sqrt(de_gam(istate))
-         !ireal = abs(c(istate+1))*sqrt(de_gam(istate))
-         !c(istate+1)  = cmplx(creal,ireal)
          c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
          c(1) = - c_prev(1)*sqrt(de_gam(istate))
          c(2:istate) = zeroc

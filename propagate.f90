@@ -59,11 +59,7 @@
        if (dis) then
           allocate (h_dis(n_ci,n_ci))
           if (qjump) then
-             if (idep.eq.0) then
-                allocate (pjump(3*nexc+1))
-             elseif (idep.eq.1) then
-                allocate (pjump(3*nexc))
-             endif
+             allocate (pjump(3*nexc+1))
           elseif (dis.and..not.qjump) then 
              allocate (h_rnd(n_ci,n_ci))
              allocate (h_rnd2(n_ci,n_ci))
@@ -121,12 +117,8 @@
              ! Leimkuhler-Matthews
                c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
              endif
-          !elseif (qjump) then
-          !   call loss_norm(c_prev,n_ci,pjump)
-          !   c=c/sqrt(1.d0-dtot)
           endif
        endif
-       !if (.not.dis) c=c/sqrt(dot_product(c,c))
        c=c/sqrt(dot_product(c,c))
        c_prev=c
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
@@ -170,7 +162,6 @@
                c_prev=c
             else
                 c=c/sqrt(dot_product(c,c))
-                !c=c/sqrt(1.d0-dtot)
                 c_prev2=c_prev
                 c_prev=c
             endif
@@ -337,7 +328,7 @@
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
-       character(20) :: fmt_ci,fmt_ci1
+       character(20) :: fmt_ci,fmt_ci1,fmt_ci2
        integer(4)    :: itmp
         t=(i-1)*dt
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
@@ -356,9 +347,10 @@
         itmp = n_ci*(n_ci-1)/2
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
         write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') itmp 
+        write (fmt_ci2,'("(i8,f14.4,",I0,"2e13.5)")') 2*itmp
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
-        call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,c,n_ci)
+        call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,fmt_ci2,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)
@@ -430,7 +422,7 @@
       return
       end subroutine
 !
-      subroutine wrt_decoherence(i,t,int1,int2,int3,char20,c,nci)
+      subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
 !------------------------------------------------------------------------
 ! Print the tridiagional C*_iC_j (i.ne.j) matrix 
 ! corresponding to the decoherence 
@@ -443,34 +435,43 @@
 
         integer(4),    intent(in)    :: i, nci
         integer(4),    intent(in)    :: int1, int2, int3
-        character(20), intent(in)    :: char20 
+        character(20), intent(in)    :: char20, char1_20 
         real(8),       intent(in)    :: t
         complex(16),   intent(in)    :: c(nci)
-        complex(16)                  :: cc(nci,nci*(nci-1)/2)
+        complex(16)                  :: cc(nci*(nci-1)/2,nci)
         integer(4)                   :: j, k
         complex(16)                  :: tmp
-        real(8)                      :: r(nci,nci*(nci-1)/2)
-        real(8)                      :: p(nci,nci*(nci-1)/2)
+        real(8)                      :: r(nci*(nci-1)/2,nci)
+        real(8)                      :: p(nci*(nci-1)/2,nci)
 
         do k=2,nci
            tmp = conjg(c(k))*c(1)
            r(1,k) = abs(tmp)
            p(1,k) = atan2(aimag(tmp),real(tmp))
-           !cc(1,k) = tmp
+           cc(1,k) = tmp
         enddo  
 
-        do j=2,nci
-           do k=j+1,nci
-              tmp = conjg(c(k))*c(j)
-              r(j,k) = abs(tmp)
-              p(j,k) = atan2(aimag(tmp),real(tmp)) 
-              !cc(j,k) = tmp
+        if (nci.gt.2) then
+           do j=2,nci
+              do k=j+1,nci
+                 tmp = conjg(c(k))*c(j)
+                 r(j,k) = abs(tmp)
+                 p(j,k) = atan2(aimag(tmp),real(tmp)) 
+                 cc(j,k) = tmp
+              enddo
            enddo
-        enddo
+        endif
 
-        write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
-        write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
-        !write(int3,char20,advance='no') i, t, ((cc(j,k), k=j+1,nci),j=1,nci)
+        if (nci.gt.2) then
+           write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
+           write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
+           write(int3,char1_20) i, t, ((cc(j,k), k=j+1,nci),j=1,nci)
+        else 
+           write(int1,char20,advance='no') i, t, r(1,2)
+           write(int1,char20,advance='no') i, t, p(1,2)
+           write(int3,char1_20) i, t, cc(1,2)
+        endif
+        !write(int3,*) i, t, ((cc(j,k),k=j+1,nci),j=1,nci)
          !((FORM(K,L), L=1,10), K=1,10,2)
     
         return

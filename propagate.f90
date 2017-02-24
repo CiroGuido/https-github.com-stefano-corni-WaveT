@@ -144,6 +144,7 @@
             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
             c=c/sqrt(dot_product(c,c))
             c_prev2=c_prev
+            c_prev=c
          elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
@@ -471,7 +472,6 @@
            write(int1,char20,advance='no') i, t, p(1,2)
            write(int3,char1_20) i, t, cc(1,2)
         endif
-        !write(int3,*) i, t, ((cc(j,k),k=j+1,nci),j=1,nci)
          !((FORM(K,L), L=1,10), K=1,10,2)
     
         return

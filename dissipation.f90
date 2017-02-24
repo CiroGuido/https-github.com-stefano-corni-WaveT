@@ -153,30 +153,30 @@ module dissipation
          dde = dde + pjump(i+2*nexc)
       enddo
    endif
-   dsp = 2.d0*dsp*dt
-   dnr = 2.d0*dnr*dt
-   dde = 2.d0*dde*dt
+   dsp = dsp*dt
+   dnr = dnr*dt
+   dde = dde*dt
    dtot = dsp + dnr + dde
 
    if (dsp.ne.0.d0) then
-      pjump(1:nexc)=pjump(1:nexc)*2.d0*dt/dsp
+      pjump(1:nexc)=pjump(1:nexc)*dt/dsp
    else
       pjump(1:nexc)=0.d0
    endif
    if (dnr.ne.0.d0) then
-      pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*2.d0*dt/dnr
+      pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
    else
       pjump(nexc+1:2*nexc)=0.d0
    endif 
    if (idep.eq.0) then
       if (dde.ne.0.d0) then 
-         pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*2.d0*dt/dde
+         pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
       else
          pjump(2*nexc+1:3*nexc+1)=0.d0
       endif
    elseif (idep.eq.1) then
       if (dde.ne.0.d0) then
-         pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*2.d0*dt/dde
+         pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*dt/dde
       else
          pjump(2*nexc+1:3*nexc)=0.d0
       endif
@@ -218,39 +218,46 @@ module dissipation
 ! j = n + FLOOR((m+1-n)*rnd), rnd [0,1) -> [n,m] 
 ! In our case [1,nexc]
 
-
 ! Spontaneous occurring 
    if (eta.ge.0.and.eta.lt.tmp1) then
       call random_number(eta1)
       left=0.d0
       right=pjump(1)
-      do i=1,nexc-1
-         if (eta1.ge.left.and.eta1.lt.right) then
-            istate=i
-            exit
-         endif 
-         left  = right
-         right = left + pjump(i+1)
-      enddo
+      if (nexc.gt.1) then
+         do i=1,nexc-1
+            if (eta1.ge.left.and.eta1.lt.right) then
+               istate=i
+               exit
+            endif 
+            left  = right
+            right = left + pjump(i+1)
+         enddo
+      else
+         istate=1
+      endif
       creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate)*dsp/(2.d0*dt))
+      c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
       call random_number(eta1)
       left=0.d0
       right=pjump(nexc+1)
-      do i=nexc+1,2*nexc-1
-         if (eta1.ge.left.and.eta1.lt.right) then
-            istate=i-nexc 
-            exit
-         endif
-         left  = right
-         right = left + pjump(i+1)
-      enddo
+      if (nexc.gt.1) then
+         do i=nexc+1,2*nexc-1
+            if (eta1.ge.left.and.eta1.lt.right) then
+               istate=i-nexc 
+               exit
+            endif
+            left  = right
+            right = left + pjump(i+1)
+         enddo
+      else
+         istate=1
+      endif
       if (nr_typ.eq.0) then
          creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
          ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
@@ -260,7 +267,7 @@ module dissipation
       endif
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/(2.d0*dt)) 
+      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
       i_nr = i_nr +1
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
@@ -282,21 +289,25 @@ module dissipation
          c(istate)  = cmplx(creal,ireal)
          c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
-         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/(2.d0*dt))
+         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
       elseif (idep.eq.1) then
-         do i=2*nexc+1,3*nexc-1
-            if (eta1.ge.left.and.eta1.lt.right) then
-               istate=i-2*nexc
-               exit
-            endif
-            left  = right
-            right = left + pjump(i+1)
-         enddo
+         if (nexc.gt.1) then  
+            do i=2*nexc+1,3*nexc-1
+               if (eta1.ge.left.and.eta1.lt.right) then
+                  istate=i-2*nexc
+                  exit
+               endif
+               left  = right
+               right = left + pjump(i+1)
+            enddo
+         else 
+            istate=1
+         endif
          c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
          c(1) = - c_prev(1)*sqrt(de_gam(istate))
          c(2:istate) = zeroc
          c(istate+2:nci) = zeroc
-         c=c/sqrt(pjump(istate+2*nexc)*dde/(2.d0*dt))
+         c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
       endif
       i_de = i_de + 1 
    endif

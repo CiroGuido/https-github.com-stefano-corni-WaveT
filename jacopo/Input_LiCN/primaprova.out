@@ -1,0 +1,25 @@
+ Number to append to dat file
+ Number of CIS states          10
+ Time step (in au) and number of steps  5.000000000000000E-002       50000
+ Set env dissip, Fric Coef, randseed generationnon  2.000000000000000E-002
+ Time shape of the perturbing fieldpip
+ time at the center of the pulse (au):   2000.00000000000     
+ Width of the pulse (time au):   5.00000000000000     
+ Frequency (au):  0.253259000000000     
+ Molecular center of charge
+  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ Excitation energies read from input, in Hartree
+           1  0.242447215149973     
+           2  0.252305243772845     
+           3  0.252305252844914     
+           4  0.253259653274458     
+           5  0.253259653274460     
+           6  0.275322603493437     
+           7  0.296779021914009     
+           8  0.296779021914011     
+           9  0.315304643737909     
+          10  0.335812047299283     
+ 
+ No external medium, vacuum calculation
+Done reading input & setting up the field, took     0.445s
+Done , total elapsed time    10.370s

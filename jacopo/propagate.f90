@@ -1,0 +1,375 @@
+      module propagate
+      use readio
+      use readio_medium
+      use td_ContMed
+      use cav_types      
+      use pedra_friends  
+      use spectra
+      use random
+      use rhomatrix
+            
+      implicit none
+      real(8),allocatable :: f(:,:)
+! SC mu_a is the dipole moment at current step,
+!    int_rad is the classical radiated power at current step
+!    int_rad_int is the integral of the classical radiated power at current step
+      real(8) :: mu_a(3),int_rad,int_rad_int, rand_n
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_ph=11,file_pguess=12,file_rho=17
+      real(8) :: file_cim=15
+      save
+      private
+      public create_field, prop
+!
+      contains
+!
+      subroutine prop
+       implicit none
+       integer(4) :: i,j,m,n
+       complex(16), allocatable :: c(:),c_prev(:),c_prev2(:),densmatrix(:,:), densvec(:)
+       real(8), allocatable :: h_int(:,:),ph(:),ph_prev(:),ph_prev2(:),d_ph(:) 
+       real(8) :: f_prev(3),f_prev2(3),timer,e_ci_ini(n_ci)
+       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+                  mu_prev5(3)
+       character(20) :: name_f
+       integer(4),allocatable :: label(:)
+
+! OPEN FILES
+       write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
+       open (file_c,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "e_t_",n_f,".dat"
+       open (file_e,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
+       open (file_mu,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "cim_t_",n_f,".dat"
+       open (file_cim,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "ph_t_",n_f,".dat"
+       open (file_ph,file=name_f,status="unknown")
+
+       write(name_f,'(a4,i0,a4)') "rho_",n_f,".dat"
+       open(file_rho,file=name_f,status="unknown")   ! ALLOCATING 
+
+       allocate(c(n_ci))
+       allocate(c_prev(n_ci))       
+       allocate(c_prev2(n_ci))
+       allocate(ph(n_ci))
+       allocate(d_ph(n_ci))
+       allocate(ph_prev(n_ci)) 
+       allocate(ph_prev2(n_ci))
+       allocate(h_int(n_ci,n_ci))
+       allocate(densmatrix(n_ci,n_ci))
+       allocate(densvec((n_ci+1)*n_ci/2))
+       allocate(label((n_ci+1)*n_ci/2))
+
+
+! STEP ZERO: build interaction matrices to do a first evolution
+       if (diss.eq.'dis') e_ci_ini=e_ci
+       c_prev2=c_i
+       c_prev=c_i
+       c=c_i
+       call rhocalc(n_ci,c,densmatrix)
+       call vecrho(n_ci,densmatrix,densvec)
+       write(file_rho,'(I4,F12.2$)') 0,zero
+       do m=1,n_ci
+         do n=m,n_ci
+          write(file_rho,'(20X,I4,I4$)') m,n 
+         enddo
+       enddo
+       write(file_rho,*)
+       write(file_rho,'(I4,F12.2,10000E14.5,10000E14.5)') 0,zero,(densvec(j),j=1,(n_ci*(n_ci+1)/2))
+       f_prev2=f(:,2)
+       f_prev=f(:,1)
+       h_int=zero  
+       iseed=n_f 
+       mu_prev=0.d0
+       mu_prev2=0.d0
+       mu_prev3=0.d0
+       mu_prev4=0.d0
+       mu_prev5=0.d0
+       int_rad_int=0.d0
+       if(rad.eq."arl") call seed_random_number_sc(iseed)
+       call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+       if (mdm.ne."vac") then
+           call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
+           call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
+       endif
+
+! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
+         c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+         c=c/sqrt(dot_product(c,c))
+         ph=atan(aimag(c)/real(c))
+         call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+         call out_header
+         call rhocalc(n_ci,c,densmatrix)
+         call vecrho(n_ci,densmatrix,densvec)
+         write(file_rho,'(I4,F12.2,10000E14.5,10000E14.5)') i,i*dt,(densvec(j),j=1,(n_ci*(n_ci+1)/2))
+         if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int,ph,d_ph)
+         c_prev2=c_prev
+         c_prev=c
+! PROPAGATION CYCLE: starts the propagation at timestep 3
+           call seed_random_number_sc(n_f)
+           do i=3,n_step
+           if (diss.eq."dis") then !propagates with energy randomization 
+             do j=1,n_ci
+               rand_n=random_normal()
+               e_ci(j)=e_ci_ini(j)+rand_n*cfric
+               write(*,*) rand_n
+             enddo
+           endif 
+           f_prev2=f(:,i-2)
+           f_prev=f(:,i-1)
+           if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
+                                                         f_prev2,h_int)
+           call add_int_vac(f_prev,h_int)
+
+           if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+                                                  mu_prev4,mu_prev5,h_int)
+           c=c_prev2-2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+           c=c/sqrt(dot_product(c,c))
+           ph=atan(aimag(c)/real(c))
+
+              !DENSITY MATRIX CALCULATION AND PRINT   
+              call rhocalc(n_ci,c,densmatrix)
+              call vecrho(n_ci,densmatrix,densvec)
+              !
+              write(file_rho,'(I4,F12.2,10000E14.5,10000E14.5)') i,i*dt,(densvec(j),j=1,(n_ci*(n_ci+1)/2))
+              !
+              c_prev2=c_prev
+              c_prev=c
+              call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+              if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int,ph,d_ph)
+           enddo
+
+           write(file_rho,'(I4,F12.2$)') 0,zero
+           do m=1,n_ci
+             do n=m,n_ci
+              write(file_rho,'(20X,I4,I4$)') m,n 
+             enddo
+           enddo
+           write(file_rho,*)
+
+
+
+
+
+! DEALLOCATION AND CLOSING
+       deallocate(c,c_prev,c_prev2,h_int,ph,ph_prev,ph_prev2,d_ph)
+       deallocate(densmatrix,densvec)
+       deallocate(label)
+       close (file_c)
+       close (file_e)
+       close (file_mu)
+       close (file_cim)
+       close (file_ph)
+       close (file_rho)
+       if(mdm.ne.'vac') then 
+         call  end_mdm
+       endif
+       return
+      end subroutine
+!
+      subroutine create_field
+       implicit none
+       integer(4) :: i,i_max
+       real(8) :: t_a,ti,tf
+       character(15) :: name_f
+       allocate (f(3,n_step))
+       write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
+       open (7,file=name_f,status="unknown")
+        f(:,:)=0.d0
+        select case (Ffld)
+        case ("mdg")
+         do i=1,n_step 
+          t_a=dt*(i-1)
+          f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+                         sin(omega*t_a)
+          if (mod(i,n_out).eq.0) &
+           write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("mds")
+         i_max=int(t_mid/dt)
+         do i=1,2*i_max
+          t_a=dt*(i-1)
+          f(:,i)=fmax*cos(pi*(t_a-t_mid)/(2*t_mid))**2/2.d0* &
+                 sin(omega*t_a)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+         do i=2*i_max+1,n_step
+          t_a=dt*(i-1)
+          f(:,i)=0.
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("pip")
+         i_max=int(t_mid/dt)
+         do i=1,n_step
+          t_a=dt*(i-1)
+          f(:,i)=0.
+          if (abs(t_a-t_mid).lt.sigma) then
+            f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(2*sigma)))**2* &
+               cos(omega*(t_a-t_mid))
+          endif
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("sin")
+         do i=1,n_step
+          t_a=dt*(i-1)
+          f(:,i)=fmax(:)*sin(omega*t_a)
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("snd")
+         do i=1,n_step
+          t_a=dt*(i-1)
+          if (t_a.gt.t_mid) then
+            f(:,i)=fmax(:)*sin(omega*t_a)
+          else
+            if (t_a.gt.0.d0) f(:,i)=fmax(:)*t_a/t_mid*sin(omega*t_a)
+          endif            
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("gau")
+         do i=1,n_step
+          t_a=dt*(i-1)
+          f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case ("css")
+         ti=t_mid-sigma/two
+         tf=t_mid+sigma/two
+         do i=1,n_step
+          t_a=dt*(i-1)
+          f(:,i)=zero
+          if (t_a.gt.ti.and.t_a.le.tf) then
+            f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(sigma)))**2
+          endif
+          if (mod(i,n_out).eq.0) &
+            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+         enddo
+        case default
+         write(*,*)  "Error: wrong field type !"
+         stop
+        end select
+        close(7)
+       return
+      end subroutine
+!      
+      subroutine do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+       implicit none
+       complex(16), intent(IN) :: c(n_ci)
+       real(8)::mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+                mu_prev5(3)
+       mu_a(1)=dot_product(c,matmul(mut(:,:,1),c))
+       mu_a(2)=dot_product(c,matmul(mut(:,:,2),c))
+       mu_a(3)=dot_product(c,matmul(mut(:,:,3),c))
+! SC save previous mu for radiative damping
+       mu_prev5=mu_prev4
+       mu_prev4=mu_prev3
+       mu_prev3=mu_prev2
+       mu_prev2=mu_prev
+       mu_prev=mu_a
+      return
+      end subroutine
+
+      subroutine output(i,c,f_prev,h_int,ph,d_ph)     
+       implicit none
+       integer(4), intent(IN) :: i
+       complex(16), intent(IN) :: c(n_ci)
+       real(8), intent(IN) :: h_int(n_ci,n_ci)
+       real(8),intent(IN):: ph(n_ci),d_ph(n_ci)
+       real(8), intent(IN) :: f_prev(3)
+       real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
+       character(20) :: fmt_ci,fmt_cim
+        t=(i-1)*dt
+        e_a=dot_product(c,e_ci*c+matmul(h_int,c))
+! SC 07/02/16: added printing of g_neq, g_eq 
+        if(mdm.ne.'vac') then 
+         g_eq_t=e_a
+         g_neq_t=e_a
+         g_neq2_t=e_a
+         e_vac=e_a
+         call get_gneq(e_vac,g_eq_t,g_neq_t,g_neq2_t)
+         write (file_e,'(i8,f14.4,7e20.8)') i,t,e_a,e_vac, &
+                   g_eq_t,g_neq2_t,g_neq_t,int_rad,int_rad_int
+        else
+         write (file_e,'(i8,f14.4,3e22.10)') i,t,e_a,int_rad,int_rad_int
+        endif
+        write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
+        write (fmt_cim,'("(i8,f14.4,",I0,"e13.5)")') 2*n_ci
+        !write (file_cim,fmt_cim) i,t,c(:)
+        write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
+        !write (file_ph,fmt_ci) i,t,ph(:)
+        write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
+        Sdip(i,:,1)=mu_a(:)
+        Sfld(i,:)=f(:,i-1)
+       return
+      end subroutine
+!
+      subroutine add_int_vac(f_prev,h_int)
+       implicit none
+       real(8), intent(IN) :: f_prev(3)
+       real(8), intent(INOUT) :: h_int(n_ci,n_ci)
+       ! create the field term of the hamiltonian
+! SC 16/02/2016: changed to - sign, 
+       h_int(:,:)=h_int(:,:)-mut(:,:,1)*f_prev(1)-             &
+                   mut(:,:,2)*f_prev(2)-mut(:,:,3)*f_prev(3)
+      return
+      end subroutine
+!
+      subroutine add_int_rad(mu_prev,mu_prev2,mu_prev3,mu_prev4, &
+                                                   mu_prev5,h_int)
+! SC calculate the Aharonov Lorentz radiative damping
+       implicit none
+       real(8),intent(in) :: mu_prev(3),mu_prev2(3),mu_prev3(3), &
+                 mu_prev4(3), mu_prev5(3)
+       real(8), intent(INOUT) :: h_int(n_ci,n_ci)
+       real(8) :: d3_mu(3),d2_mu(3),d_mu(3),d2_mod_mu,coeff,scoeff, &
+                  force(3),de
+!       d3_mu=(mu_prev-3.*mu_prev2+3.*mu_prev3-mu_prev4)/(dt*dt*dt)
+       d3_mu=(2.5*mu_prev-9.*mu_prev2+12.*mu_prev3-7.*mu_prev4+ &
+              1.5*mu_prev5)/(dt*dt*dt)
+! SC 08/06/2016: i'm confused on the right formula for istantaneous radiated intensity:
+!  Novotny-Hecht is pro. to (d^2/dt^2 |mu|)^2 (eq. 8.70), however in Jackson
+! for Larmor one has pro. to (d^2/dt^2 mu \cdot d^2/dt^2 mu). Since Novotny-Hech
+! in eq. 8.82 seems to use jacson definition, I also use it here
+!       d2_mod_mu=(2.*sqrt(dot_product(mu_prev,mu_prev)) &
+!                  -5.*sqrt(dot_product(mu_prev2,mu_prev2))+ &
+!                  4.*sqrt(dot_product(mu_prev3,mu_prev3)) &
+!               -sqrt(dot_product(mu_prev4,mu_prev4)))/(dt*dt)
+       d2_mu=(2.*mu_prev-5.*mu_prev2+4.*mu_prev3-mu_prev4)/(dt*dt)
+       d_mu=(1.5*mu_prev-2.*mu_prev2+0.5*mu_prev3)/dt
+!SC coefficient 1/(6 pi eps0 c^3) in atomic units
+       coeff=2.d0/3.d0/137.036**3.
+       scoeff=coeff
+!SC: added random force             
+!       d3_mu=d3_mu*coeff
+       force(1)=random_normal()*scoeff
+       force(2)=random_normal()*scoeff
+       force(3)=random_normal()*scoeff
+       d3_mu=d3_mu*coeff
+       de=dot_product(d_mu,force)
+       if(de.lt.0) d3_mu=d3_mu+force
+!       write (6,*) d3_mu
+!SC Instantenous emitted intensity (from Novotny Hech eq. 8.70)
+!       int_rad=coeff*d2_mod_mu*d2_mod_mu
+       int_rad=coeff*dot_product(d2_mu,d2_mu)+de/dt
+       int_rad_int=int_rad_int+int_rad*dt
+       h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
+                   mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
+       return
+      end subroutine
+!
+      subroutine out_header
+! SC write headers to output files, to be completed!
+      implicit none
+      write(file_e,'(8a)') '#   istep time',' <H(t)>-E_gs(0)', &
+              ' DE_vac(t)',' DG_eq(t)',' DG_neq(t)',  '  Const', &
+              '  Rad. Int', '  Rad. Ene'   
+      return
+      end subroutine
+!
+
+      end module

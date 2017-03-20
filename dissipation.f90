@@ -29,11 +29,10 @@ module dissipation
    implicit none
    integer, intent(in)    :: nci
    real(8), intent(inout) :: h_dis(nci,nci)    
-   integer                :: i
+   integer                :: i,j
    real(8)                :: rate
 
 ! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
-
    do i=2, nci
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
@@ -57,7 +56,7 @@ module dissipation
    enddo
 
    if (idep.eq.0) then
-      h_dis(1,1) = de_gam(1) !+ 1.d0
+      h_dis(1,1) = de_gam(1) 
    elseif (idep.eq.1) then
       do i=2,nci
          h_dis(1,1) = h_dis(1,1) + de_gam(i-1)
@@ -202,7 +201,8 @@ module dissipation
    real(8),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
    real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
-   real(8)                      :: left, right, ph 
+   real(8)                      :: left, right 
+   complex(16)                  :: cph 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
@@ -223,18 +223,14 @@ module dissipation
       call random_number(eta1)
       left=0.d0
       right=pjump(1)
-      if (nexc.gt.1) then
-         do i=1,nexc-1
-            if (eta1.ge.left.and.eta1.lt.right) then
-               istate=i
-               exit
-            endif 
-            left  = right
-            right = left + pjump(i+1)
-         enddo
-      else
-         istate=1
-      endif
+      do i=1,nexc
+         if (eta1.ge.left.and.eta1.lt.right) then
+            istate=i
+            exit
+         endif 
+         left  = right
+         right = left + pjump(i+1)
+      enddo
       creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
       c(1)  = cmplx(creal,ireal) 
@@ -246,18 +242,14 @@ module dissipation
       call random_number(eta1)
       left=0.d0
       right=pjump(nexc+1)
-      if (nexc.gt.1) then
-         do i=nexc+1,2*nexc-1
-            if (eta1.ge.left.and.eta1.lt.right) then
-               istate=i-nexc 
-               exit
+      do i=nexc+1,2*nexc
+         if (eta1.ge.left.and.eta1.lt.right) then
+            istate=i-nexc 
+            exit
             endif
-            left  = right
-            right = left + pjump(i+1)
-         enddo
-      else
-         istate=1
-      endif
+         left  = right
+         right = left + pjump(i+1)
+      enddo
       if (nr_typ.eq.0) then
          creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
          ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
@@ -275,7 +267,7 @@ module dissipation
       left=0.d0
       right=pjump(2*nexc+1)
       if (idep.eq.0) then
-         do i=2*nexc+1,3*nexc
+         do i=2*nexc+1,3*nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
                istate=i-2*nexc
                exit  
@@ -283,28 +275,22 @@ module dissipation
             left  = right 
             right = left + pjump(i+1)
          enddo
-         ph = atan2(aimag(c_prev(istate)),real(c_prev(istate)))
-         creal = abs(c_prev(istate))*cos(ph+delta(istate))*sqrt(de_gam(istate))
-         ireal = abs(c_prev(istate))*sin(ph+delta(istate))*sqrt(de_gam(istate))  
-         c(istate)  = cmplx(creal,ireal)
-         c(1:istate-1) = zeroc 
+         cph=cmplx(cos(delta(istate)),sin(delta(istate)))
+         c(istate)=c_prev(istate)*cph*sqrt(de_gam(istate))
+         if (istate.ne.1) c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
          c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
       elseif (idep.eq.1) then
-         if (nexc.gt.1) then  
-            do i=2*nexc+1,3*nexc-1
-               if (eta1.ge.left.and.eta1.lt.right) then
-                  istate=i-2*nexc
-                  exit
-               endif
-               left  = right
-               right = left + pjump(i+1)
-            enddo
-         else 
-            istate=1
-         endif
+         do i=2*nexc+1,3*nexc
+            if (eta1.ge.left.and.eta1.lt.right) then
+               istate=i-2*nexc
+               exit
+            endif
+            left  = right
+            right = left + pjump(i+1)
+         enddo
          c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
-         c(1) = - c_prev(1)*sqrt(de_gam(istate))
+         c(1) =  - c_prev(1)*sqrt(de_gam(istate))
          c(2:istate) = zeroc
          c(istate+2:nci) = zeroc
          c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
@@ -367,7 +353,7 @@ module dissipation
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
          rtmp = sqrt(de_gam(i))*cos(delta(i))*wrnd(i+2*nci)
          itmp = sqrt(de_gam(i))*sin(delta(i))*wrnd(i+2*nci) 
-         h_rnd(i,i) = cmplx(rtmp,itmp)
+         h_rnd(i,i) = h_rnd(1,1) + cmplx(rtmp,itmp)
       enddo
    elseif (idep.eq.1) then 
       do i=2,nci

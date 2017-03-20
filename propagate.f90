@@ -24,14 +24,14 @@
 !
       subroutine prop
        implicit none
-       integer(4)                :: i,j,k,istop
+       integer(4)                :: i,j,k,istop,ijump=0
        complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
        real(8),     allocatable  :: h_int(:,:), h_dis(:,:)
        real(8),     allocatable  :: pjump(:) 
        real(8)                   :: f_prev(3),f_prev2(3)
        real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
                                     mu_prev4(3), mu_prev5(3)
-       real(8)                   :: eps  
+       real(8)                   :: eps, d2tot  
        real(8),     allocatable  :: w(:), w_prev(:)
        character(20)             :: name_f
        logical                   :: first=.true. 
@@ -121,6 +121,7 @@
        endif
        c=c/sqrt(dot_product(c,c))
        c_prev=c
+
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
@@ -148,8 +149,11 @@
          elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
-            !c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
-            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
+            if (i.eq.ijump+1) then
+               c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
+            else 
+               c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
+            endif 
 ! loss_norm computes: 
 ! norm = 1 - dtot
 ! dtot = dsp + dnr + dde
@@ -159,7 +163,8 @@
             call random_number(eps)  
             if (dtot.gt.eps)  then
                call quan_jump(c,c_prev,n_ci,pjump)
-               c_prev2=c
+               ijump=i
+               write(*,*) 'Quantum jump at step:', i, (i-1)*dt 
                c_prev=c
             else
                 c=c/sqrt(dot_product(c,c))
@@ -176,8 +181,7 @@
             elseif (tdis.eq.1) then
                 c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
             endif
-            c=c/sqrt(dot_product(c,c))
-            c_prev2=c_prev
+            !c=c/sqrt(dot_product(c,c))
             c_prev=c
          endif
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
@@ -439,11 +443,15 @@
         character(20), intent(in)    :: char20, char1_20 
         real(8),       intent(in)    :: t
         complex(16),   intent(in)    :: c(nci)
-        complex(16)                  :: cc(nci*(nci-1)/2,nci)
+        complex(16)                  :: cc(nci,nci)
         integer(4)                   :: j, k
         complex(16)                  :: tmp
-        real(8)                      :: r(nci*(nci-1)/2,nci)
-        real(8)                      :: p(nci*(nci-1)/2,nci)
+        real(8)                      :: r(nci,nci)
+        real(8)                      :: p(nci,nci)
+
+        tmp=cmplx(0.d0,0.d0)
+        r=0.d0
+        p=0.d0
 
         do k=2,nci
            tmp = conjg(c(k))*c(1)
@@ -464,12 +472,12 @@
         endif
 
         if (nci.gt.2) then
-           write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci)
-           write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci)    
-           write(int3,char1_20) i, t, ((cc(j,k), k=j+1,nci),j=1,nci)
+           write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci-1)
+           write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci-1)    
+           write(int3,char1_20) i, t, ((cc(j,k), k=j+1,nci),j=1,nci-1)
         else 
            write(int1,char20,advance='no') i, t, r(1,2)
-           write(int1,char20,advance='no') i, t, p(1,2)
+           write(int2,char20,advance='no') i, t, p(1,2)
            write(int3,char1_20) i, t, cc(1,2)
         endif
          !((FORM(K,L), L=1,10), K=1,10,2)

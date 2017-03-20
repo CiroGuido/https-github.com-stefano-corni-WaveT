@@ -302,6 +302,8 @@
           read(11,*) idum, sp_fact(i)
        enddo
        if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
+! The sigma_z operator for dephasing has an extra factor 2
+       if (idep.eq.1) de_gam=0.5d0*de_gam
 ! Define spontaneous emission terms 
        term=4.d0/(3.d0*slight)
        do i=1,nexc

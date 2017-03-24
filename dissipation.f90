@@ -30,7 +30,9 @@ module dissipation
    integer, intent(in)    :: nci
    real(8), intent(inout) :: h_dis(nci,nci)    
    integer                :: i,j
-   real(8)                :: rate
+   real(8)                :: rate, sde
+
+   if (idep.eq.1) sde = sum(de_gam1)
 
 ! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
    do i=2, nci
@@ -51,16 +53,14 @@ module dissipation
          h_dis(i,i) = h_dis(i,i) + de_gam(i)
 ! S_alpha = sqrt(de_gam_alpha) * (|Phi_alpha> <Phi_alpha| - |Phi_0> <Phi_0|)
       elseif (idep.eq.1) then
-         h_dis(i,i) = h_dis(i,i) + de_gam(i-1)
+         h_dis(i,i) = h_dis(i,i) + sde
       endif
    enddo
 
    if (idep.eq.0) then
       h_dis(1,1) = de_gam(1) 
    elseif (idep.eq.1) then
-      do i=2,nci
-         h_dis(1,1) = h_dis(1,1) + de_gam(i-1)
-      enddo
+      h_dis(1,1) = sde
    endif
 
    h_dis=0.5d0*h_dis
@@ -112,7 +112,7 @@ module dissipation
    integer,     intent(in)   :: nci
    real(8),     intent(inout):: pjump(3*nexc+1)
    integer                   :: i
-   real(8)                   :: weight, tmp
+   real(8)                   :: weight, tmp, sumc
 
    dsp=0.d0
    dnr=0.d0
@@ -146,9 +146,13 @@ module dissipation
          dde = dde + pjump(i+1+2*nexc)
       enddo
    elseif (idep.eq.1) then
-      do i=1,nexc
-         tmp=abs(c(i+1))
-         pjump(i+2*nexc) = de_gam(i)*(tmp**2 + abs(c(1))**2)
+      sumc=0.d0 
+      do i=1,nexc+1
+         tmp=abs(c(i))**2
+         sumc=sumc+tmp
+      enddo
+      do i=1,nexc+1
+         pjump(i+2*nexc) = de_gam1(i)*sumc
          dde = dde + pjump(i+2*nexc)
       enddo
    endif
@@ -167,19 +171,19 @@ module dissipation
    else
       pjump(nexc+1:2*nexc)=0.d0
    endif 
-   if (idep.eq.0) then
+   !if (idep.eq.0) then
       if (dde.ne.0.d0) then 
          pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
       else
          pjump(2*nexc+1:3*nexc+1)=0.d0
       endif
-   elseif (idep.eq.1) then
-      if (dde.ne.0.d0) then
-         pjump(2*nexc+1:3*nexc)=pjump(2*nexc+1:3*nexc)*dt/dde
-      else
-         pjump(2*nexc+1:3*nexc)=0.d0
-      endif
-   endif
+   !elseif (idep.eq.1) then
+   !   if (dde.ne.0.d0) then
+   !      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
+   !   else
+   !      pjump(2*nexc+1:3*nexc+1)=0.d0
+   !   endif
+   !endif
 
    return
 
@@ -281,6 +285,8 @@ module dissipation
          c(istate+1:nci) = zeroc 
          c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
       elseif (idep.eq.1) then
+         do i=1,3*nexc
+         enddo
          do i=2*nexc+1,3*nexc
             if (eta1.ge.left.and.eta1.lt.right) then
                istate=i-2*nexc
@@ -289,10 +295,13 @@ module dissipation
             left  = right
             right = left + pjump(i+1)
          enddo
-         c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
-         c(1) =  - c_prev(1)*sqrt(de_gam(istate))
-         c(2:istate) = zeroc
-         c(istate+2:nci) = zeroc
+         c = c_prev*sqrt(de_gam1) 
+         c(istate) = -c(istate)
+         !Valid only for two-state systems
+         !c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))
+         !c(1) =  - c_prev(1)*sqrt(de_gam(istate))
+         !c(2:istate) = zeroc
+         !c(istate+2:nci) = zeroc
          c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
       endif
       i_de = i_de + 1 

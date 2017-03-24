@@ -29,6 +29,7 @@
       real(8), allocatable :: sp_fact(:) !multiplicative factor for the decay rate for spontaneous emission
       real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
       real(8), allocatable :: delta(:) !phases randomly added during the propagation 
+      real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
       real(8) :: dt,tau(2),start
       logical :: dis !turns on the dissipation
       logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
@@ -61,7 +62,7 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep, imar
+             idep, imar, de_gam1
 !
       contains
 !
@@ -285,11 +286,11 @@
        endif 
 
        allocate(nr_gam(nexc))
+       allocate(de_gam(nexc+1))
        if (idep.eq.0) then
-          allocate(de_gam(nexc+1))
           allocate(delta(nexc+1))
        elseif (idep.eq.1) then
-          allocate(de_gam(nexc))
+          allocate(de_gam1(nexc+1))
        endif
        allocate(sp_gam(nexc))
        allocate(tmom2_0i(nexc))
@@ -298,12 +299,14 @@
 ! Read nonradiative and dephasing terms
        do i=1,nexc
           read(8,*) idum, nr_gam(i)
-          read(9,*) idum, de_gam(i)
           read(11,*) idum, sp_fact(i)
        enddo
-       if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
+       read(9,*) idum, de_gam(nexc+1)
 ! The sigma_z operator for dephasing has an extra factor 2
-       if (idep.eq.1) de_gam=0.5d0*de_gam
+       if (idep.eq.1) then 
+          de_gam=0.5d0*de_gam
+          call define_gamma(de_gam,de_gam1,n_ci)
+       endif
 ! Define spontaneous emission terms 
        term=4.d0/(3.d0*slight)
        do i=1,nexc
@@ -373,6 +376,7 @@
 
        deallocate(nr_gam)
        deallocate(de_gam)
+       if (idep.eq.1) deallocate(de_gam1)
        deallocate(sp_gam)
        deallocate(sp_fact)
        deallocate(tmom2_0i)
@@ -381,5 +385,30 @@
        return
 
       end subroutine deallocate_dis
+
+      subroutine define_gamma(de_gam,de_gam1,nci)
+!------------------------------------------------------------------------
+! Move from "physical" gammas to gammas 
+! for keeping the population constant
+! for each trajectory  
+!
+! Created   : E. Coccia 24 Mar 2017
+! Modified  :
+!------------------------------------------------------------------------
+
+       implicit none
+       integer                :: i
+       integer, intent(in)    :: nci
+       real(8), intent(in)    :: de_gam(nci)
+       real(8), intent(inout) :: de_gam1(nci)
+
+       de_gam1(1) = 0.d0
+       do i=1,nexc
+          de_gam1(i+1) = de_gam(i) - de_gam1(1) 
+       enddo
+
+       return
+
+      end subroutine define_gamma
 
       end module readio

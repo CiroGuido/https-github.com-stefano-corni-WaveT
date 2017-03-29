@@ -171,19 +171,11 @@ module dissipation
    else
       pjump(nexc+1:2*nexc)=0.d0
    endif 
-   !if (idep.eq.0) then
-      if (dde.ne.0.d0) then 
-         pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
-      else
-         pjump(2*nexc+1:3*nexc+1)=0.d0
-      endif
-   !elseif (idep.eq.1) then
-   !   if (dde.ne.0.d0) then
-   !      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
-   !   else
-   !      pjump(2*nexc+1:3*nexc+1)=0.d0
-   !   endif
-   !endif
+   if (dde.ne.0.d0) then 
+      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
+   else
+      pjump(2*nexc+1:3*nexc+1)=0.d0
+   endif
 
    return
 
@@ -285,9 +277,7 @@ module dissipation
          c(istate+1:nci) = zeroc 
          c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
       elseif (idep.eq.1) then
-         do i=1,3*nexc
-         enddo
-         do i=2*nexc+1,3*nexc
+         do i=2*nexc+1,3*nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
                istate=i-2*nexc
                exit
@@ -295,7 +285,7 @@ module dissipation
             left  = right
             right = left + pjump(i+1)
          enddo
-         c = c_prev*sqrt(de_gam1) 
+         c = c_prev*sqrt(de_gam1(istate)) 
          c(istate) = -c(istate)
          !Valid only for two-state systems
          !c(istate+1) = c_prev(istate+1)*sqrt(de_gam(istate))

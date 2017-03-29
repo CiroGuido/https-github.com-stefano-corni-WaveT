@@ -286,10 +286,11 @@
        endif 
 
        allocate(nr_gam(nexc))
-       allocate(de_gam(nexc+1))
        if (idep.eq.0) then
+          allocate(de_gam(nexc+1))
           allocate(delta(nexc+1))
        elseif (idep.eq.1) then
+          allocate(de_gam(nexc))
           allocate(de_gam1(nexc+1))
        endif
        allocate(sp_gam(nexc))
@@ -299,9 +300,10 @@
 ! Read nonradiative and dephasing terms
        do i=1,nexc
           read(8,*) idum, nr_gam(i)
+          read(9,*) idum, de_gam(i)
           read(11,*) idum, sp_fact(i)
        enddo
-       read(9,*) idum, de_gam(nexc+1)
+       if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
 ! The sigma_z operator for dephasing has an extra factor 2
        if (idep.eq.1) then 
           de_gam=0.5d0*de_gam
@@ -399,7 +401,7 @@
        implicit none
        integer                :: i
        integer, intent(in)    :: nci
-       real(8), intent(in)    :: de_gam(nci)
+       real(8), intent(in)    :: de_gam(nci-1)
        real(8), intent(inout) :: de_gam1(nci)
 
        de_gam1(1) = 0.d0

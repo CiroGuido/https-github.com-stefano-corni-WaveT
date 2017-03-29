@@ -106,9 +106,9 @@
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
-       !c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
        if (dis) then
-          !c=c-dt*matmul(h_dis,c_prev)
+          c=c-dt*matmul(h_dis,c_prev)
           if (.not.qjump) then
              if (tdis.eq.0) then
              ! Euler-Maruyama
@@ -119,11 +119,6 @@
              endif
           endif
        endif
-
-       c(1)=c_prev(1)*exp(-ui*e_ci(1)*dt)*exp(-0.5*(de_gam(1)+de_gam(2))*dt)
-       c(2)=c_prev(2)*exp(-ui*e_ci(2)*dt)*exp(-0.5*de_gam(1)*dt)
-       c(3)=c_prev(3)*exp(-ui*e_ci(3)*dt)*exp(-0.5*de_gam(2)*dt)
-
        c=c/sqrt(dot_product(c,c))
        c_prev=c
 
@@ -154,14 +149,11 @@
          elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
-            !if (i.eq.ijump+1) then
-            !   c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
-            !else 
-            !   c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
-            !endif 
-            c(1)=c_prev(1)*exp(-ui*e_ci(1)*dt)*exp(-0.5*(de_gam(1)+de_gam(2))*dt)
-            c(2)=c_prev(2)*exp(-ui*e_ci(2)*dt)*exp(-0.5*de_gam(1)*dt)
-            c(3)=c_prev(3)*exp(-ui*e_ci(3)*dt)*exp(-0.5*de_gam(2)*dt)
+            if (i.eq.ijump+1) then
+               c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
+            else 
+               c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
+            endif 
           
 ! loss_norm computes: 
 ! norm = 1 - dtot

@@ -30,9 +30,10 @@
       real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
       real(8), allocatable :: delta(:) !phases randomly added during the propagation 
       real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
-      real(8) :: dt,tau(2),start
+      real(8) :: dt,tau(2),start, krnd
       logical :: dis !turns on the dissipation
       logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
+      logical :: ernd=.false. !add normal number to E: E -> E + krnd*rnd()
       ! qjump works for the Markovian case
       ! Stochastic propagation from:
       ! Appl. Math. Res. Express vol. 2013 34-56 (2013)
@@ -62,7 +63,7 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep, imar, de_gam1
+             idep, imar, de_gam1, krnd, ernd
 !
       contains
 !
@@ -178,6 +179,12 @@
              qjump=.false.
              write(*,*) 'Continuous stochastic propagator'
           end select
+        case ('rnd', 'RND', 'Rnd', 'RNd')
+          dis=.false.
+          ernd=.true.
+          read(*,*) krnd
+          write(*,*) "Normal random term added to CI energies"
+          if (rad.eq.'non') read(5,*) iseed
         case default
           dis=.false.
           write(*,*) 'No dissipation'    
@@ -272,9 +279,6 @@
 
        nexc = n_ci - 1
 
-! idep=0 nci terms needed for the dephasing
-! idep=1 nexc terms needed for the dephasing
-
        if (idep.ne.0.and.idep.ne.1) then
           write(*,*) 'Invalid value for idep, must be 0 or 1'
           stop
@@ -305,6 +309,9 @@
        enddo
        if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
 ! The sigma_z operator for dephasing has an extra factor 2
+! If idep.eq.1 S_alpha = \sum_beta M(alpha, beta) |beta><beta|
+! if alpha.eq. beta then M(alpha,beta) = -1
+! otherwise M(alpha,beta) = 1
        if (idep.eq.1) then 
           de_gam=0.5d0*de_gam
           call define_gamma(de_gam,de_gam1,n_ci)
@@ -413,4 +420,4 @@
 
       end subroutine define_gamma
 
-      end module readio
+    end module readio

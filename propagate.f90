@@ -80,7 +80,7 @@
        mu_prev4=0.d0
        mu_prev5=0.d0
        int_rad_int=0.d0
-       if(rad.eq."arl".or.dis) call seed_random_number_sc(iseed)
+       if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
@@ -107,6 +107,11 @@
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
        c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       if (ernd) then
+          do j=1,n_ci
+             c(j) = c(j) - ui*dt*krnd*random_normal()*c_prev(j)
+          enddo
+       endif
        if (dis) then
           c=c-dt*matmul(h_dis,c_prev)
           if (.not.qjump) then
@@ -143,6 +148,11 @@
 ! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
          if (.not.dis) then
             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+            if (ernd) then
+               do j=1,n_ci
+                  c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
+               enddo
+            endif
             c=c/sqrt(dot_product(c,c))
             c_prev2=c_prev
             c_prev=c

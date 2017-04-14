@@ -232,7 +232,8 @@ module dissipation
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
-      i_sp=i_sp+1 
+      i_sp=i_sp+1
+      write(*,*) 'Jump due to spontaneous emission, channel n.:', istate 
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
       call random_number(eta1)
@@ -257,6 +258,7 @@ module dissipation
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
       i_nr = i_nr +1
+      write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)
@@ -294,7 +296,8 @@ module dissipation
          !c(istate+2:nci) = zeroc
          c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
       endif
-      i_de = i_de + 1 
+      i_de = i_de + 1
+      write(*,*) 'Jump due to pure dephasing, channel n.:', istate 
    endif
 
    return

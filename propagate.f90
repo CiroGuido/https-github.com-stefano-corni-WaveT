@@ -6,13 +6,16 @@
       use pedra_friends  
       use spectra
       use random
+      use dissipation
+
       implicit none
       real(8),allocatable :: f(:,:)
 ! SC mu_a is the dipole moment at current step,
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11 
+      integer(4) :: file_dm=12, file_dp=13, file_d=14
       save
       private
       public create_field, prop
@@ -21,13 +24,18 @@
 !
       subroutine prop
        implicit none
-       integer(4) :: i,j
-       complex(16), allocatable :: c(:),c_prev(:),c_prev2(:)
-       real(8), allocatable :: h_int(:,:)
-       real(8) :: f_prev(3),f_prev2(3)
-       real(8) :: mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
-                  mu_prev5(3)
-       character(20) :: name_f
+       integer(4)                :: i,j,k,istop,ijump=0
+       complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       real(8),     allocatable  :: h_int(:,:), h_dis(:,:)
+       real(8),     allocatable  :: pjump(:) 
+       real(8)                   :: f_prev(3),f_prev2(3)
+       real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
+                                    mu_prev4(3), mu_prev5(3)
+       real(8)                   :: eps  
+       real(8),     allocatable  :: w(:), w_prev(:)
+       character(20)             :: name_f
+       logical                   :: first=.true. 
+
 ! OPEN FILES
        write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
        open (file_c,file=name_f,status="unknown")
@@ -35,11 +43,29 @@
        open (file_e,file=name_f,status="unknown")
        write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
        open (file_mu,file=name_f,status="unknown")
+       write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
+       open (file_p,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
+       open (file_dm,file=name_f,status="unknown")
+       write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
+       open (file_dp,file=name_f,status="unknown") 
+       write(name_f,'(a4,i0,a4)') "d_t_",n_f,".dat"
+       open (file_d,file=name_f,status="unknown")
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
+       if (dis) then
+          allocate (h_dis(n_ci,n_ci))
+          if (qjump) then
+             allocate (pjump(3*nexc+1))
+          elseif (dis.and..not.qjump) then 
+             allocate (h_rnd(n_ci,n_ci))
+             allocate (h_rnd2(n_ci,n_ci))
+             allocate (w(3*n_ci), w_prev(3*n_ci))
+          endif
+       endif
 
 ! STEP ZERO: build interaction matrices to do a first evolution
        c_prev2=c_i
@@ -54,17 +80,53 @@
        mu_prev4=0.d0
        mu_prev5=0.d0
        int_rad_int=0.d0
-       if(rad.eq."arl") call seed_random_number_sc(iseed)
+       if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
            call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
        endif
        call add_int_vac(f_prev,h_int)
+
+! EC 20/12/16
+! Dissipation according to the Markovian SSE (eq 25 J. Phys: Condens.
+! Matter vol. 24 (2012) 273201)
+! OR
+! Dissipation according to the non-Markovian SSE (eq 24 J. Phys:
+! Condens. Matter vol. 24 (2012) 273201) 
+! Add a random fluctuation for the stochastic propagation (.not.qjump)
+       if (dis) then
+          call define_h_dis(h_dis,n_ci,imar)
+          if (.not.qjump) then 
+             call rnd_noise(w,w_prev,n_ci,first,tdis)
+             first=.false.
+             call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis) 
+             call add_h_rnd2(h_rnd2,n_ci)
+          endif
+       endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
-       c=c_prev+ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+       if (ernd) then
+          do j=1,n_ci
+             c(j) = c(j) - ui*dt*krnd*random_normal()*c_prev(j)
+          enddo
+       endif
+       if (dis) then
+          c=c-dt*matmul(h_dis,c_prev)
+          if (.not.qjump) then
+             if (tdis.eq.0) then
+             ! Euler-Maruyama
+               c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)               
+             elseif (tdis.eq.1) then
+             ! Leimkuhler-Matthews
+               c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
+             endif
+          endif
+       endif
        c=c/sqrt(dot_product(c,c))
+       c_prev=c
+
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
@@ -73,26 +135,95 @@
        do i=3,n_step
          f_prev2=f(:,i-2)
          f_prev=f(:,i-1)
-         h_int=zero   
+         h_int=zero 
          if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
                                                       f_prev2,h_int)
          call add_int_vac(f_prev,h_int)
 ! SC field
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-         c=c_prev2+2.0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-         c=c/sqrt(dot_product(c,c))
-         c_prev2=c_prev
-         c_prev=c
+
+! No dissipation in the propagation -> .not.dis
+! Markovian dissipation (quantum jump) -> dis.and.qjump
+! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
+         if (.not.dis) then
+            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+            if (ernd) then
+               do j=1,n_ci
+                  c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
+               enddo
+            endif
+            c=c/sqrt(dot_product(c,c))
+            c_prev2=c_prev
+            c_prev=c
+         elseif (dis.and.qjump) then
+! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
+! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
+            if (i.eq.ijump+1) then
+               c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)
+            else 
+               c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
+            endif 
+          
+! loss_norm computes: 
+! norm = 1 - dtot
+! dtot = dsp + dnr + dde
+! Loss of the norm, dissipative events simulated
+! eps -> uniform random number in [0,1]
+            call loss_norm(c_prev,n_ci,pjump)
+            call random_number(eps)  
+            if (dtot.gt.eps)  then
+               call quan_jump(c,c_prev,n_ci,pjump)
+               ijump=i
+               write(*,*) 'Quantum jump at step:', i, (i-1)*dt 
+               c_prev=c
+            else
+                c=c/sqrt(dot_product(c,c))
+                c_prev2=c_prev
+                c_prev=c
+            endif
+         elseif (dis.and..not.qjump) then
+! Dissipation by a continuous stochastic propagation
+            call rnd_noise(w,w_prev,n_ci,first,tdis)
+            call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis)
+            if (tdis.eq.0) then
+            ! Euler-Maruyama 
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
+            elseif (tdis.eq.1) then
+                c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
+            endif
+            !c=c/sqrt(dot_product(c,c))
+            c_prev=c
+         endif
          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-         if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int)
+         if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+         
        enddo
 
 ! DEALLOCATION AND CLOSING
        deallocate (c,c_prev,c_prev2,h_int)
+       if (dis) then
+          call deallocate_dis()
+          deallocate(h_dis)
+          if (.not.qjump) then
+             deallocate(h_rnd)
+             deallocate(h_rnd2)
+             deallocate(w)
+             deallocate(w_prev)
+          endif 
+          if (qjump) then
+             write(*,*)
+             write(*,*) 'Total number of quantum jumps', i_sp+i_nr+i_de, '(',  real(i_sp+i_nr+i_de)/real(n_step),')'
+             write(*,*) 'Spontaneous emission quantum jumps', i_sp,'(',  real(i_sp)/real(n_step),')'
+             write(*,*) 'Nonradiarive relaxation quantum jumps', i_nr,'(', real(i_nr)/real(n_step),')'
+             write(*,*) 'Dephasing relaxation quantum jumps', i_de, '(', real(i_de)/real(n_step),')'
+             write(*,*)
+          endif
+       endif
        close (file_c)
        close (file_e)
        close (file_mu)
+       close (file_p)
        if(mdm.ne.'vac') then 
          call  end_mdm
        endif
@@ -213,7 +344,8 @@
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
-       character(20) :: fmt_ci
+       character(20) :: fmt_ci,fmt_ci1,fmt_ci2
+       integer(4)    :: itmp
         t=(i-1)*dt
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
@@ -228,8 +360,13 @@
         else
          write (file_e,'(i8,f14.4,3e22.10)') i,t,e_a,int_rad,int_rad_int
         endif
+        itmp = n_ci*(n_ci-1)/2
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
+        write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') itmp 
+        write (fmt_ci2,'("(i8,f14.4,",I0,"2e13.5)")') 2*itmp
         write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
+        write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
+        call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,fmt_ci2,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
         Sdip(i,:,1)=mu_a(:)
         !Sfld(i,:)=f(:,i-1)
@@ -301,4 +438,63 @@
       return
       end subroutine
 !
+      subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
+!------------------------------------------------------------------------
+! Print the tridiagional C*_iC_j (i.ne.j) matrix 
+! corresponding to the decoherence 
+! 
+! Created   : E. Coccia 3 Feb 2017
+! Modified  :
+!------------------------------------------------------------------------
+  
+        implicit none
+
+        integer(4),    intent(in)    :: i, nci
+        integer(4),    intent(in)    :: int1, int2, int3
+        character(20), intent(in)    :: char20, char1_20 
+        real(8),       intent(in)    :: t
+        complex(16),   intent(in)    :: c(nci)
+        complex(16)                  :: cc(nci,nci)
+        integer(4)                   :: j, k
+        complex(16)                  :: tmp
+        real(8)                      :: r(nci,nci)
+        real(8)                      :: p(nci,nci)
+
+        tmp=cmplx(0.d0,0.d0)
+        r=0.d0
+        p=0.d0
+
+        do k=2,nci
+           tmp = conjg(c(k))*c(1)
+           r(1,k) = abs(tmp)
+           p(1,k) = atan2(aimag(tmp),real(tmp))
+           cc(1,k) = tmp
+        enddo  
+
+        if (nci.gt.2) then
+           do j=2,nci
+              do k=j+1,nci
+                 tmp = conjg(c(k))*c(j)
+                 r(j,k) = abs(tmp)
+                 p(j,k) = atan2(aimag(tmp),real(tmp)) 
+                 cc(j,k) = tmp
+              enddo
+           enddo
+        endif
+
+        if (nci.gt.2) then
+           write(int1,char20,advance='no') i, t, ((r(j,k), k=j+1,nci), j=1,nci-1)
+           write(int2,char20,advance='no') i, t, ((p(j,k), k=j+1,nci), j=1,nci-1)    
+           write(int3,char1_20) i, t, ((cc(j,k), k=j+1,nci),j=1,nci-1)
+        else 
+           write(int1,char20,advance='no') i, t, r(1,2)
+           write(int2,char20,advance='no') i, t, p(1,2)
+           write(int3,char1_20) i, t, cc(1,2)
+        endif
+         !((FORM(K,L), L=1,10), K=1,10,2)
+    
+        return
+
+      end subroutine wrt_decoherence
+
       end module

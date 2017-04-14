@@ -3,7 +3,8 @@
       use readio_medium
       use propagate    
       use QM_coupling  
-      use spectra       
+      use spectra
+      use dissipation       
       implicit none
       integer :: st,current,rate
 !

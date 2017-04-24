@@ -1,10 +1,10 @@
 !Input
-8
-10 10  ! numero stati eccitati ci
+NN
+3 3  ! numero stati eccitati ci
 0.05  100000 2 ! dt(au) e numero step
 gau
-2000 500 0.2420 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
-0.8 0.8 0.8 ! valore massimo del campo (vettore)
+2500 1000 0.2420 ! centro dell'impulso (in a.u.), larghezza non usata (a.u.), frequenza angolare
+0.0 0.0 0.0 ! valore massimo del campo (vettore)
 non          ! solvent(sol) or nanoparticle (nan)
 0.     0.     0.     ! molecular center of charge
 !input for medium=sol
@@ -14,4 +14,7 @@ vac ! coupling BEM (pcm) or dipolar (ons)
 0.0 0.0 1.0 ! field direction 
 ! input for dissipation
 Mar
-3672920
+1 ! pure dephasing type
+seed_to_change
+qjump
+1 ! nr channel

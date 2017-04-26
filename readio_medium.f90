@@ -70,6 +70,10 @@
        read(5,*) 
        read(5,*) n_q
        read(5,*) 
+
+       namelist /dielectric/
+
+
 ! read dielectric function type and parameters
        read(5,*) which_eps
        select case (which_eps)
@@ -87,6 +91,10 @@
            write(*,*) "Error, specify eps(omega) type DEB or DRL"
            stop
        end select
+
+       namelist /interaction/
+
+
        read(5,*) 
 ! read interaction type: PCM or Onsager
 ! which_int refers to the coupling between the molecule and the reaction field
@@ -167,6 +175,9 @@
           endif
          endif
        endif
+
+      namelist /boundary/
+
 ! 
 ! if this is a run with an explicit boundary (fprop.neq.dip), then
 ! we need to know if the boundary and the matrix are read from outside

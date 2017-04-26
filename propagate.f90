@@ -23,6 +23,15 @@
       contains
 !
       subroutine prop
+!------------------------------------------------------------------------
+! @brief Propogate C(t) using a second
+! order Euler algorithm 
+! 
+! 
+! @date Created   : 
+! Modified  : E. Coccia Dec-Apr 2017
+!------------------------------------------------------------------------
+
        implicit none
        integer(4)                :: i,j,k,istop,ijump=0
        complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
@@ -440,10 +449,10 @@
 !
       subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
 !------------------------------------------------------------------------
-! Print the tridiagional C*_iC_j (i.ne.j) matrix 
+! @brief Print the tridiagional C*_iC_j (i.ne.j) matrix 
 ! corresponding to the decoherence 
 ! 
-! Created   : E. Coccia 3 Feb 2017
+! @date Created   : E. Coccia 3 Feb 2017
 ! Modified  :
 !------------------------------------------------------------------------
   

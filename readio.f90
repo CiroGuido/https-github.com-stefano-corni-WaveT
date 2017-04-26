@@ -68,15 +68,30 @@
       contains
 !
       subroutine read_input
+      
+
+
        integer(4):: i,nspectra
        character(3) :: medium,radiative,dissipative
        character(5) :: dis_prop 
+      
+
+       namelist /file/
+
        read(5,*)    
        read(5,*) n_f
        write(6,*) "Number to append to dat file", n_f
+
+
+       namelist /mol/
+
        read(5,*) n_ci_read,n_ci
        write (6,*) "Number of CIS states to be read",n_ci_read
        write (6,*) "Number of CIS states to be used",n_ci
+     
+
+       namelist /field/
+
        read(5,*) dt,n_step,n_out
        write (6,*) "Time step (in au), number of steps, stride",dt, &
                  n_step,n_out
@@ -101,9 +116,14 @@
        read(5,*) (mol_cc(i),i=1,3)
        write(*,*) 'Molecular center of charge'
        write(*,*) mol_cc
+
+
 !    read gaussian output for CIS propagation
        call read_gau_out
 !    read external medium type: sol, nan, vac
+
+     namelist /medium/
+
        read(5,*) 
        read(5,*) medium
        select case (medium)
@@ -117,6 +137,9 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+
+     namelist /spectra/
+
 !    read spectra calculation parameters:
        nspectra=1
        tau(:)=zero
@@ -124,6 +147,10 @@
        read(5,*) 
        read(5,*) start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
        read(5,*) (dir_ft(i),i=1,3)      ! direction along which the field is oriented
+
+
+     namelist /sse/
+
 !    dissipation using SSE
        read(5,*)  
        read(5,*) dissipative
@@ -260,11 +287,11 @@
 !
       subroutine read_dis_params()
 !------------------------------------------------------------------------
-! Read nonradiative and dephasing rates 
+! @brief Read nonradiative and dephasing rates 
 ! Define spontaneous emission coefs from Einstein coefficients 
 ! Read phases randomly added during the propagation
 !
-! Created   : E. Coccia 21 Dec 2016
+! @date Created   : E. Coccia 21 Dec 2016
 ! Modified  :
 !------------------------------------------------------------------------
      
@@ -377,9 +404,9 @@
 
       subroutine deallocate_dis()
 !------------------------------------------------------------------------
-! Deallocate arrays for the dissipation 
+! @brief Deallocate arrays for the dissipation 
 !
-! Created   : E. Coccia 22 Dec 2016
+! @date Created   : E. Coccia 22 Dec 2016
 ! Modified  :
 !------------------------------------------------------------------------
 
@@ -397,12 +424,13 @@
 
       subroutine define_gamma(de_gam,de_gam1,nci)
 !------------------------------------------------------------------------
-! Move from "physical" gammas to gammas 
+! @brief Move from "physical" gammas to gammas 
 ! for keeping the population constant
 ! for each trajectory  
 !
-! Created   : E. Coccia 24 Mar 2017
+! @date Created   : E. Coccia 24 Mar 2017
 ! Modified  :
+! @param de_gam(:), de_gam1(:)  
 !------------------------------------------------------------------------
 
        implicit none

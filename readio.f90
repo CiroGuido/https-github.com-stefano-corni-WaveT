@@ -75,11 +75,8 @@
        character(3) :: medium,radiative,dissipative
        character(5) :: dis_prop 
      
-       !Using namelists 
-       !Integer to append to .dat files  
-       namelist /outfile/ n_f
        !Molecular parameters 
-       namelist /molecule/ n_ci_read,n_ci,mol_cc
+       namelist /molecule/ n_ci_read,n_ci,mol_cc,n_f
        !External field paramaters
        namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax
        !Namelist medium
@@ -109,37 +106,36 @@
        write(*,*) '*****************************************************'    
        write(*,*) ''
 
-       !Namelist outfile
-       read(*,nml=outfile) 
-       write(6,*) "Number to append to dat file", n_f
-
        !Namelist mol 
        read(*,nml=molecule) 
-       write (6,*) "Number of CIS states to be read",n_ci_read
-       write (6,*) "Number of CIS states to be used",n_ci
+       write(6,*) "Number to append to dat file", n_f
+       write (*,*) "Number of CIS states to be read",n_ci_read
+       write (*,*) "Number of CIS states to be used",n_ci
        write(*,*) 'Molecular center of charge'     
        write(*,*) mol_cc 
+       write(*,*) ''
 
        !Namelist field
        read(*,nml=field)
-       write (6,*) "Time step (in au), number of steps, stride",dt, &
+       write (*,*) "Time step (in au), number of steps, stride",dt, &
                  n_step,n_out
-       write (6,*) "Time shape of the perturbing field",Ffld
-       write (6,*) "time at the center of the pulse (au):",t_mid
-       write (6,*) "Width of the pulse (time au):",sigma
-       write (6,*) "Frequency (au):",omega
-       write (6,*) "Maximum E field",fmax
+       write (*,*) "Time shape of the perturbing field",Ffld
+       write (*,*) "time at the center of the pulse (au):",t_mid
+       write (*,*) "Width of the pulse (time au):",sigma
+       write (*,*) "Frequency (au):",omega
+       write (*,*) "Maximum E field",fmax
        !SC
        select case (radiative)
         case ('rad','Rad','RAD')
          rad='arl'
         case default
          rad='non'
-       end select 
+       end select
+       write(*,*) '' 
 
-!    read gaussian output for CIS propagation
+       !read gaussian output for CIS propagation
        call read_gau_out
-!    read external medium type: sol, nan, vac
+       !read external medium type: sol, nan, vac
 
        !Namelist medium
        read(*,nml=external_medium)
@@ -154,6 +150,7 @@
           write(*,*) "No external medium, vacuum calculation" 
           mdm='vac'
        end select
+       write(*,*) ''
 
        !Namelist spectra
        !read spectra calculation parameters:
@@ -166,7 +163,8 @@
        write(*,*) 'Starting point for FT calculation', start
        write(*,*) 'Artificial damping', (tau(i),i=1,nspectra) 
        write(*,*) 'Direction along which the field is oriented', dir_ft
- 
+       write(*,*) ''
+
        !Namelist sse
        !dissipation using SSE
        read(*,nml=sse) 
@@ -223,6 +221,7 @@
           dis=.false.
           write(*,*) 'No dissipation'    
        end select
+       write(*,*) ''
        if (dis) call read_dis_params   
 
        return

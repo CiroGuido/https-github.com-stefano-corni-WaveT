@@ -71,7 +71,7 @@
        read(5,*) n_q
        read(5,*) 
 
-       namelist /dielectric/
+       !namelist /dielectric/
 
 
 ! read dielectric function type and parameters
@@ -92,7 +92,7 @@
            stop
        end select
 
-       namelist /interaction/
+       !namelist /interaction/
 
 
        read(5,*) 
@@ -176,7 +176,7 @@
          endif
        endif
 
-      namelist /boundary/
+      !namelist /boundary/
 
 ! 
 ! if this is a run with an explicit boundary (fprop.neq.dip), then

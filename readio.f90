@@ -75,57 +75,73 @@
        character(3) :: medium,radiative,dissipative
        character(5) :: dis_prop 
       
+       !Integer to append to .dat files  
+       namelist /outfile/ n_f
+       !Molecular parameters 
+       namelist /molecule/ n_ci_read,n_ci,mol_cc
+       !External field paramaters
+       namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax
+       !Namelist medium
+       namelist /external_medium/ medium
+       !Namelist spectra
+       namelist /spectra/ start,tau,dir_ft
+       !Stochastic Schroedinger equation
+       namelist /sse/ dissipative,idep,dis_prop,nrnd,tdis,nr_typ,krnd
 
-       namelist /file/
 
-       read(5,*)    
-       read(5,*) n_f
+       write(*,*) ''
+       write(*,*) '*****************************************************'
+       write(*,*) '*****************************************************'
+       write(*,*) '**                                                 **' 
+       write(*,*) '**                    WaveT                        **'
+       write(*,*) '**     Evolution of molecular wavefunctions        **'
+       write(*,*) '**   under external electromagnetic perturbations  **'
+       write(*,*) '**                                                 **'
+       write(*,*) '**                     by                          **'
+       write(*,*) '**                Stefano Corni                    **'
+       write(*,*) '**                Silvio Pipolo                    **'
+       write(*,*) '**               Emanuele Coccia                   **'
+       write(*,*) '**                 Gabriel Gil                     **'
+       write(*,*) '**                Jacopo Fregoni                   **'
+       write(*,*) '**                                                 **'
+       write(*,*) '*****************************************************'
+       write(*,*) '*****************************************************'    
+       write(*,*) ''
+
+       !Namelist outfile
+       read(*,nml=outfile) 
        write(6,*) "Number to append to dat file", n_f
 
-
-       namelist /mol/
-
-       read(5,*) n_ci_read,n_ci
+       !Namelist mol 
+       read(*,nml=molecule) 
        write (6,*) "Number of CIS states to be read",n_ci_read
        write (6,*) "Number of CIS states to be used",n_ci
-     
+       write(*,*) 'Molecular center of charge'     
+       write(*,*) mol_cc 
 
-       namelist /field/
-
-       read(5,*) dt,n_step,n_out
+       !Namelist field
+       read(*,nml=field)
        write (6,*) "Time step (in au), number of steps, stride",dt, &
                  n_step,n_out
-       read(5,*) Ffld             
        write (6,*) "Time shape of the perturbing field",Ffld
-       read(5,*) t_mid,sigma,omega
        write (6,*) "time at the center of the pulse (au):",t_mid
        write (6,*) "Width of the pulse (time au):",sigma
        write (6,*) "Frequency (au):",omega
-       read(5,*) fmax
        write (6,*) "Maximum E field",fmax
-!SC
-       read(5,*) radiative
+       !SC
        select case (radiative)
         case ('rad','Rad','RAD')
          rad='arl'
-         read(5,*) iseed
         case default
          rad='non'
        end select 
-       ! Moleculalr center of charge: used?
-       read(5,*) (mol_cc(i),i=1,3)
-       write(*,*) 'Molecular center of charge'
-       write(*,*) mol_cc
-
 
 !    read gaussian output for CIS propagation
        call read_gau_out
 !    read external medium type: sol, nan, vac
 
-     namelist /medium/
-
-       read(5,*) 
-       read(5,*) medium
+       !Namelist medium
+       read(*,nml=external_medium)
        select case (medium)
         case ('sol','Sol','SOL')
           write(*,*) "Solvent as external medium" 
@@ -138,27 +154,25 @@
           mdm='vac'
        end select
 
-     namelist /spectra/
-
-!    read spectra calculation parameters:
+       !Namelist spectra
+       !read spectra calculation parameters:
        nspectra=1
        tau(:)=zero
        if(medium.ne.'vac') nspectra=2 
-       read(5,*) 
-       read(5,*) start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
-       read(5,*) (dir_ft(i),i=1,3)      ! direction along which the field is oriented
-
-
-     namelist /sse/
-
-!    dissipation using SSE
-       read(5,*)  
-       read(5,*) dissipative
+       read(*,nml=spectra) 
+       !start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
+       !(dir_ft(i),i=1,3) direction along which the field is oriented
+       write(*,*) 'Starting point for FT calculation', start
+       write(*,*) 'Artificial damping', (tau(i),i=1,nspectra) 
+       write(*,*) 'Direction along which the field is oriented', dir_ft
+ 
+       !Namelist sse
+       !dissipation using SSE
+       read(*,nml=sse) 
        select case (dissipative)
         case ('mar', 'Mar', 'MAR')
           dis=.true.
           imar=0
-          read(*,*) idep
           select case (idep)
            case (0)
             write(*,*) 'Use sqrt(gamma_i) exp(i delta_i)|i><i|(i=0,nci)'
@@ -166,18 +180,14 @@
             write(*,*) 'Use sqrt(gamma_i) (|i><i|-|0><0|)'
           end select
           write(*,*) 'Markovian dissipation'
-          if (rad.eq.'non') read(5,*) iseed
-          read(*,*) dis_prop
           select case (dis_prop)
            case ('qjump', 'Qjump', 'QJump')
              qjump=.true.
              write(*,*) 'Quantum jump algorithm'
            case ('Euler', 'EUler', 'EULER', 'euler')
              qjump=.false.
-             read(*,*) nrnd
              write(*,*) 'Continuous stochastic propagator'
              write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
-             read(*,*) tdis
              select case (tdis)
               case (0)
                 write(*,*) 'Euler-Maruyama algorithm'
@@ -185,7 +195,6 @@
                 write(*,*) 'Leimkuhler-Matthews algorithm'
              end select
           end select
-          read(*,*) nr_typ
           select case (nr_typ)
            case (0)
             write(*,*) 'Internal conversion relaxation via dipole'
@@ -196,7 +205,6 @@
           dis=.true.
           imar=1
           write(*,*) 'NonMarkovian dissipation'
-          if (rad.eq.'non') read(5,*) iseed
           read(*,*) dis_prop
           select case (dis_prop)
            case ('qjump', 'Qjump', 'QJump')
@@ -209,9 +217,7 @@
         case ('rnd', 'RND', 'Rnd', 'RNd')
           dis=.false.
           ernd=.true.
-          read(*,*) krnd
           write(*,*) "Normal random term added to CI energies"
-          if (rad.eq.'non') read(5,*) iseed
         case default
           dis=.false.
           write(*,*) 'No dissipation'    

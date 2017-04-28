@@ -74,7 +74,8 @@
        integer(4):: i,nspectra
        character(3) :: medium,radiative,dissipative
        character(5) :: dis_prop 
-      
+     
+       !Using namelists 
        !Integer to append to .dat files  
        namelist /outfile/ n_f
        !Molecular parameters 

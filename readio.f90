@@ -76,11 +76,9 @@
        character(5) :: dis_prop 
      
        !Molecular parameters 
-       namelist /molecule/ n_ci_read,n_ci,mol_cc,n_f
+       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium
        !External field paramaters
        namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax
-       !Namelist medium
-       namelist /external_medium/ medium
        !Namelist spectra
        namelist /spectra/ start,tau,dir_ft
        !Stochastic Schroedinger equation
@@ -107,7 +105,7 @@
        write(*,*) ''
 
        !Namelist mol 
-       read(*,nml=molecule) 
+       read(*,nml=general) 
        write(6,*) "Number to append to dat file", n_f
        write (*,*) "Number of CIS states to be read",n_ci_read
        write (*,*) "Number of CIS states to be used",n_ci
@@ -137,8 +135,6 @@
        call read_gau_out
        !read external medium type: sol, nan, vac
 
-       !Namelist medium
-       read(*,nml=external_medium)
        select case (medium)
         case ('sol','Sol','SOL')
           write(*,*) "Solvent as external medium" 

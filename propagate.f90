@@ -14,7 +14,7 @@
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11 
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=15 
       integer(4) :: file_dm=12, file_dp=13, file_d=14
       save
       private

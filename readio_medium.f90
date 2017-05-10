@@ -80,7 +80,7 @@
                                   which_bound_mat,which_cavity,    &
                                   which_mdm_init_prop,thrshld,     &
                                   mix_coef,ncycmax,which_localF,   &
-                                  which_charges,which_debug 
+                                  which_charges,which_debug,tau_deb 
        elseif (mdm.eq.'sol') then
           namelist /solvent/ n_q,which_eps,eps_0,eps_d,eps_A, &
                              eps_gm,eps_w0,f_vel,which_int,   &
@@ -88,7 +88,7 @@
                              which_bound_mat,which_cavity,    &
                              which_mdm_init_prop,thrshld,     &
                              mix_coef,ncycmax,which_localF,   &
-                             which_charges,which_debug 
+                             which_charges,which_debug,tau_deb 
        endif
 
        if (mdm.eq.'nan') then

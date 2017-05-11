@@ -42,8 +42,11 @@
 !      integer(4) :: dir_ft
       real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
       character(3) :: mdm,Ffld,rad 
+      character(3) :: medium,radiative,dissipative
+      character(5) :: dis_prop
       integer(4) :: iseed  !seed for random number generator
       integer(4) :: nexc !number of excited states
+      integer(4) :: i,nspectra
 ! kind of surrounding medium and shape of the impulse
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
@@ -63,7 +66,7 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep, imar, de_gam1, krnd, ernd
+             idep,imar,de_gam1,krnd,ernd
 !
       contains
 !
@@ -71,9 +74,9 @@
       
 
 
-       integer(4):: i,nspectra
-       character(3) :: medium,radiative,dissipative
-       character(5) :: dis_prop 
+       !integer(4):: i,nspectra
+       !character(3) :: medium,radiative,dissipative
+       !character(5) :: dis_prop 
      
        !Molecular parameters 
        namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium
@@ -105,119 +108,29 @@
        write(*,*) ''
 
        !Namelist mol 
-       read(*,nml=general) 
-       write(6,*) "Number to append to dat file", n_f
-       write (*,*) "Number of CIS states to be read",n_ci_read
-       write (*,*) "Number of CIS states to be used",n_ci
-       write(*,*) 'Molecular center of charge'     
-       write(*,*) mol_cc 
-       write(*,*) ''
+       call init_nml_general()
+       read(*,nml=general)
+       call write_nml_general()
 
        !Namelist field
+       call init_nml_field()
        read(*,nml=field)
-       write (*,*) "Time step (in au), number of steps, stride",dt, &
-                 n_step,n_out
-       write (*,*) "Time shape of the perturbing field",Ffld
-       write (*,*) "time at the center of the pulse (au):",t_mid
-       write (*,*) "Width of the pulse (time au):",sigma
-       write (*,*) "Frequency (au):",omega
-       write (*,*) "Maximum E field",fmax
-       !SC
-       select case (radiative)
-        case ('rad','Rad','RAD')
-         rad='arl'
-        case default
-         rad='non'
-       end select
-       write(*,*) '' 
+       call write_nml_field() 
 
        !read gaussian output for CIS propagation
        call read_gau_out
-       !read external medium type: sol, nan, vac
-
-       select case (medium)
-        case ('sol','Sol','SOL')
-          write(*,*) "Solvent as external medium" 
-          mdm='sol'
-        case ('nan','Nan','NAN')
-          write(*,*) "Nanoparticle as external medium" 
-          mdm='nan'
-        case default
-          write(*,*) "No external medium, vacuum calculation" 
-          mdm='vac'
-       end select
-       write(*,*) ''
 
        !Namelist spectra
-       !read spectra calculation parameters:
-       nspectra=1
-       tau(:)=zero
-       if(medium.ne.'vac') nspectra=2 
+       call init_nml_spectra()
        read(*,nml=spectra) 
+       call write_nml_spectra() 
        !start, (tau(i),i=1,nspectra) !Start point for FT calculation &  Artificial damping 
        !(dir_ft(i),i=1,3) direction along which the field is oriented
-       write(*,*) 'Starting point for FT calculation', start
-       write(*,*) 'Artificial damping', (tau(i),i=1,nspectra) 
-       write(*,*) 'Direction along which the field is oriented', dir_ft
-       write(*,*) ''
 
        !Namelist sse
-       !dissipation using SSE
+       call init_nml_sse() 
        read(*,nml=sse) 
-       select case (dissipative)
-        case ('mar', 'Mar', 'MAR')
-          dis=.true.
-          imar=0
-          select case (idep)
-           case (0)
-            write(*,*) 'Use sqrt(gamma_i) exp(i delta_i)|i><i|(i=0,nci)'
-           case (1)
-            write(*,*) 'Use sqrt(gamma_i) (|i><i|-|0><0|)'
-          end select
-          write(*,*) 'Markovian dissipation'
-          select case (dis_prop)
-           case ('qjump', 'Qjump', 'QJump')
-             qjump=.true.
-             write(*,*) 'Quantum jump algorithm'
-           case ('Euler', 'EUler', 'EULER', 'euler')
-             qjump=.false.
-             write(*,*) 'Continuous stochastic propagator'
-             write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
-             select case (tdis)
-              case (0)
-                write(*,*) 'Euler-Maruyama algorithm'
-              case (1)
-                write(*,*) 'Leimkuhler-Matthews algorithm'
-             end select
-          end select
-          select case (nr_typ)
-           case (0)
-            write(*,*) 'Internal conversion relaxation via dipole'
-           case (1)
-            write(*,*) 'Internal conversion relaxation via given matrix'
-          end select
-        case ('nma', 'NMa', 'NMA', 'Nma')
-          dis=.true.
-          imar=1
-          write(*,*) 'NonMarkovian dissipation'
-          read(*,*) dis_prop
-          select case (dis_prop)
-           case ('qjump', 'Qjump', 'QJump')
-             qjump=.true.
-             write(*,*) 'Quantum jump algorithm'
-           case default
-             qjump=.false.
-             write(*,*) 'Continuous stochastic propagator'
-          end select
-        case ('rnd', 'RND', 'Rnd', 'RNd')
-          dis=.false.
-          ernd=.true.
-          write(*,*) "Normal random term added to CI energies"
-        case default
-          dis=.false.
-          write(*,*) 'No dissipation'    
-       end select
-       write(*,*) ''
+       call write_nml_sse()
        if (dis) call read_dis_params   
 
        return
@@ -449,5 +362,263 @@
        return
 
       end subroutine define_gamma
+
+      subroutine init_nml_general()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist general 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param n_ci_read,n_ci,mol_cc,n_f,medium 
+!------------------------------------------------------------------------
+
+       ! Molecular center of charge
+       mol_cc=0.d0
+       ! Integer to be appended in all output files
+       n_f=1
+       ! Vacuum calculation
+       medium='vac'
+
+       return
+
+      end subroutine init_nml_general
+
+      subroutine init_nml_field()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist field 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax 
+!------------------------------------------------------------------------
+
+       ! Time step in the propagation (a.u.)
+       dt=0.05
+       ! Number of steps
+       n_step=10000
+       ! Frequency in writing files
+       n_out=1
+       ! Type of field
+       Ffld='gau'
+       ! Center of the pulse
+       t_mid=200
+       ! Sigma for the pulse
+       sigma=10 
+       ! Frequency (no oscillation)
+       omega=0.d0
+       ! Stochastic field
+       radiative='non'
+       ! Seed for radiative and/or dissipation
+       iseed=12345678
+       ! Amplitude of the external field
+       fmax=0.d0
+
+       return
+
+      end subroutine init_nml_field
+
+      subroutine init_nml_spectra()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist spectra 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param start,tau,dir_ft 
+!------------------------------------------------------------------------
+
+       ! Parameter for computing spectra
+       nspectra=1
+       ! Parameter for computing spectra
+       tau(:)=zero
+       ! Direction fo the field (no field)
+       dir_ft=0.d0
+
+       return
+
+      end subroutine init_nml_spectra
+
+      subroutine init_nml_sse()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist sse 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param dissipative,idep,dis_prop,nrnd,tdis,nr_typ,krnd 
+!------------------------------------------------------------------------
+
+       ! Do dissipation 
+       dissipative='non'
+       ! Type of the dephasing operator
+       idep=1
+       ! Type of propagator
+       dis_prop='qjump'
+       ! If dis_prop='euler', steps for accumulating the Wiener process
+       nrnd=1
+       ! If dis_prop='euler', use the Euler-Maruyama algorithm
+       tdis=0
+       ! Type of nonradiative relaxation
+       nr_typ=1
+       ! Factor is dissipation='ernd'
+       krnd=1.d0
+
+       return
+
+      end subroutine init_nml_sse
+
+      subroutine write_nml_general()
+!------------------------------------------------------------------------
+! @brief Write variables in the namelist general and put conditions 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param n_ci_read,n_ci,mol_cc,n_f,medium 
+!------------------------------------------------------------------------
+
+       if (n_ci.le.0) then
+          write(*,*) 'ERROR: number of excited states is wrong', n_ci
+       endif 
+       if (n_ci_read.le.0) then
+          write(*,*) 'ERROR: number of excited states is wrong', n_ci
+       endif
+       write(6,*) "Number to append to dat file", n_f
+       write (*,*) "Number of CIS states to be read",n_ci_read
+       write (*,*) "Number of CIS states to be used",n_ci
+       write(*,*) 'Molecular center of charge'
+       write(*,*) mol_cc 
+       write(*,*) ''
+       select case (medium)
+        case ('sol','Sol','SOL')
+          write(*,*) "Solvent as external medium"
+          mdm='sol'
+        case ('nan','Nan','NAN')
+          write(*,*) "Nanoparticle as external medium"
+          mdm='nan'
+        case default
+          write(*,*) "No external medium, vacuum calculation"
+          mdm='vac'
+       end select
+       write(*,*) ''
+
+       return
+
+      end subroutine write_nml_general
+
+      subroutine write_nml_field()
+!------------------------------------------------------------------------
+! @brief Write variables in the namelist field and put conditions 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax 
+!------------------------------------------------------------------------
+
+       write (*,*) "Time step (in au), number of steps, stride",dt, &
+                 n_step,n_out
+       write (*,*) "Time shape of the perturbing field",Ffld
+       write (*,*) "time at the center of the pulse (au):",t_mid
+       write (*,*) "Width of the pulse (time au):",sigma
+       write (*,*) "Frequency (au):",omega
+       write (*,*) "Maximum E field",fmax
+       !SC
+       select case (radiative)
+        case ('rad','Rad','RAD')
+         rad='arl'
+        case default
+         rad='non'
+       end select
+       write(*,*) ''
+
+       return
+
+      end subroutine write_nml_field
+
+      subroutine write_nml_spectra()
+!------------------------------------------------------------------------
+! @brief Write variables in the namelist spectra and put conditions 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param start,tau,dir_ft 
+!------------------------------------------------------------------------
+ 
+       if(medium.ne.'vac') nspectra=2
+
+       write(*,*) 'Starting point for FT calculation', start
+       write(*,*) 'Artificial damping', (tau(i),i=1,nspectra)
+       write(*,*) 'Direction along which the field is oriented', dir_ft
+       write(*,*) ''
+
+       return
+
+      end subroutine write_nml_spectra
+
+      subroutine write_nml_sse()
+!------------------------------------------------------------------------
+! @brief Write variables in the namelist sse and put conditions 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param dissipative,idep,dis_prop,nrnd,tdis,nr_typ,krnd 
+!------------------------------------------------------------------------
+
+       select case (dissipative)
+        case ('mar', 'Mar', 'MAR')
+          dis=.true.
+          imar=0
+          select case (idep)
+           case (0)
+            write(*,*) 'Use sqrt(gamma_i) exp(i delta_i)|i><i|(i=0,nci)'
+           case (1)
+            write(*,*) 'Use sqrt(gamma_i) (|i><i|-|0><0|)'
+          end select
+          write(*,*) 'Markovian dissipation'
+          select case (dis_prop)
+           case ('qjump', 'Qjump', 'QJump')
+             qjump=.true.
+             write(*,*) 'Quantum jump algorithm'
+           case ('Euler', 'EUler', 'EULER', 'euler')
+             qjump=.false.
+             write(*,*) 'Continuous stochastic propagator'
+             write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
+             select case (tdis)
+              case (0)
+                write(*,*) 'Euler-Maruyama algorithm'
+              case (1)
+                write(*,*) 'Leimkuhler-Matthews algorithm'
+             end select
+          end select
+          select case (nr_typ)
+           case (0)
+            write(*,*) 'Internal conversion relaxation via dipole'
+           case (1)
+            write(*,*) 'Internal conversion relaxation via given matrix'
+          end select
+        case ('nma', 'NMa', 'NMA', 'Nma')
+          dis=.true.
+          imar=1
+          write(*,*) 'NonMarkovian dissipation'
+          read(*,*) dis_prop
+          select case (dis_prop)
+           case ('qjump', 'Qjump', 'QJump')
+             qjump=.true.
+             write(*,*) 'Quantum jump algorithm'
+           case default
+             qjump=.false.
+             write(*,*) 'Continuous stochastic propagator'
+          end select
+        case ('rnd', 'RND', 'Rnd', 'RNd')
+          dis=.false.
+          ernd=.true.
+          write(*,*) "Normal random term added to CI energies"
+        case default
+          dis=.false.
+          write(*,*) 'No dissipation'
+       end select
+       write(*,*) ''
+
+       return
+
+      end subroutine write_nml_sse
+
 
     end module readio

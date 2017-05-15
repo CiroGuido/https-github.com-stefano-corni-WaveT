@@ -1,5 +1,0 @@
-nr_rate.inp conatins the non-radiative decay rate for each CIS state.
-
-de_rate.inp conatins the dephasing decay rate for each CIS state.
-
-de_phase.inp conatins the dephasing term for each CIS state.

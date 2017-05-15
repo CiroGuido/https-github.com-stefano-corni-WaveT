@@ -4,6 +4,7 @@ module dissipation
 
   use, intrinsic :: iso_c_binding
 
+! @brief Contains routines for SSE
 
   implicit none
   real(8)                :: norm, dtot, dsp, dnr, dde 
@@ -17,13 +18,14 @@ module dissipation
 
   subroutine add_dis_m(h_dis,nci)
 !------------------------------------------------------------------------
-! Markovian SSE (eq 25 J. Phys: Condens. Matter vol. 24 (2012) 273201)
+! @brief Markovian SSE (eq 25 J. Phys: Condens. Matter vol. 24 (2012) 273201)
 ! Add the dissipative contribution to H 
 ! -i/2 \sum_alpha S^dag_alpha S_alpha
 ! Representation in the CIS basis
 !
-! Created   : E. Coccia 20 Dec 2016
+! @date Created   : E. Coccia 20 Dec 2016
 ! Modified  :
+! @param h_dis(:,:)
 !------------------------------------------------------------------------
 
    implicit none
@@ -72,11 +74,11 @@ module dissipation
 
   subroutine add_dis_nm(h_dis,nci)
 !------------------------------------------------------------------------
-! Non-Markovian SSE (eq 25 J. Phys: Condens. Matter vol. 24 (2012) 273201)
+! @brief Non-Markovian SSE (eq 25 J. Phys: Condens. Matter vol. 24 (2012) 273201)
 ! Add the dissipative contribution to H 
 ! 
 !
-! Created   : E. Coccia 20 Dec 2016
+! @Date Created   : E. Coccia 20 Dec 2016
 ! Modified  :
 !------------------------------------------------------------------------
 
@@ -95,7 +97,7 @@ module dissipation
 
   subroutine loss_norm(c,nci,pjump)
 !------------------------------------------------------------------------
-! Contributions to the loss of norm 
+! @brief Contributions to the loss of norm 
 ! Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
 ! norm = 1 - dtot 
 ! dtot = dsp + dnr + dde
@@ -103,8 +105,9 @@ module dissipation
 ! dnr -> nonradiative relaxation to the ground state
 ! dde -> pure dephasing
 ! 
-! Created   : E. Coccia 20 Dec 2016
+! @date Created   : E. Coccia 20 Dec 2016
 ! Modified  :
+! @param dtot, dsp, dnr, dde, pjump(:)
 !------------------------------------------------------------------------
 
    implicit none
@@ -183,11 +186,12 @@ module dissipation
 
   subroutine quan_jump(c,c_prev,nci,pjump)
 !------------------------------------------------------------------------
-! Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
+! @brief Quantum jump from J. Opt. Soc. Am. B. vol. 10 (1993) 524 
 ! Random events: dissipation, nonradiative and dephasing
 !
-! Created   : E. Coccia 20 Dec 2016
+! @date Created   : E. Coccia 20 Dec 2016
 ! Modified  :
+! @param pjump(:), c(:) 
 !------------------------------------------------------------------------
 
    implicit none
@@ -306,11 +310,12 @@ module dissipation
 
   subroutine add_h_rnd(h_rnd,nci,w,w_prev,tdis)
 !------------------------------------------------------------------------
-! Random term in the Hamiltonian for the stochastic propagation 
+! @brief Random term in the Hamiltonian for the stochastic propagation 
 ! Random events: dissipation, nonradiative and dephasing
 !
-! Created   : E. Coccia 19 Jan 2017
+! @date Created   : E. Coccia 19 Jan 2017
 ! Modified  :
+! @param w(:), w_prev(:), h_rnd(:,:)
 !------------------------------------------------------------------------
 
    implicit none
@@ -370,11 +375,12 @@ module dissipation
 
   subroutine define_h_dis(h_dis,nci,imar)
 !------------------------------------------------------------------------    
-! Define the Markovian (imar=0) or non-Markovian (imar=1)
+! @brief Define the Markovian (imar=0) or non-Markovian (imar=1)
 ! dissipative term in the system Hamiltonian
 !
-! Created   : E. Coccia 20 Jan 2017
+! @date Created   : E. Coccia 20 Jan 2017
 ! Modified  :
+! @param h_dis(:,:)
 !------------------------------------------------------------------------
 
    implicit none  
@@ -396,11 +402,12 @@ module dissipation
 
   subroutine rnd_noise(w,w_prev,nci,first,tdis) 
 !------------------------------------------------------------------------
-! Define the random fluctuating term in the
+! @brief Define the random fluctuating term in the
 ! stochastic propagator
 !
-! Created   : E. Coccia 20 Jan 2017
+! @date Created   : E. Coccia 20 Jan 2017
 ! Modified  :
+! @param w(:), w_rnd(:)
 !------------------------------------------------------------------------
 
    implicit none
@@ -443,11 +450,12 @@ module dissipation
 
   subroutine add_h_rnd2(h_rnd2,nci)
 !------------------------------------------------------------------------
-! Define the square of the dissipation/dephasing operator 
+! @brief Define the square of the dissipation/dephasing operator 
 ! Random events: dissipation, nonradiative and dephasing
 !
-! Created   : E. Coccia 10 Feb 2017
+! @date Created   : E. Coccia 10 Feb 2017
 ! Modified  :
+! @param h_rnd2(:,:)
 !------------------------------------------------------------------------
 
    implicit none

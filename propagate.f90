@@ -14,7 +14,7 @@
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
       real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=11 
+      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=15 
       integer(4) :: file_dm=12, file_dp=13, file_d=14
       save
       private
@@ -23,6 +23,15 @@
       contains
 !
       subroutine prop
+!------------------------------------------------------------------------
+! @brief Propogate C(t) using a second
+! order Euler algorithm 
+! 
+! 
+! @date Created   : 
+! Modified  : E. Coccia Dec-Apr 2017
+!------------------------------------------------------------------------
+
        implicit none
        integer(4)                :: i,j,k,istop,ijump=0
        complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
@@ -344,9 +353,10 @@
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
+       real(8) :: ctmp(n_ci)
        character(20) :: fmt_ci,fmt_ci1,fmt_ci2
-       integer(4)    :: itmp
-        t=(i-1)*dt
+       integer(4)    :: itmp,j
+        t=(i-1)*dt 
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
         if(mdm.ne.'vac') then 
@@ -364,7 +374,11 @@
         write (fmt_ci,'("(i8,f14.4,",I0,"e13.5)")') n_ci
         write (fmt_ci1,'("(i8,f14.4,",I0,"e13.5)")') itmp 
         write (fmt_ci2,'("(i8,f14.4,",I0,"2e13.5)")') 2*itmp
-        write (file_c,fmt_ci) i,t,real(c(:)*conjg(c(:)))
+        ctmp(:) = real(c(:)*conjg(c(:)))
+        do j=1,n_ci
+           if (ctmp(j).lt.10.d-50) ctmp(j)=0.d0
+        enddo
+        write (file_c,fmt_ci) i,t,ctmp(:)
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
         call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,fmt_ci2,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
@@ -440,10 +454,10 @@
 !
       subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
 !------------------------------------------------------------------------
-! Print the tridiagional C*_iC_j (i.ne.j) matrix 
+! @brief Print the tridiagional C*_iC_j (i.ne.j) matrix 
 ! corresponding to the decoherence 
 ! 
-! Created   : E. Coccia 3 Feb 2017
+! @date Created   : E. Coccia 3 Feb 2017
 ! Modified  :
 !------------------------------------------------------------------------
   
@@ -459,6 +473,7 @@
         complex(16)                  :: tmp
         real(8)                      :: r(nci,nci)
         real(8)                      :: p(nci,nci)
+        real(8)                      :: rtmp, itmp
 
         tmp=cmplx(0.d0,0.d0)
         r=0.d0
@@ -466,6 +481,10 @@
 
         do k=2,nci
            tmp = conjg(c(k))*c(1)
+           rtmp=real(tmp)
+           itmp=aimag(tmp)
+           if (abs(rtmp).lt.10.d-50) tmp=cmplx(0.d0,itmp)
+           if (abs(itmp).lt.10.d-50) tmp=cmplx(rtmp,0.d0)
            r(1,k) = abs(tmp)
            p(1,k) = atan2(aimag(tmp),real(tmp))
            cc(1,k) = tmp
@@ -475,6 +494,10 @@
            do j=2,nci
               do k=j+1,nci
                  tmp = conjg(c(k))*c(j)
+                 rtmp=real(tmp)
+                 itmp=aimag(tmp)
+                 if (abs(rtmp).lt.10.d-50) tmp=cmplx(0.d0,itmp)
+                 if (abs(itmp).lt.10.d-50) tmp=cmplx(rtmp,0.d0)
                  r(j,k) = abs(tmp)
                  p(j,k) = atan2(aimag(tmp),real(tmp)) 
                  cc(j,k) = tmp

@@ -20,15 +20,21 @@
 !
       contains
 !
-      Subroutine read_act(iunit)
-      integer(i4b) :: isfe,iunit
-      read (iunit,*) nesf_act
+      Subroutine read_act(xr,yr,zr,rr,ns,nsmax)
+      integer(i4b) :: isfe,ns,nsmax
+      real(dbl)    :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
+      !read (iunit,*) nesf_act
+      nesf_act=ns 
       write(6,*) "Number of spheres",nesf_act
       write(6,*) "I_sphere  X     Y   Z   Radius"
       allocate(sfe_act(nesf_act))
       do isfe=1,nesf_act
-       read (iunit,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
-                  sfe_act(isfe)%r
+       !read (iunit,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
+       !           sfe_act(isfe)%r
+       sfe_act(isfe)%x=xr(isfe)
+       sfe_act(isfe)%y=yr(isfe)
+       sfe_act(isfe)%z=zr(isfe)
+       sfe_act(isfe)%r=rr(isfe)
        write(6,'(I6,4F12.4)') isfe, sfe_act(isfe)%x,sfe_act(isfe)%y, &
                  sfe_act(isfe)%z, sfe_act(isfe)%r
       enddo

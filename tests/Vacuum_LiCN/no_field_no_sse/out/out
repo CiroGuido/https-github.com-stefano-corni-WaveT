@@ -1,0 +1,46 @@
+ 
+ *****************************************************
+ *****************************************************
+ **                                                 **
+ **                    WaveT                        **
+ **     Evolution of molecular wavefunctions        **
+ **   under external electromagnetic perturbations  **
+ **                                                 **
+ **                     by                          **
+ **                Stefano Corni                    **
+ **                Silvio Pipolo                    **
+ **               Emanuele Coccia                   **
+ **                 Gabriel Gil                     **
+ **                Jacopo Fregoni                   **
+ **                                                 **
+ *****************************************************
+ *****************************************************
+ 
+ Number to append to dat file           1
+ Number of CIS states to be read           3
+ Number of CIS states to be used           3
+ Molecular center of charge
+  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ 
+ No external medium, vacuum calculation
+ 
+ Time step (in au), number of steps, stride  5.000000000000000E-002      100000
+           2
+ Time shape of the perturbing fieldgau
+ time at the center of the pulse (au):   2500.00000000000     
+ Width of the pulse (time au):   1000.00000000000     
+ Frequency (au):  0.242000000000000     
+ Maximum E field  0.000000000000000E+000  0.000000000000000E+000
+  0.000000000000000E+000
+ 
+ Excitation energies read from input, in Hartree
+           1  0.239189226989031     
+           2  0.241982406620969     
+           3  0.241982406620973     
+ 
+ No dissipation
+ 
+ No dissipation
+ 
+Done reading input & setting up the field, took     1.597s
+Done , total elapsed time    11.546s

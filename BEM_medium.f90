@@ -47,7 +47,9 @@
             if(mdm.eq.'sol') then
              call pedra_int('act')
             elseif (mdm.eq.'nan') then
+             write(*,*) 'OTTIMO'
              call pedra_int('met')
+             write(*,*) 'OTTIMO DOPO'
             endif
            endif
            ! write out the cavity/nanoparticle surface

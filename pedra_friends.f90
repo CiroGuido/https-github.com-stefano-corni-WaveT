@@ -116,6 +116,10 @@
         call pedra(1,4,nesf_pro,sfe_pro,nts_pro,cts_pro)
         write (6,*) "nts_pro",nts_pro
       else if (what.eq.'met') then
+        write(*,*) 'nesf_act', nesf_act
+        write(*,*) 'sfe_act', sfe_act
+        write(*,*) 'nts_act', nts_act
+        write(*,*) 'dum2', dum2  
         call pedra(0,4,nesf_act,sfe_act,nts_act,dum2)      
         write (6,*) "nts_act",nts_act
         allocate(cts_act(nts_act))
@@ -1217,6 +1221,7 @@
            !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
            !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
          enddo
+
        close(7)
        return
       end subroutine

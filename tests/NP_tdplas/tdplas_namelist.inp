@@ -1,0 +1,9 @@
+&tdplas
+gamess=yes
+which_cavity=build
+ns=1
+xr= 110.93
+yr=0.0
+zr=0.0
+rr=94.4858
+/

@@ -1,5 +1,15 @@
-mol  ! mol: uses field from a nearby molecule; ext: uses external homogeneous field
-1    ! number of transition
+gam  ! mol: uses field from a nearby molecular dipole; ext: uses external homogeneous field; gam: trans pot from gamess
+1.0  !solvent dynamical dielectric constant
+10    ! number of transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
+0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
 0.1  -1.e3 1.e-5  !  freq, Re(eps), Im(eps) per each transition
 
 0. 0. 0.  ! position of the dipole (ie., molecule)

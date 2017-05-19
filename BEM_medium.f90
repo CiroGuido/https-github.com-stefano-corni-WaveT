@@ -201,8 +201,6 @@
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp
 ! SC 11/08/2016 if this is a writing run, create the matrixes and stop.
-! SC TO DO: all the automatic arrays are always created, but some of them
-!           are needed for fbem=rea and others for fbem=wri, move to allocatable
       ! Solvent or nanoparticle
       sgn=one                 
       if(mdm.eq."nan") sgn=-one  
@@ -229,7 +227,9 @@
          close(7)
          deallocate(cals,cald)
          write(6,*) "Matrixes S D have been written out, I'll stop now"
-        stop
+!SC 18/05/2017: changed stop to return
+!        stop
+         return
       elseif(Fbem.eq.'rea') then
 !SC 05/11/2016: use the same routine as for frequency calculation
 !   to build S^-1/2 (in sm12), S^1/2 (in sp12), T (in eigt) and Lambda (in eigv) 
@@ -333,7 +333,7 @@
           enddo
          enddo
          close(7)
-         write(6,*) "Written out the static matrix for gamess"
+         write(6,*) "Written out the dynamic matrix for gamess"
       endif
       deallocate(scr4,scr1)
       deallocate(scr2,scr3)
@@ -478,12 +478,14 @@
       subroutine do_TS_matrix
       integer(i4b) :: i,j,info,lwork,liwork
       real(8), allocatable :: scr1(:,:),scr2(:,:),eigt_t(:,:)
+      real(8), allocatable :: scr3(:,:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp,fact1,fact2
       character jobz,uplo
       integer(i4b), allocatable :: iwork(:)
       real(8),allocatable :: work(:)
       allocate(scr1(nts_act,nts_act),scr2(nts_act,nts_act))
+      allocate(scr3(nts_act,nts_act))
       allocate(eigt_t(nts_act,nts_act))
       allocate(work(1+6*nts_act+2*nts_act*nts_act))
       allocate(iwork(3+5*nts_act))
@@ -534,7 +536,9 @@
       do i=1,nts_act
         scr1(:,i)=cald(:,i)*cts_act(i)%area
       enddo
-      scr2=matmul(matmul(sm12,scr1),sp12)                   
+      scr3=matmul(sm12,scr1)
+      scr2=matmul(scr3,sp12)                   
+      deallocate(scr3)
       !S^-1/2 D A S^1/2+S^1/2 A D* S^-1/2 and diagonalise
       do j=1,nts_act
        do i=1,nts_act
@@ -554,8 +558,16 @@
         write(7,*)eigv(j)
       enddo
       close(7)
-      if (Feps.eq.'drl') then
+! SC 18/05/2017: changed the following to do only when it is a tdplas gamess calculations
+!      if (Feps.eq.'drl') then
+      if (Fgam.eq.'yes') then
 ! Do Q0 and Qd for Gamess
+! SC: fixed a static dielectric constant of 1000 to mimic
+!     a conductor limiting the error on total charge
+!     to do so: eps_w0=0.2 (i.e., transition in uv)
+!               eps_A=39.96
+       eps_w0=0.2
+       eps_A=39.96
        scr1=matmul(sm12,eigt)
        scr2=transpose(scr1)
        write (6,*) "Squares of resonance frequencies, in a.u."
@@ -591,15 +603,19 @@
       return
       end subroutine
 !
-      subroutine do_charge_freq(omega_a,pot)
+      subroutine do_charge_freq(omega_a,eps_a,pot)
       integer(4) :: its
       complex(16), allocatable :: q_omega(:)
       complex(16) :: mu_omega(3)
+      complex(16) :: eps_a
       real(8) :: omega_a
       real(8) :: pot(:)
 !      real(8), allocatable :: fact1(:),fact2(:)
       complex(16), allocatable :: Kdiag_omega(:)
+      complex(16), allocatable :: eigtt(:,:)
       integer(4) :: sgn,i
+! SC 15/05/2017: added estimate of lifetime gamma
+      real(8) :: gamma_met
       allocate(Kdiag_omega(nts_act))
 !      allocate(fact1(nts_act))
 !      allocate(fact2(nts_act))
@@ -607,20 +623,26 @@
 !      allocate(scr1(nts_act,nts_act))
       sgn=-1
       do i=1,nts_act
+!       Kdiag_omega(i)=(twp-sgn*eigv(i))/ &
+!          ((1.d0-omega_a*(omega_a+ui*eps_gm)*2.d0/eps_A)*twp-sgn*eigv(i))
+! SC 15/05/2017: changed to the line below to be more general
        Kdiag_omega(i)=(twp-sgn*eigv(i))/ &
-          ((1.d0-omega_a*(omega_a+ui*eps_gm)*2.d0/eps_A)*twp-sgn*eigv(i))
+          ((eps_a+eps_sol)/(eps_a-eps_sol)*twp-sgn*eigv(i))
 !       if (i.eq.2) write(6,*) omega_a,Kdiag_omega(i)
       enddo
 !       write(6,*) 'i,Kdiag_omega(i)'
-!      do i=1,nts_act
+!     do i=1,nts_act
 !       write(6,*) i,Kdiag_omega(i)
 !      enddo
       allocate (q_omega(nts_act))
+      allocate (eigtt(nts_act,nts_act))
       q_omega=matmul(sm12,pot)
-      q_omega=matmul(transpose(eigt),q_omega)
+      eigtt=transpose(eigt)
+      q_omega=matmul(eigtt,q_omega)
       q_omega=Kdiag_omega*q_omega
       q_omega=matmul(eigt,q_omega)
       q_omega=-matmul(sm12,q_omega)
+      q_omega=q_omega-sum(q_omega)/nts_act
 !      write(6,*) "q_omega"
       mu_omega=0.d0
       do its=1,nts_act
@@ -629,7 +651,9 @@
        mu_omega(2)=mu_omega(2)+q_omega(its)*(cts_act(its)%y)
        mu_omega(3)=mu_omega(3)+q_omega(its)*(cts_act(its)%z)
       enddo
-      write (6,'(7d15.6)') omega_a,real(mu_omega(:)),aimag(mu_omega(:))
+      gamma_met=-2.d0*dot_product(aimag(mu_omega),pot)
+      write (6,'(8d15.6)') omega_a,real(mu_omega(:)), &
+                           aimag(mu_omega(:)),gamma_met
       deallocate (q_omega)
 !      scr3=matmul(sm12,eigt)
 !      do i=1,nts_act

@@ -22,7 +22,7 @@ LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
 #INC = -I/usr/include/ 
 INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
-OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
+OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o dissipation.o propagate.o main.o 
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
 OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
 OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
@@ -60,6 +60,9 @@ readio_medium.o: readio_medium.f90
 	$(FC) -c $(FFLAGS)  $<
 
 scf.o: scf.f90
+	$(FC) -c $(FFLAGS)  $<
+
+dissipation.o: dissipation.f90
 	$(FC) -c $(FFLAGS)  $<
 
 propagate.o: propagate.f90

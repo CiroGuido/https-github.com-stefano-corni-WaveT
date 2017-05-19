@@ -1149,18 +1149,42 @@
       end subroutine
 !
 !
-      subroutine do_freq_mat(omega_list,n_omega)
+      subroutine do_freq_mat(omega_list,eps_list,n_omega)
       real(8) :: omega_list(:)
+      complex(16) :: eps_list(:)
       integer(4):: n_omega,i
+      integer(4) :: j,its ! debug
+      real(dbl) :: diff(3),dist,vts_dip ! debug
       call read_cavity_file
       write(6,*) 'nts_act',nts_act
       call allocate_TS_matrix
       call do_TS_matrix
       allocate(potx_t(nts_act))
-      call do_ext_potential(fmax)
-      do i=1,n_omega
-       call do_charge_freq(omega_list(i),potx_t)
-      enddo
+      select case (Ffreq)
+       case ("ext")
+        call do_ext_potential(fmax)
+        do i=1,n_omega
+         call do_charge_freq(omega_list(i),eps_list(i),potx_t)
+        enddo
+       case ("dip")
+        do i=1,n_omega
+        do its=1,nts_act
+         diff(1)=(mol_cc(1)-cts_act(its)%x)
+         diff(2)=(mol_cc(2)-cts_act(its)%y)
+         diff(3)=(mol_cc(3)-cts_act(its)%z)
+         dist=sqrt(dot_product(diff,diff))
+         vts_dip=-dot_product(mut(i,1,:),diff)/dist**3
+         potx_t(its)=vts_dip
+!         write (6,*) its,vts_dip
+        enddo
+        call do_charge_freq(omega_list(i),eps_list(i),potx_t)
+       enddo
+      case ("gam")
+       do i=1,n_omega
+        potx_t=vts_trans(i,:)
+        call do_charge_freq(omega_list(i),eps_list(i),potx_t)
+       enddo
+      end select 
       call deallocate_TS_matrix
       deallocate(potx_t)
       return

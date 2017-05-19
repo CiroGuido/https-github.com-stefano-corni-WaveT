@@ -11,7 +11,8 @@
       real(dbl), parameter  :: ANTOAU=1.0D+00/TOANGS
       integer(4), parameter :: mod_max=10
       integer(4) :: nts
-      real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
+      real(8), allocatable :: vts(:,:,:) !transition and expectation potentials on tesserae from cis
+      real(8), allocatable :: vts_trans(:,:) !transition potentials on tesserae from eg tddft
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
       integer(4) :: n_q,nmodes,ncycmax,ns
@@ -20,7 +21,13 @@
 ! EC 3/5/17
       !integer(4), allocatable :: xmode(:),occmd(:)
       integer   :: xmode(mod_max), occmd(mod_max)
-      character(3) :: Fint,Feps,Fprop,Fbem,Fcav,Fchr,Fdeb,Floc
+      character(3) :: Fint,Feps,Fprop,Fbem,Fcav,Fchr,Fdeb,Floc,Ffreq, &
+                      Fgam
+! SC 17/05/2017: added Fgam to control wheter the tdplas run is going to produce
+!                matrices for gamess, and freq is going to read in gamess potential
+! SC 15/5/17: added Ffreq that determines wheter frequency calculations
+!             are done with an external field "ext" or a field calculated
+!             from a molecular transition density "mol" to be read in
 ! SP 220216: added equilibrium reaction field eq_rf0
 ! SP 220216: added local field keyword localf
 ! SP 180516: added pot_file to see if a file with potentials is present
@@ -30,6 +37,8 @@
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
+!SC: 18/05/2017: dynamical solvent constant
+      real(8) :: eps_sol
 ! SP 220216: vtsn: nuclear potential on tesserae
 ! SC: q0 are the charges in equilibrium with ground state 
 ! SP: q0 are the initial charges if read_chr is true 
@@ -46,11 +55,12 @@
       private
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
-             nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
+             nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,eps_sol,  &
              iBEM,q0,fr0,Floc,mdm_dip,qtot0, &
              Fdeb,vtsn,mdm_init_prop, &
-             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq,&
-             read_medium_tdplas     
+             ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq, &
+             read_medium_tdplas,vts_trans,Ffreq,Fgam,& 
+             read_trans_out_medium     
 !
       contains
 
@@ -115,27 +125,28 @@
        implicit none
        integer(4)   :: i,lc,db,rf,sc,ns
        integer(4),parameter :: nsmax=10
-       character(3) :: which_eps,which_cavity
+       character(3) :: which_eps,which_cavity,gamess
        real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
        nts_act=0
        mdm='nan'
 
-       namelist /tdplas/ which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm, &
-                         eps_w0,f_vel,which_cavity,xr,yr,zr,rr,ns
+! SC 16/05/2017: reading data for the dielectric constant is not really needed in tdplas
+       namelist /tdplas/ which_cavity,xr,yr,zr,rr,ns,gamess
        read(*,nml=tdplas)
-! read dielectric function type and parameters
-       select case (which_eps)
-         case ('deb','Deb','DEB')
-           Feps='deb'
-           write(6,*) "Debye dielectric constant"
-         case ('drl','Drl','DRL')
-           Feps='drl'
-! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
-           write(6,*) "Drude-Lorentz dielectric constant"
-         case default
-           write(*,*) "Error, specify eps(omega) type DEB or DRL"
-           stop
-       end select
+! SC 16/05/2017: reading data for the dielectric constant is not really needed in tdplas
+!! read dielectric function type and parameters
+!       select case (which_eps)
+!         case ('deb','Deb','DEB')
+!           Feps='deb'
+!           write(6,*) "Debye dielectric constant"
+!         case ('drl','Drl','DRL')
+!           Feps='drl'
+!! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
+!           write(6,*) "Drude-Lorentz dielectric constant"
+!         case default
+!           write(*,*) "Error, specify eps(omega) type DEB or DRL"
+!           stop
+!       end select
 ! Interaction is PCM
        Fint='pcm'
 ! This run prepare matrices
@@ -156,13 +167,19 @@
         write(6,*) "Please choose: build or read cavity?"
         stop
        end select
+       select case(gamess)
+       case ('Yes','YES','yes')
+        Fgam='yes'             
+       case default
+        Fgam='no'
+       end select
 ! This is to follow the correct route in init_BEM
        Fprop='ief'
        return
       end subroutine
 !
 
-      ! read transition potentials on tesserae
+      ! read transition and expectation potentials on tesserae
       subroutine read_gau_out_medium
        integer(4) :: i,j,its,nts
        real(dbl)  :: scr       
@@ -224,6 +241,38 @@
        return
       end subroutine
 !
+!  SC 15/05/2017: routine to read in only transitions potentials
+!             eg from TDDFT 
+!     read transition potentials on tesserae
+      subroutine read_trans_out_medium
+       integer(4) :: i,j,its,nts
+       real(dbl)  :: scr       
+       open(7,file="ci_pot_trans.inp",status="old")
+       read(7,*) nts
+       if(nts_act.eq.0.or.nts.eq.nts_act) then
+         nts_act=nts
+       else
+         write(*,*) "Tesserae number conflict"
+         stop
+       endif
+       allocate (vts_trans(n_ci,nts_act))
+       read(7,*) 
+       !V00 (not used)
+       do its=1,nts_act
+        read(7,*)
+       enddo
+       !V0j
+       do j=1,n_ci-1
+        read(7,*) 
+        do its=1,nts_act
+         read(7,*) vts_trans(j,its)
+        enddo
+       enddo
+       close(7)
+! SC: 18/05/2017: the following is just an approximation!!
+       vts_trans=vts_trans/eps_sol
+       return
+      end subroutine
 !
       subroutine output_surf
        integer :: i

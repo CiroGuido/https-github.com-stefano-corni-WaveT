@@ -241,6 +241,7 @@
        uplo = 'U'
        lwork = 1+6*Mdim+2*Mdim*Mdim
        liwork = 3+5*Mdim
+       iwork=-350
        eigt_c(:,:)=Mtrx(:,:)
        call dsyevd (jobz,uplo,Mdim,eigt_c,Mdim,eigv_c,work,lwork, &
          iwork,liwork,info)

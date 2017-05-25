@@ -14,7 +14,7 @@
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
-      integer(4) :: n_q,nmodes,ncycmax,ns
+      integer(4) :: n_q,nmodes,ncycmax,nspheres
       integer(4), parameter :: nsmax=10
       real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
 ! EC 3/5/17
@@ -121,7 +121,7 @@
        !real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
 
        namelist /tdplas/ which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm, &
-                         eps_w0,f_vel,which_cavity,xr,yr,zr,rr,ns
+                         eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres
  
        call init_nml_tdplas() 
        read(*,nml=tdplas)
@@ -331,7 +331,7 @@
 ! @date Created   : E. Coccia 16 May 2017
 ! Modified  :
 ! @param which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm,
-!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,ns  
+!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres  
 !------------------------------------------------------------------------
 
        nts_act=0
@@ -351,7 +351,7 @@
        yr=0.0
        zr=0.0
        rr=100.0 
-       ns=1 
+       nspheres=1 
 
        return
 
@@ -469,11 +469,11 @@
           Fcav='gms'
          case ('bui','Bui','BUI')
           Fcav='bui'
-           if (ns.gt.nsmax) then
-               write(*,*) 'ERROR: ns is larger than', nsmax
+           if (nspheres.gt.nsmax) then
+               write(*,*) 'ERROR: nspheres is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call read_act(xr,yr,zr,rr,nspheres,nsmax)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop
@@ -669,11 +669,11 @@
           Fcav='gms'
          case ('bui','Bui','BUI')
           Fcav='bui'
-           if (ns.gt.nsmax) then
-               write(*,*) 'ERROR: ns is larger than', nsmax
+           if (nspheres.gt.nsmax) then
+               write(*,*) 'ERROR: nspheres is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call read_act(xr,yr,zr,rr,nspheres,nsmax)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop
@@ -750,7 +750,7 @@
 ! @date Created   : E. Coccia 16 May 2017
 ! Modified  :
 ! @param which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm,
-!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,ns  
+!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres  
 !------------------------------------------------------------------------
 
 ! read dielectric function type and parameters
@@ -777,12 +777,11 @@
         Fcav='gms'
        case ('bui','Bui','BUI')
         Fcav='bui'
-        if (ns.gt.nsmax) then
-           write(*,*) 'ERROR: ns is larger than', nsmax
+        if (nspheres.gt.nsmax) then
+           write(*,*) 'ERROR: nspheres is larger than', nsmax
            stop
         endif
-        write(*,*) 'Before', ns, nsmax
-        call read_act(xr,yr,zr,rr,ns,nsmax)
+        call read_act(xr,yr,zr,rr,nspheres,nsmax)
        case default
         write(6,*) "Please choose: build or read cavity?"
         stop

@@ -236,14 +236,18 @@
        real(dbl),intent(in) :: Mtrx(Mdim,Mdim)
        integer(i4b) :: i,j,info,lwork,liwork
        character jobz,uplo
-       integer(i4b) :: iwork(3+5*Mdim)
-       real(dbl) :: work(1+6*Mdim+2*Mdim*Mdim)
+       integer(i4b), allocatable :: iwork(:)
+       real(dbl),    allocatable :: work(:)
+
+       allocate(iwork(3+5*Mdim))
+       allocate(work(1+6*Mdim+2*Mdim*Mdim))
 !      Set parameters for diagonalization routine dsyevd
        jobz = 'V'
        uplo = 'U'
        lwork = 1+6*Mdim+2*Mdim*Mdim
        liwork = 3+5*Mdim
        iwork=0
+       !work=0.d0
        eigt_c(:,:)=Mtrx(:,:)
        call dsyevd (jobz,uplo,Mdim,eigt_c,Mdim,eigv_c,work,lwork, &
          iwork,liwork,info)
@@ -251,6 +255,9 @@
        do i=1,mdim
          write (6,*) i,eigv_c(i)
        enddo
+
+       deallocate(iwork)
+       deallocate(work)
 !        mtrx(:,:)=matmul(mtrx(:,:),eigt_c)
 !        mtrx(:,:)=matmul(transpose(eigt_c),mtrx(:,:))
 !       write (6,*) "htot dopo diagonalizzazione"

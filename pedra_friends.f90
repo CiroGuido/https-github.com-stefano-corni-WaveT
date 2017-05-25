@@ -20,11 +20,11 @@
 !
       contains
 !
-      Subroutine read_act(xr,yr,zr,rr,ns,nsmax)
-      integer(i4b) :: isfe,ns,nsmax
+      Subroutine read_act(xr,yr,zr,rr,nspheres,nsmax)
+      integer(i4b) :: isfe,nspheres,nsmax
       real(dbl)    :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
       !read (iunit,*) nesf_act
-      nesf_act=ns 
+      nesf_act=nspheres 
       write(6,*) "Number of spheres",nesf_act
       write(6,*) "I_sphere  X     Y   Z   Radius"
       allocate(sfe_act(nesf_act))
@@ -116,10 +116,6 @@
         call pedra(1,4,nesf_pro,sfe_pro,nts_pro,cts_pro)
         write (6,*) "nts_pro",nts_pro
       else if (what.eq.'met') then
-        write(*,*) 'nesf_act', nesf_act
-        write(*,*) 'sfe_act', sfe_act
-        write(*,*) 'nts_act', nts_act
-        write(*,*) 'dum2', dum2  
         call pedra(0,4,nesf_act,sfe_act,nts_act,dum2)      
         write (6,*) "nts_act",nts_act
         allocate(cts_act(nts_act))
@@ -339,8 +335,12 @@
 !     In INTSPH(numts,10) sono registrate le sfere a cui appartengono
 !     i lati delle tessere.
 !
+      write(*,*) 'prima'
+
       CALL SUBTESSERA(sfe,nsfe,nesf,NV,PTS,CCC,PP,PP1,AREA)
 !
+      write(*,*) 'dopo'
+
       IF(AREA.EQ.ZERO) cycle
       XCTST(n_tes*(ITS-1)+i_tes) = PP(1)
       YCTST(n_tes*(ITS-1)+i_tes) = PP(2)
@@ -540,6 +540,7 @@
 !
 !     Loop sulle altre sfere
 !
+
       DO 150 NSFE1=1,NESF
       IF(NSFE1.EQ.NS) GO TO 150
 !

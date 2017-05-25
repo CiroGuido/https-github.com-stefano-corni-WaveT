@@ -13,13 +13,7 @@
             F10.3,"s")') real(current-st)/real(rate)
 !
 !     diagonalise matrix
- 
-      write(*,*) 'PRIMA'
-
       call init_BEM
-
-      write(*,*) 'DOPO'
-
       call system_clock(current)
       write(6,'("Done , total elapsed time", &
             F10.3,"s")') real(current-st)/real(rate)

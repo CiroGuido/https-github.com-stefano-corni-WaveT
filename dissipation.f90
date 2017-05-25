@@ -1,6 +1,7 @@
 module dissipation 
   use readio
   use random
+  use readio_medium, only: q_t,q0, np_relax
 
   use, intrinsic :: iso_c_binding
 
@@ -176,7 +177,7 @@ module dissipation
    else
       pjump(2*nexc+1:3*nexc+1)=0.d0
    endif
-
+  
    return
 
   end subroutine loss_norm 
@@ -234,6 +235,10 @@ module dissipation
       c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1
       write(*,*) 'Jump due to spontaneous emission, channel n.:', istate 
+      !Update charges to those in equilibrium with the ground state
+      if (np_relax) then
+         q_t(:)=q0(:)
+      endif
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
       call random_number(eta1)
@@ -259,6 +264,10 @@ module dissipation
       c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
       i_nr = i_nr +1
       write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate
+      !Update charges to those in equilibrium with the ground state
+      if (mdm.ne.'vac') then
+         q_t(:)=q0(:)
+      endif  
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)

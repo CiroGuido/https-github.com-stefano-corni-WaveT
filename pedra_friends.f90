@@ -530,6 +530,9 @@
 !
 !     Loop sulle altre sfere
 !
+
+      write(*,*) 'ciao', NESF, NS
+
       DO 150 NSFE1=1,NESF
       IF(NSFE1.EQ.NS) GO TO 150
 !

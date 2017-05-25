@@ -2,34 +2,31 @@
 FC = ifort
 FFLAGS_XEON= -O3 -ftz -align -arch pn4 -tune pn4 -xN -tpp7
 FFLAGS_PAR= -parallel -par_threshold75 -par_report3
-FFLAGS_HYD= -O3 -ftz -align -xHost
-FFLAGS_HYD_PAR= -O3 -ftz -align -xHost -parallel -par_threshold75 -par_report3
-FFLAGS_DEB= -debug -C -traceback
+#FFLAGS_DEB= -debug -C -g
+FFLAGS_DEB= -debug -traceback -C -g -diag-disable  warn -parallel -par_threshold75 -par_report3
+FFLAGS_DEB_PAR= -g -diag-disable  warn -parallel -par_threshold75 -par_report3
 FFLAGS_P3= -O3 -ftz -align -arch pn3 -tune pn3 -tpp6
 FFLAGS_P4= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xN
-FFLAGS_MIO= -O3 -ftz -align -arch pn4 -tune pn4 -tpp7 -xB -ipo
+FFLAGS_MIO= -O3 -ftz -align -xAVX
+FFLAGS_HYD= -O3 -ftz -align -xHost
+FFLAGS_HYD_PAR= -O3 -ftz -align -xHost -parallel -par_threshold75 -par_report3 #-check bounds 
 FFLAGS_WS= -O3 -ftz -align -xP -no-prec-div -ipo
-FFLAGS_LAP= -O3 -ftz -align -xAVX -no-prec-div 
 FFLAGS_GF= -O3
-LDLAGS= 
-#LDLAGS= --static --disable-shared --enable-static
-FFLAGS= $(FFLAGS_DEB)
+LDLAGS=
+FFLAGS= -debug $(FFLAGS_HYD_PAR)
 #LIBS = -L/usr/lib -llapack  -lblas 
-#LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
 LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
-#LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
-#INC = -I/usr/include/ 
 INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
-OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
+OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o dissipation.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
 OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
 OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
 
-all: WaveT.x freq_bem.x make_spectra.x tdplas.x
+all: embem.x freq_bem.x make_spectra.x tdplas.x
 
-WaveT.x: $(OBJ) 
+embem.x: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
 
 freq_bem.x: $(OBJ_FREQ) 
@@ -57,6 +54,9 @@ readio.o: readio.f90
 	$(FC) -c $(FFLAGS)  $<
 
 readio_medium.o: readio_medium.f90
+	$(FC) -c $(FFLAGS)  $<
+
+dissipation.o: dissipation.f90
 	$(FC) -c $(FFLAGS)  $<
 
 scf.o: scf.f90

@@ -5,8 +5,26 @@
       use QM_coupling  
       use spectra
       use dissipation       
+      !use parallel 
+
       implicit none
+
+!#ifdef PARALLEL
+!      include "mpif.h"
+!#endif
+
       integer :: st,current,rate
+
+!#ifdef PARALLEL
+!     !initialize the MPI environment
+!     call init_MPI()
+!     call mpi_init(ierr_mpi)
+!     call mpi_comm_rank(MPI_COMM_WORLD,myrank,ierr_mpi)
+!     call mpi_comm_rank(MPI_COMM_WORLD,nproc,ierr_mpi) 
+!     call mpi_barrier(MPI_COMM_WORLD,ierr_mpi)
+!#endif
+
+
 !
 !     read in the input parameter for the present evolution
       call system_clock(st,rate)

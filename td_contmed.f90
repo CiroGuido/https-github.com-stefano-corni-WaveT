@@ -101,6 +101,7 @@
 ! neq free energies
       g_neq1=zero
       g_neq2=zero
+
       return
       end subroutine
 !     
@@ -534,6 +535,7 @@
 !
       subroutine prop_chr(c,c_prev)
       complex(16), intent(IN) :: c(n_ci),c_prev(n_ci)
+
        ! Propagate
        if(Feps.eq."deb") then
          if(Fprop.eq."ief") then
@@ -563,6 +565,7 @@
        pot_tp=pot_t
        if(Floc.eq."loc") qext_tp=qext_t
        if(Floc.eq."loc") potx_tp=potx_t
+
       return
       end subroutine
 !
@@ -660,6 +663,7 @@
       f4=0.5d0*dt
       f5=eps_gm*f2
       write(6,*) "Initiated VV propagator"
+ 
       return
       end subroutine
 !

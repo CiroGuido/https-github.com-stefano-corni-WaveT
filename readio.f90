@@ -30,6 +30,7 @@
       real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
       real(8), allocatable :: delta(:) !phases randomly added during the propagation 
       real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
+      real(8), allocatable :: mut_np2(:,:) !squared dipole from NP
       real(8) :: dt,tau(2),start, krnd
       logical :: dis !turns on the dissipation
       logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
@@ -196,7 +197,7 @@
 !
 !
       subroutine read_gau_out
-       integer(4) :: i,j
+       integer(4)   :: i,j
        character(4) :: junk
 !    read ci energy
        open(7,file="ci_energy.inp",status="old")
@@ -255,6 +256,7 @@
        enddo
        c_i=c_i/sqrt(dot_product(c_i,c_i))
        close(7)
+
        return
       end subroutine
 !
@@ -269,8 +271,12 @@
 !------------------------------------------------------------------------
      
        implicit none
-       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, err   
-       real(8)  :: term  
+       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
+       real(8)   :: term  
+       real(8)   :: rdum
+       real(8)   :: rx,ry,rz
+       real(8)   :: ix,iy,iz
+
 
        open(8,file='nr_rate.inp',status="old",iostat=ierr0,err=100)
        open(9,file='de_rate.inp',status="old",iostat=ierr1,err=101)
@@ -321,11 +327,34 @@
        do i=1,nexc
           sp_gam(i) = sp_fact(i)*term*e_ci(i+1)**3
        enddo
-
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  
        do i=1,nexc 
           tmom2_0i(i) = mut(1,i+1,1)**2 + mut(1,i+1,2)**2 + mut(1,i+1,3)**2
        enddo
+       if (mdm.eq.'nan') then
+          open(7,file="ci_mut_np.inp",status="old",iostat=ierr4,err=104)
+          allocate(mut_np2(nexc,3))
+          do i=1,nexc
+             read(7,*) rdum, rx, ry, rz, ix, iy, iz, rdum
+             mut_np2(i,1) = rx**2 + ix**2
+             mut_np2(i,2) = ry**2 + iy**2
+             mut_np2(i,3) = rz**2 + iz**2
+          enddo
+         close(7)
+         do i=1,nexc
+            tmom2_0i(i) = tmom2_0i(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
+         enddo
+
+         write(*,*) 'Contribution to the transition dipole <0|mu|i> from NP'
+
+104      if (ierr4.ne.0) then
+           write(*,*)
+           write(*,*) 'Dissipation and NP:'
+           write(*,*) 'An error occurred during reading ci_mut_np.inp'
+           write(*,*)
+           stop
+        endif         
+       endif 
 
 ! Read phase randomly added during the propagation
        if (idep.eq.0) then
@@ -390,6 +419,7 @@
        deallocate(sp_fact)
        deallocate(tmom2_0i)
        if (idep.eq.0) deallocate(delta)
+       if (dis.and.mdm.eq.'nan') deallocate(mut_np2)
 
        return
 

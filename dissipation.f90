@@ -264,10 +264,6 @@ module dissipation
       c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
       i_nr = i_nr +1
       write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate
-      !Update charges to those in equilibrium with the ground state
-      if (mdm.ne.'vac') then
-         q_t(:)=q0(:)
-      endif  
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)

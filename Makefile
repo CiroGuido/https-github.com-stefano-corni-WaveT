@@ -17,12 +17,13 @@ FFLAGS= $(FFLAGS_DEB)
 #LIBS = -L/usr/lib -llapack  -lblas 
 #LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
 LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
-#LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group
+#LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group#
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
-#INC = -I/usr/include/ 
-INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
+LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
+INC = -I/usr/include/ 
+#INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
-OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
+OBJ= dissipation.o random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
 OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
 OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
@@ -53,7 +54,7 @@ cav_types.o: cav_types.f90
 pedra_friends.o: pedra_friends.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
-readio.o: readio.f90
+readio.o: readio.f90 cav_types.o
 	$(FC) -c $(FFLAGS)  $<
 
 readio_medium.o: readio_medium.f90
@@ -62,7 +63,10 @@ readio_medium.o: readio_medium.f90
 scf.o: scf.f90
 	$(FC) -c $(FFLAGS)  $<
 
-propagate.o: propagate.f90
+dissipation.o: dissipation.f90 random.o readio.o
+	$(FC) -c $(FFLAGS)  $<
+
+propagate.o: propagate.f90 dissipation.o
 	$(FC) -c $(FFLAGS)  $<
 
 spectra.o: spectra.f90

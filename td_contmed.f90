@@ -99,7 +99,9 @@
 ! neq free energies
       g_neq1=zero
       g_neq2=zero
+
       return
+
       end subroutine
 !     
       subroutine prop_mdm(i,c_prev,c_prev2,f_prev,f_prev2,h_int)   
@@ -656,6 +658,7 @@
       f4=0.5d0*dt
       f5=eps_gm*f2
       write(6,*) "Initiated VV propagator"
+ 
       return
       end subroutine
 !

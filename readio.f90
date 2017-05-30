@@ -259,7 +259,7 @@
           call define_gamma(de_gam,de_gam1,n_ci)
        endif
 ! Define spontaneous emission terms 
-       term=4.d0/(3.d0*slight)
+       term=4.d0/(3.d0*slight**3)
        do i=1,nexc
           sp_gam(i) = sp_fact(i)*term*e_ci(i+1)**3
        enddo

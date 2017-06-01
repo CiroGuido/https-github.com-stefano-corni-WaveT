@@ -78,9 +78,8 @@
        !                which_bound_mat,which_cavity, which_charges, &
        !                which_debug,which_localF
        !character(6) :: which_mdm_init_prop 
-       nts_act=0
 
-       if (mdm.eq.'nan') then
+       !if (mdm.eq.'nan') then
           namelist /nanoparticle/ n_q,which_eps,eps_0,eps_d,eps_A, &
                                   eps_gm,eps_w0,f_vel,which_int,   &
                                   which_prop,nmodes,xmode,occmd,   &
@@ -88,7 +87,7 @@
                                   which_mdm_init_prop,thrshld,     &
                                   mix_coef,ncycmax,which_localF,   &
                                   which_charges,which_debug,tau_deb 
-       elseif (mdm.eq.'sol') then
+       !elseif (mdm.eq.'sol') then
           namelist /solvent/ n_q,which_eps,eps_0,eps_d,eps_A, &
                              eps_gm,eps_w0,f_vel,which_int,   &
                              which_prop,a_cav,b_cav,c_cav,    &
@@ -96,7 +95,9 @@
                              which_mdm_init_prop,thrshld,     &
                              mix_coef,ncycmax,which_localF,   &
                              which_charges,which_debug,tau_deb 
-       endif
+       !endif
+       
+       nts_act=0 
 
        if (mdm.eq.'nan') then
           call init_nml_nanoparticle() 

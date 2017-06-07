@@ -213,7 +213,7 @@
           endif 
           if (qjump) then
              write(*,*)
-             write(*,*) 'Total number of quantum jumps', i_sp+i_nr+i_de, '(',  real(i_sp+i_nr+i_de)/real(n_step),')'
+             write(*,*) 'Total number of quantum jumps', i_sp+i_nr+i_de,'(',  real(i_sp+i_nr+i_de)/real(n_step),')'
              write(*,*) 'Spontaneous emission quantum jumps', i_sp,'(',  real(i_sp)/real(n_step),')'
              write(*,*) 'Nonradiarive relaxation quantum jumps', i_nr,'(', real(i_nr)/real(n_step),')'
              write(*,*) 'Dephasing relaxation quantum jumps', i_de, '(', real(i_de)/real(n_step),')'
@@ -241,13 +241,26 @@
         f(:,:)=0.d0
         select case (Ffld)
         case ("mdg")
-         do i=1,n_step 
-          t_a=dt*(i-1)
-          f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+         select case (npulse)
+          case (1)
+           do i=1,n_step 
+              t_a=dt*(i-1)
+              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
                          sin(omega*t_a)
-          if (mod(i,n_out).eq.0) &
-           write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
-         enddo
+              if (mod(i,n_out).eq.0) &
+              write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+           enddo
+          case (2)
+           do i=1,n_step
+              t_a=dt*(i-1)
+              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+                         sin(omega*t_a)
+              f(:,i)=f(:,i) + fmax(:)*exp(-(t_a-(t_mid+tdelay))**2 &
+                     /(sigma1**2))*sin(omega1*t_a+pshift) 
+              if (mod(i,n_out).eq.0) &
+              write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+           enddo
+         end select 
         case ("mds")
          i_max=int(t_mid/dt)
          do i=1,2*i_max

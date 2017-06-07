@@ -8,7 +8,7 @@
       !use parallel 
 
       implicit none
-
+!
 !#ifdef PARALLEL
 !      include "mpif.h"
 !#endif
@@ -24,19 +24,22 @@
 !     call mpi_barrier(MPI_COMM_WORLD,ierr_mpi)
 !#endif
 
-
+!      if (myrank.eq.0) then
 !
 !     read in the input parameter for the present evolution
-      call system_clock(st,rate)
-      call read_input
-      if (mdm.ne."vac") call read_medium
+         call system_clock(st,rate)
+         call read_input
+         if (mdm.ne."vac") call read_medium
+!      endif
       call init_spectra
 !
 !     create the field 
       call create_field
-      call system_clock(current)
-      write(6,'("Done reading input & setting up the field, took", &
+!      if (myrank.eq.0) then
+         call system_clock(current)
+         write(6,'("Done reading input & setting up the field, took", &
             F10.3,"s")') real(current-st)/real(rate)
+!      endif
 !
 !     propagate or diagonalise matrix
       if(nmodes.eq.0) then
@@ -45,9 +48,16 @@
       else 
         call do_diag    
       endif
-      call system_clock(current)
-      write(6,'("Done , total elapsed time", &
+
+!      if (myrank.eq.0) then
+         call system_clock(current)
+         write(6,'("Done , total elapsed time", &
             F10.3,"s")') real(current-st)/real(rate)
+!      endif
 !         
+!#ifdef PARALLEL
+    !finalize the MPI environment
+!    call final_MPI(ierr_mpi)
+!#endif
       stop
       end

@@ -19,6 +19,7 @@
        allocate (Sdip(n_step,3,3),Sfld(n_step,3))
        Sdip(:,:,:)=0.0d0
        Sfld(:,:)=0.0d0
+
       return
       end subroutine
 !

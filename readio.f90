@@ -22,6 +22,7 @@
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
       integer(4) :: nr_typ !type of decay for the internal conversion
       integer(4) :: idep !choose the dephasing operator
+      integer(4) :: npulse !number of pulses
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
@@ -32,6 +33,8 @@
       real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
       real(8), allocatable :: mut_np2(:,:) !squared dipole from NP
       real(8) :: dt,tau(2),start, krnd
+      real(8) :: tdelay, pshift  ! time delay and phase shift with two pulses
+      real(8) :: omega1, sigma1  ! for the second pulse
       logical :: dis !turns on the dissipation
       logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
       logical :: ernd=.false. !add normal number to E: E -> E + krnd*rnd()
@@ -42,7 +45,7 @@
 ! SP 28/10/16: improved with a vector
 !      integer(4) :: dir_ft
       real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
-      character(3) :: mdm,Ffld,rad 
+      character(3) :: mdm,Ffld,rad,pulse 
       integer(4) :: iseed  !seed for random number generator
       integer(4) :: nexc !number of excited states
 ! kind of surrounding medium and shape of the impulse
@@ -64,7 +67,8 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep, imar, de_gam1, krnd, ernd
+             idep, imar, de_gam1, krnd, ernd, npulse, tdelay, pshift, &
+             omega1, sigma1
 !
       contains
 !
@@ -89,6 +93,25 @@
        write (6,*) "Frequency (au):",omega
        read(5,*) fmax
        write (6,*) "Maximum E field",fmax
+       read(*,*) pulse
+       select case (pulse)
+        case ('one', 'ONE', 'One')   
+          write(*,*) 'One pulse'
+          npulse=1 
+        case ('two', 'TWO', 'Two')
+          write(*,*) 'Two pulses'
+          read(*,*) tdelay
+          write(*,*) 'Time delay =', tdelay
+          read(*,*) pshift
+          write(*,*) 'Phase shift =', pshift
+          read(*,*) omega1
+          write(*,*) 'Frequency second pulse =', omega1
+          read(*,*) sigma1
+          write(*,*) 'Sigma second pulse =', sigma1
+          npulse=2
+        case default
+          npulse=1
+       end select
 !SC
        read(5,*) radiative
        select case (radiative)

@@ -23,73 +23,61 @@ LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
 INC = -I/usr/include/ 
 #INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
-OBJ= dissipation.o random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o propagate.o main.o 
-OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
-OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
-OBJ_SPECTRA= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o main_spectra.o 
+BINPATH=../bin
+TDPLAS=../../TDPlas/src/
 
-all: WaveT.x freq_bem.x make_spectra.x tdplas.x
+OBJ= dissipation.o random.o readio.o spectra.o propagate.o main.o cav_types.o pedra_friends.o readio_medium.o BEM_medium.o scf.o td_contmed.o QM_coupling.o  
+OBJ_SPECTRA= readio.o spectra.o main_spectra.o cav_types.o pedra_friends.o readio_medium.o  
 
-WaveT.x: $(OBJ) 
+all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x
+
+$(BINPATH)/WaveT.x: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
 
-freq_bem.x: $(OBJ_FREQ) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ_FREQ)  $(LIBS) $(LIBSF)
-
-make_spectra.x: $(OBJ_SPECTRA) 
+$(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA)  $(LIBS) $(LIBSF)
 
-tdplas.x: $(OBJ_TDPLAS) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS)  $(LIBS) $(LIBSF)
-
 clean:
-	rm -f *.o *.mod *.il
+	rm -f *.o *.mod *.il $(BINPATH)/*.x
 
 random.o: random.f90
 	$(FC) -c $(FFLAGS) $<
 
-cav_types.o: cav_types.f90
+cav_types.o: $(TDPLAS)/cav_types.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
-pedra_friends.o: pedra_friends.f90
+pedra_friends.o: $(TDPLAS)/pedra_friends.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
 readio.o: readio.f90 cav_types.o
 	$(FC) -c $(FFLAGS)  $<
 
-readio_medium.o: readio_medium.f90
+readio_medium.o: $(TDPLAS)/readio_medium.f90
 	$(FC) -c $(FFLAGS)  $<
 
-scf.o: scf.f90
+dissipation.o: dissipation.f90 random.o readio.o cav_types.o
 	$(FC) -c $(FFLAGS)  $<
 
-dissipation.o: dissipation.f90 random.o readio.o
+propagate.o: propagate.f90 dissipation.o cav_types.o td_contmed.o
 	$(FC) -c $(FFLAGS)  $<
 
-propagate.o: propagate.f90 dissipation.o
+scf.o: $(TDPLAS)/scf.f90
 	$(FC) -c $(FFLAGS)  $<
 
-spectra.o: spectra.f90
+spectra.o: spectra.f90 cav_types.o pedra_friends.o readio_medium.o
 	$(FC) -c $(FFLAGS)  $(INC)  $<
 
-BEM_medium.o: BEM_medium.f90
+BEM_medium.o: $(TDPLAS)/BEM_medium.f90 $(TDPLAS)/scf.o
 	$(FC) -c $(FFLAGS)  $<
 
-td_contmed.o: td_contmed.f90
+td_contmed.o: $(TDPLAS)/td_contmed.f90
 	$(FC) -c $(FFLAGS)  $<
 
-QM_coupling.o: QM_coupling.f90
+QM_coupling.o: $(TDPLAS)/QM_coupling.f90
 	$(FC) -c $(FFLAGS)  $<
 
-main.o: main.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
-
-main_freq.o: main_freq.f90
+main.o: main.f90 QM_coupling.o
 	$(FC) -c $(FFLAGS) $(INC) $<
 
 main_spectra.o: main_spectra.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
-
-main_tdplas.o: main_tdplas.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
-

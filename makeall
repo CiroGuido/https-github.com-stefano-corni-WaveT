@@ -1,0 +1,5 @@
+cd TDPlas/src
+make
+cd -
+cd WaveT/src
+make

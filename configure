@@ -1,0 +1,3 @@
+sudo echo "alias 'makeall'='./makeall'" >> ~/.bashrc
+sudo echo "alias 'cleanall'='./cleanall'" >> ~/.bashrc
+source ~/.bashrc

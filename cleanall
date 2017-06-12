@@ -1,0 +1,5 @@
+cd TDPlas/src
+make clean
+cd -
+cd WaveT/src
+make clean

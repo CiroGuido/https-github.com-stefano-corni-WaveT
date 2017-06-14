@@ -142,7 +142,7 @@
        if (dis) call read_dis_params   
 
        return
-      end subroutine
+      end subroutine read_input
 !
 !
       subroutine read_gau_out
@@ -206,7 +206,7 @@
        c_i=c_i/sqrt(dot_product(c_i,c_i))
        close(7)
        return
-      end subroutine
+      end subroutine read_gau_out
 !
       subroutine read_dis_params()
 !------------------------------------------------------------------------

@@ -1,10 +1,9 @@
       Module BEM_medium      
-      use readio_medium
-      use cav_types
+      use global_tdplas
       use pedra_friends
-!      use, intrinsic :: iso_c_binding
-
+      use readio_medium
       implicit none
+
       real(dbl) :: f_f,f_w    
       real(dbl), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(dbl), allocatable :: sm1(:,:)
@@ -68,7 +67,7 @@
          endif
        endif
       return
-      end subroutine
+      end subroutine init_BEM
 !
 !
       subroutine output_surf
@@ -108,7 +107,7 @@
 !         write (7,'(2F22.10)') 0.d0, cts_act(i)%area
 !       enddo
 !      close(unit=7)
-      end subroutine
+      end subroutine output_surf
 !
       subroutine output_charge_pqr(st)
       integer :: its,i
@@ -128,7 +127,7 @@
        enddo
        close(unit=7)
       enddo
-      end subroutine
+      end subroutine output_charge_pqr
 !
       subroutine write_charges0
       integer :: i
@@ -138,7 +137,7 @@
        write(7,*) 0.d0
       enddo
       close(7)
-      end subroutine
+      end subroutine write_charges0
 !
       subroutine deallocate_BEM     
        if (Fprop.eq.'dip') then
@@ -151,7 +150,7 @@
          if (allocated(sm1)) deallocate(sm1)
        endif
       return
-      end subroutine
+      end subroutine deallocate_BEM
 !
       subroutine do_factors   
        real(8) :: lambda,r_bc
@@ -183,7 +182,7 @@
          taux_ons=(two*eps_d+one)/(two*eps_0+one)
        endif
       return
-      end subroutine
+      end subroutine do_factors
 !
       subroutine do_PCM_propMat
       integer(i4b) :: i,j
@@ -333,7 +332,7 @@
       deallocate(scr2,scr3)
       call deallocate_TS_matrix
       return
-      end subroutine
+      end subroutine do_PCM_propMat
 !
       subroutine green_d (i,j,value)
       integer(i4b), intent(in):: i,j
@@ -350,7 +349,7 @@
                 cts_act(i)%rsfe)/cts_act(i)%area
       endif
       return
-      end subroutine
+      end subroutine green_d
 !
       subroutine green_s (i,j,value)
       integer(i4b), intent(in):: i,j
@@ -367,7 +366,7 @@
         value=1.0694*sqrt(4.d0*pi/cts_act(i)%area)
       endif
       return
-      end subroutine
+      end subroutine green_s
 !     
       subroutine do_ons_propMat   
       integer(i4b) :: i,j
@@ -410,7 +409,7 @@
        endif
        if(allocated(cals)) deallocate(cals)
        return
-      end subroutine
+      end subroutine do_ons_propMat
 !
       subroutine do_eps      
        !eps_gm=eps_gm+f_vel/sfe_act(1)%r
@@ -418,7 +417,7 @@
        eps=eps+onec
        eps_f=(eps-onec)/(eps+twoc)
       return
-      end subroutine
+      end subroutine do_eps
 !
       function inv(A) result(Ainv)
         real(dbl), dimension(:,:), intent(in) :: A
@@ -459,7 +458,7 @@
       allocate(sm12(nts_act,nts_act))
       allocate(sp12(nts_act,nts_act))
       return
-      end subroutine
+      end subroutine allocate_TS_matrix
 !
       subroutine deallocate_TS_matrix
       deallocate(eigv)
@@ -467,7 +466,7 @@
       deallocate(sm12)
       deallocate(sp12)
       return
-      end subroutine
+      end subroutine deallocate_TS_matrix
 !
       subroutine do_TS_matrix
       integer(i4b) :: i,j,info,lwork,liwork
@@ -583,7 +582,7 @@
       deallocate(scr1,scr2,eigt_t)
       write(6,*) "Done setting up T and S" 
       return
-      end subroutine
+      end subroutine do_TS_matrix
 !
       subroutine do_charge_freq(omega_a,pot)
       integer(4) :: its
@@ -633,6 +632,6 @@
 !      matq_omega=-matmul(scr1,transpose(scr3)) 
 !      deallocate(scr1,scr3)
       return
-      end subroutine
+      end subroutine do_charge_freq
 !
-      end module
+      end module BEM_medium

@@ -1,10 +1,9 @@
       Module scf            
-      use cav_types
-      use readio_medium
-      use pedra_friends
-      use BEM_medium    
       use, intrinsic :: iso_c_binding
-
+      use global_tdplas
+      use pedra_friends
+      use readio_medium
+      use BEM_medium    
       implicit none
       real(dbl), allocatable :: omegax(:),Htot(:,:)                
 ! SP quantities at c-th cycle 
@@ -152,7 +151,7 @@
        deallocate(eigv_cp,eigt_cp)
        deallocate(Htot)
       return
-      end subroutine
+      end subroutine do_scf
 !     
       subroutine do_charges(qts)                      
       real(dbl), intent(OUT):: qts(:)     
@@ -194,7 +193,7 @@
       end select
       if (allocated(pot)) deallocate(pot)
       return
-      end subroutine
+      end subroutine do_charges
 !       
       subroutine do_matrix(qts)                      
       real(dbl), intent(IN):: qts(:)     
@@ -221,7 +220,7 @@
        enddo
       end select
       return
-      end subroutine
+      end subroutine do_matrix
 !       
       subroutine diag_matrix(Mdim,Mtrx)                       
        integer(i4b),intent(in) :: Mdim   
@@ -251,7 +250,7 @@
 !        enddo
 !       enddo
       return
-      end subroutine
+      end subroutine diag_matrix
 !
       subroutine check_conv(mxe,mxv,Mdim)                       
        real(dbl),intent(inout) :: mxe,mxv
@@ -272,7 +271,7 @@
          enddo
        enddo
       return
-      end subroutine
+      end subroutine check_conv
 !
       subroutine do_energies(e_scf,e_ini)
       implicit none
@@ -285,7 +284,7 @@
        e_ini=abs(c_i(i))*abs(c_i(i))*e_ci(i)+e_ini
       enddo
       return
-      end subroutine
+      end subroutine do_energies
 !
 !      subroutine do_rediag(nts,tdm)                  
 !       implicit none
@@ -310,6 +309,6 @@
 !       deallocate(eigv_cp,eigt_cp)
 !       deallocate(Htot)
 !      return
-!      end subroutine
+!      end subroutine do_rediag
 !
-      end module
+      end module scf

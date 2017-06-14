@@ -17,5 +17,4 @@
       write(6,'("Done , total elapsed time", &
             F10.3,"s")') real(current-st)/real(rate)
 !         
-      stop
-      end
+      end program tdplas

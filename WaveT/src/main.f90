@@ -1,11 +1,12 @@
       program tdcis
       use readio  
-      use readio_medium
-      use propagate    
-      use QM_coupling  
       use spectra
       use dissipation
-      use cav_types, only: set_global_tdplas
+      use propagate    
+      use global_tdplas, only: set_global_tdplas
+      use readio_medium
+      use QM_coupling
+  
       implicit none
       integer :: st,current,rate
 !
@@ -33,5 +34,4 @@
       write(6,'("Done , total elapsed time", &
             F10.3,"s")') real(current-st)/real(rate)
 !         
-      stop
-      end
+      end program tdcis

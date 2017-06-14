@@ -1,8 +1,7 @@
-module dissipation 
-  use readio
-  use random
-
+module dissipation
   use, intrinsic :: iso_c_binding
+  use random 
+  use readio
 
 ! @brief Contains routines for SSE
 
@@ -493,4 +492,4 @@ module dissipation
 
   end subroutine add_h_rnd2
 
-end module 
+end module dissipation

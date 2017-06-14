@@ -1,12 +1,12 @@
-      Module td_ContMed       
-      use readio_medium
-      use cav_types
+      Module td_contmed       
+      use, intrinsic :: iso_c_binding
+      use global_tdplas
       use pedra_friends
+      use readio_medium
       use BEM_medium
       use scf         
-      use, intrinsic :: iso_c_binding
-
       implicit none
+
       real(dbl) :: qtot,ref    
       real(8), allocatable :: vtsd(:,:,:),vtsv(:,:,:),vtsq(:,:,:)
 ! SC this is the medium contribution to the hamiltonian
@@ -93,7 +93,7 @@
       g_neq1=zero
       g_neq2=zero
       return
-      end subroutine
+      end subroutine init_mdm
 !     
       subroutine prop_mdm(i,c_prev,c_prev2,f_prev,f_prev2,h_int,Sdip)
       real(dbl), intent(INOUT) :: f_prev(3),f_prev2(3)
@@ -167,7 +167,7 @@
        ! SP 24/02/16  Write output
       if (mod(i,n_out).eq.0) call out_mdm(i,Sdip)
       return
-      end subroutine
+      end subroutine prop_mdm
 !     
       subroutine end_mdm   
        deallocate(h_mdm)
@@ -175,7 +175,7 @@
        call deallocate_BEM    
        close (file_med)
       return
-      end subroutine
+      end subroutine end_mdm
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 !!!!!!!!!!!!!!!!!!!!!!!! Initialization/deallocation !!!!!!!!!!!!!!!
@@ -207,7 +207,7 @@
          potx_tp(:)=zero    
        endif
        return
-      end subroutine
+      end subroutine init_potential
 !
       ! Initialize charges
       subroutine init_charges(c_prev)
@@ -298,7 +298,7 @@
          endif
        endif
        return
-      end subroutine
+      end subroutine init_charges
 !
       subroutine init_dip(c_prev,f_prev)
       ! inizialize onsager 
@@ -346,7 +346,7 @@
         fl_tp2=fl_t
       endif
       return
-      end subroutine
+      end subroutine init_dip
 !
       subroutine init_ief
       integer(i4b) :: i,j  
@@ -362,7 +362,7 @@
         enddo
       enddo
       return
-      end subroutine
+      end subroutine init_ief
 !
       subroutine end_prop
       integer(i4b) :: its  
@@ -383,7 +383,7 @@
       if(allocated(forcex)) deallocate(forcex)
       if(allocated(forcex_p)) deallocate(forcex_p)
       return
-      end subroutine
+      end subroutine end_prop
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !     
 !!!!!!!!!!!!!!!!!!!!!!!! routines for field/dipole/potential/
@@ -402,7 +402,7 @@
           potx_t(its)=potx_t(its)-fld(3)*cts_act(its)%z         
         enddo
        return
-      end subroutine
+      end subroutine do_ext_potential
 !
       !
       subroutine do_dip_ts(c)
@@ -413,7 +413,7 @@
          dip(2)=dot_product(c,matmul(mut(:,:,2),c))
          dip(3)=dot_product(c,matmul(mut(:,:,3),c))
        return
-      end subroutine
+      end subroutine do_dip_ts
       !
       subroutine do_potential_ts(c,pot)
       ! Builds dipole from CIS coefficients and calculates the potential
@@ -441,7 +441,7 @@
           enddo 
         endif
        return
-      end subroutine
+      end subroutine do_potential_ts
 !
       subroutine do_field(q,f)
       ! Builds field on molecule's center of charge from BEM charges
@@ -459,7 +459,7 @@
           f(:)=f(:)+q(its)*diff(:)/(dist**3)
         enddo
        return
-      end subroutine
+      end subroutine do_field
 !
       subroutine do_dipole
       ! Builds dipole from BEM charges, as well as do total charge
@@ -482,7 +482,7 @@
        enddo
       endif
       return
-      end subroutine
+      end subroutine do_dipole
 
       subroutine do_interaction_h
        ! Builds interaction terms 
@@ -514,7 +514,7 @@
          stop
        endif
       return
-      end subroutine
+      end subroutine do_interaction_h
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -554,7 +554,7 @@
        if(Floc.eq."loc") qext_tp=qext_t
        if(Floc.eq."loc") potx_tp=potx_t
       return
-      end subroutine
+      end subroutine prop_chr
 !
 !     Onsager dipole propagation
       subroutine prop_dip(c_prev,f_prev,f_prev2)
@@ -588,7 +588,7 @@
          ! Dipole nanoparticle p=(eps-1/(eps+2)/a^3*EF
        endif
       return
-      end subroutine
+      end subroutine prop_dip
 !
 ! DANGER: initialize factors for solvent/nanoparticle and check signs !!!
       subroutine prop_csm_drl
@@ -609,7 +609,7 @@
         dqext_tp=dqext_t
       endif
       return
-      end subroutine
+      end subroutine prop_csm_drl
 !
       subroutine prop_ief_drl
       ! Charge propagation with drude/lorentz and IEF equations 
@@ -641,7 +641,7 @@
         dqext_tp=dqext_t
       endif
       return
-      end subroutine
+      end subroutine prop_ief_drl
 !
       subroutine init_vv_propagator
       f1=dt*(1.d0-dt*0.5d0*eps_gm)
@@ -651,7 +651,7 @@
       f5=eps_gm*f2
       write(6,*) "Initiated VV propagator"
       return
-      end subroutine
+      end subroutine init_vv_propagator
 !
       subroutine prop_vv_ief_drl
       ! Charge propagation with drude/lorentz and IEF equations 
@@ -692,7 +692,7 @@
        qext_tp=qext_t
       endif
       return
-      end subroutine
+      end subroutine prop_vv_ief_drl
 !
       subroutine prop_ief_drl_c(c)
       ! PCM interaction with drude/lorentz and IEF equations (c) 
@@ -715,7 +715,7 @@
          dqext_t=dqext_t+(1-dt*eps_gm)*dqext_tp 
        endif
       return
-      end subroutine
+      end subroutine prop_ief_drl_c
 !
       subroutine prop_ief_deb
       ! Charge propagation with debye and IEF equations 
@@ -729,7 +729,7 @@
                   dt*matmul(matqv,potx_tp)+matmul(matqd,potx_t-potx_tp)
       endif
       return
-      end subroutine
+      end subroutine prop_ief_deb
 !
       subroutine prop_ied_deb
       ! Charge propagation with dedye and IEF equations one taud 
@@ -744,7 +744,7 @@
           dt/tau_ons*matmul(matq0,potx_tp)+matmul(matqd,potx_t-potx_tp)
       endif
       return
-      end subroutine
+      end subroutine prop_ied_deb
 !
       subroutine prop_ief_deb_c(c,c_prev)
       ! PCM interaction with debye and IEF equations 
@@ -774,7 +774,7 @@
                          matmul(matqd,potx_t-potx_tp)  
       endif
       return
-      end subroutine
+      end subroutine prop_ief_deb_c
 !
       subroutine prop_dbg(c,c_prev)
       ! PCM interaction with debye and IEF equations 
@@ -816,7 +816,7 @@
                          matmul(matqd,potx_t-potx_tp)  
       endif
       return
-      end subroutine
+      end subroutine prop_dbg
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -865,7 +865,7 @@
 ! SC: Caricato et al. JCP 2006, currently only for Onsager
        deallocate(v_avg)
        return
-      end subroutine
+      end subroutine do_gneq
 !
 ! SC 07/02/2016: a small routine to retrive the solvent 
 !                contribution to free energies
@@ -876,7 +876,7 @@
        g_neq_t=g_neq1+g_neq_t
        g_neq2_t=g_neq2+g_neq2_t
        return
-      end subroutine
+      end subroutine get_gneq
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -906,7 +906,7 @@
         enddo
       !enddo
       return
-      end subroutine
+      end subroutine norm_ch
 !
       subroutine print_ch       
       integer(i4b) :: its  
@@ -915,7 +915,7 @@
           write(*,*) q_t(its)
         enddo  
       return
-      end subroutine
+      end subroutine print_ch
 !
       subroutine correct_energies
       ! A routine to coorect ES energies with the PCM GS energy 
@@ -929,7 +929,7 @@
          e_ci(i)=e_ci(i)-e0
        enddo
        return
-      end subroutine
+      end subroutine correct_energies
 !
       subroutine correct_hamiltonian
       ! A routine to coorect the hamiltonian matrx with the PCM initial state.
@@ -953,7 +953,7 @@
         enddo
        enddo
        return
-      end subroutine
+      end subroutine correct_hamiltonian
 !
       subroutine correct_potentials      
       ! A routine to correct the potential matrix with the GS PCM potential.
@@ -962,7 +962,7 @@
          vts(i,i,:)=vts(i,i,:)+pot_gs(:)
        enddo
        return
-      end subroutine
+      end subroutine correct_potentials
 !
       subroutine do_ref(c)      
       complex(16), intent(IN) :: c(:)
@@ -991,7 +991,7 @@
            !stop
        end select
       return
-      end subroutine
+      end subroutine do_ref
 !
 ! SC a small subroutine to fetch the current value of the onsager field
 ! from elsewhere
@@ -999,7 +999,7 @@
       real(dbl):: f_med(3)
       f_med=fr_t
       return
-      end subroutine
+      end subroutine get_ons
 !
       subroutine out_mdm(i,Sdip)
       integer(i4b),intent(IN) :: i
@@ -1025,7 +1025,7 @@
        end select
       
       return
-      end subroutine
+      end subroutine out_mdm
 !
       subroutine test_dbg 
       integer(i4b):: its,i,j      
@@ -1071,7 +1071,7 @@
          enddo
        endif
       return
-      end subroutine
+      end subroutine test_dbg
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
       subroutine init_matq0
@@ -1091,7 +1091,7 @@
       deallocate (mat_t2)
       deallocate (ipiv)
       return
-      end subroutine
+      end subroutine init_matq0
 !
       subroutine do_vts_from_dip
        integer(4) :: i,j,its
@@ -1118,7 +1118,7 @@
 !          cts_act(its)%z, vts(1,1,its)
 !       enddo
        return
-       end subroutine
+       end subroutine do_vts_from_dip
 !
       subroutine read_charges_gau
        integer(4) :: i,nts
@@ -1141,7 +1141,7 @@
 10     write (6,*) "No file charges0.inp found,", &
                     "charges calculated for the initial state"
        return
-      end subroutine
+      end subroutine read_charges_gau
 !
 !
       subroutine do_freq_mat(omega_list,n_omega)
@@ -1159,7 +1159,7 @@
       call deallocate_TS_matrix
       deallocate(potx_t)
       return
-      end subroutine
+      end subroutine do_freq_mat
 !
 !      
-      end module
+      end module td_contmed

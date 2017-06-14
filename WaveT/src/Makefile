@@ -26,58 +26,91 @@ INC = -I/usr/include/
 BINPATH=../bin
 TDPLAS=../../TDPlas/src/
 
-OBJ= dissipation.o random.o readio.o spectra.o propagate.o main.o cav_types.o pedra_friends.o readio_medium.o BEM_medium.o scf.o td_contmed.o QM_coupling.o  
-OBJ_SPECTRA= readio.o spectra.o main_spectra.o cav_types.o pedra_friends.o readio_medium.o  
+OBJ= random.o readio.o spectra.o dissipation.o propagate.o main.o global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o QM_coupling.o scf.o td_contmed.o  
+OBJ_SPECTRA= readio.o spectra.o main_spectra.o global_tdplas.o pedra_friends.o readio_medium.o  
+
+# rules
 
 all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x
 
-$(BINPATH)/WaveT.x: $(OBJ) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ)  $(LIBS) $(LIBSF)
-
 $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA)  $(LIBS) $(LIBSF)
+	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA) $(LIBS) $(LIBSF)
+
+$(BINPATH)/WaveT.x: $(OBJ) 
+	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il $(BINPATH)/*.x
 
 random.o: random.f90
-	$(FC) -c $(FFLAGS) $<
+	$(FC) $(FFLAGS) -c $< -o $@
 
-cav_types.o: $(TDPLAS)/cav_types.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+readio.o: readio.f90
+	$(FC) $(FFLAGS) -c $< -o $@
 
-pedra_friends.o: $(TDPLAS)/pedra_friends.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
-
-readio.o: readio.f90 cav_types.o
-	$(FC) -c $(FFLAGS)  $<
-
-readio_medium.o: $(TDPLAS)/readio_medium.f90 cav_types.o
-	$(FC) -c $(FFLAGS)  $<
-
-dissipation.o: dissipation.f90 random.o readio.o cav_types.o
-	$(FC) -c $(FFLAGS)  $<
-
-propagate.o: propagate.f90 dissipation.o cav_types.o td_contmed.o
-	$(FC) -c $(FFLAGS)  $<
-
-scf.o: $(TDPLAS)/scf.f90
-	$(FC) -c $(FFLAGS)  $<
-
-spectra.o: spectra.f90 pedra_friends.o readio_medium.o
-	$(FC) -c $(FFLAGS)  $(INC)  $<
-
-BEM_medium.o: $(TDPLAS)/BEM_medium.f90 $(TDPLAS)/scf.o
-	$(FC) -c $(FFLAGS)  $<
-
-td_contmed.o: $(TDPLAS)/td_contmed.f90
-	$(FC) -c $(FFLAGS)  $<
-
-QM_coupling.o: $(TDPLAS)/QM_coupling.f90
-	$(FC) -c $(FFLAGS)  $<
-
-main.o: main.f90 QM_coupling.o
-	$(FC) -c $(FFLAGS) $(INC) $<
+spectra.o: spectra.f90
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
 
 main_spectra.o: main_spectra.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
+
+dissipation.o: dissipation.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+propagate.o: propagate.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+main.o: main.f90
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
+
+
+global_tdplas.o: $(TDPLAS)/global_tdplas.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+pedra_friends.o: $(TDPLAS)/pedra_friends.f90
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
+
+readio_medium.o: $(TDPLAS)/readio_medium.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+BEM_medium.o: $(TDPLAS)/BEM_medium.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+QM_coupling.o: $(TDPLAS)/QM_coupling.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+scf.o: $(TDPLAS)/scf.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+td_contmed.o: $(TDPLAS)/td_contmed.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+# dependencies
+
+random.o: 
+
+readio.o: global_tdplas.o
+
+spectra.o: readio.o pedra_friends.o readio_medium.o
+
+main_spectra.o: readio.o readio_medium.o spectra.o
+
+dissipation.o: readio.o random.o
+
+propagate.o: random.o readio.o spectra.o readio_medium.o pedra_friends.o td_contmed.o
+
+main.o: readio.o spectra.o dissipation.o propagate.o global_tdplas.o readio_medium.o QM_coupling.o  
+
+global_tdplas.o: 
+
+pedra_friends.o: global_tdplas.o
+
+readio_medium.o: global_tdplas.o pedra_friends.o
+
+BEM_medium.o: global_tdplas.o pedra_friends.o readio_medium.o
+
+QM_coupling.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o
+
+scf.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o
+
+td_contmed.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o scf.o

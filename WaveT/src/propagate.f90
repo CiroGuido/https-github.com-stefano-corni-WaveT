@@ -1,11 +1,11 @@
       module propagate
-      use readio
-      use readio_medium
-      use td_ContMed
-      use pedra_friends  
-      use spectra
       use random
+      use readio
+      use spectra
       use dissipation
+      use readio_medium
+      use pedra_friends  
+      use td_contmed
 
       implicit none
       real(8),allocatable :: f(:,:)
@@ -236,7 +236,7 @@
          call  end_mdm
        endif
        return
-      end subroutine
+      end subroutine prop
 !
       subroutine create_field
        implicit none
@@ -326,7 +326,7 @@
         end select
         close(7)
        return
-      end subroutine
+      end subroutine create_field
 !
       subroutine do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        implicit none
@@ -343,7 +343,7 @@
        mu_prev2=mu_prev
        mu_prev=mu_a
       return
-      end subroutine
+      end subroutine do_mu
 
       subroutine output(i,c,f_prev,h_int)     
        implicit none
@@ -386,7 +386,7 @@
         ! SP 25/10/16: changed for FT
         Sfld(i,:)=f(:,i)
        return
-      end subroutine
+      end subroutine output
 !
       subroutine add_int_vac(f_prev,h_int)
        implicit none
@@ -397,7 +397,7 @@
        h_int(:,:)=h_int(:,:)-mut(:,:,1)*f_prev(1)-             &
                    mut(:,:,2)*f_prev(2)-mut(:,:,3)*f_prev(3)
       return
-      end subroutine
+      end subroutine add_int_vac
 !
       subroutine add_int_rad(mu_prev,mu_prev2,mu_prev3,mu_prev4, &
                                                    mu_prev5,h_int)
@@ -440,7 +440,7 @@
        h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
                    mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
        return
-      end subroutine
+      end subroutine add_int_rad
 !
       subroutine out_header
 ! SC write headers to output files, to be completed!
@@ -449,7 +449,7 @@
               ' DE_vac(t)',' DG_eq(t)',' DG_neq(t)',  '  Const', &
               '  Rad. Int', '  Rad. Ene'   
       return
-      end subroutine
+      end subroutine out_header
 !
       subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
 !------------------------------------------------------------------------
@@ -519,4 +519,4 @@
 
       end subroutine wrt_decoherence
 
-      end module
+      end module propagate

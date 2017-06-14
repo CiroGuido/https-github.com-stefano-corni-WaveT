@@ -1,7 +1,7 @@
       program make_spectra
       use readio  
-      use readio_medium
       use spectra       
+      use readio_medium
       implicit none
 !
 !     read in the input parameter for the present evolution
@@ -13,5 +13,4 @@
       call read_arrays 
       call do_spectra
 !         
-      stop
-      end
+      end program make_spectra

@@ -1,5 +1,5 @@
       module readio_medium
-      use cav_types       
+      use global_tdplas       
       use pedra_friends
       implicit none
       save
@@ -60,7 +60,7 @@
       namelist /freq/ eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel,fmax
       read(*,nml=freq) 
       return
-      end subroutine
+      end subroutine read_medium_freq
 !
       subroutine read_medium
        implicit none
@@ -103,7 +103,7 @@
 
        return
 
-      end subroutine
+      end subroutine read_medium
 
 !     Used in main_tdplas.f90 
       subroutine read_medium_tdplas
@@ -154,7 +154,7 @@
 ! This is to follow the correct route in init_BEM
        Fprop='ief'
        return
-      end subroutine
+      end subroutine read_medium_tdplas
 !
 
       ! read transition potentials on tesserae
@@ -217,7 +217,7 @@
        enddo
        close(7)
        return
-      end subroutine
+      end subroutine read_gau_out_medium
 !
 !
       subroutine output_surf
@@ -228,7 +228,7 @@
           write (7,'(3F22.10)') cts_act(i)%x,cts_act(i)%y,cts_act(i)%z
         enddo
        close(unit=7)
-      end subroutine
+      end subroutine output_surf
 !
       subroutine deallocate_medium
        if(allocated(q0)) deallocate(q0)
@@ -236,7 +236,7 @@
        !if(allocated(xmode)) deallocate(xmode)
        !if(allocated(occmd)) deallocate(occmd)
        return
-      end subroutine
+      end subroutine deallocate_medium
 
       subroutine init_nml_nanoparticle()
 !------------------------------------------------------------------------
@@ -706,4 +706,4 @@
 
 
 
- end module
+ end module readio_medium

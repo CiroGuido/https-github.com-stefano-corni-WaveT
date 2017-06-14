@@ -25,44 +25,67 @@ INC = -I/usr/include/
 
 BINPATH=../bin
 
-OBJ_FREQ= cav_types.o pedra_friends.o readio_medium.o BEM_medium.o scf.o td_contmed.o main_freq.o 
-OBJ_TDPLAS= cav_types.o pedra_friends.o readio_medium.o BEM_medium.o main_tdplas.o 
+OBJ_TDPLAS= global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o main_tdplas.o
+OBJ_FREQ= global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o scf.o td_contmed.o main_freq.o 
+
+# rules
 
 all: $(BINPATH)/freq_bem.x $(BINPATH)/tdplas.x
 
-$(BINPATH)/freq_bem.x: $(OBJ_FREQ) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ_FREQ)  $(LIBS) $(LIBSF)
-
 $(BINPATH)/tdplas.x: $(OBJ_TDPLAS) 
-	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS)  $(LIBS) $(LIBSF)
+	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS) $(LIBS) $(LIBSF)
+
+$(BINPATH)/freq_bem.x: $(OBJ_FREQ) 
+	$(FC) $(FFLAGS) -o $@ $(OBJ_FREQ) $(LIBS) $(LIBSF)
 
 clean:
 	rm -f *.o *.mod *.il $(BINPATH)/*.x
 
-cav_types.o: cav_types.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+global_tdplas.o: global_tdplas.f90
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
 
 pedra_friends.o: pedra_friends.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
 
 readio_medium.o: readio_medium.f90
-	$(FC) -c $(FFLAGS)  $<
-
-scf.o: scf.f90
-	$(FC) -c $(FFLAGS)  $<
+	$(FC) $(FFLAGS) -c $< -o $@
 
 BEM_medium.o: BEM_medium.f90
-	$(FC) -c $(FFLAGS)  $<
-
-td_contmed.o: td_contmed.f90
-	$(FC) -c $(FFLAGS)  $<
+	$(FC) $(FFLAGS) -c $< -o $@
 
 QM_coupling.o: QM_coupling.f90
-	$(FC) -c $(FFLAGS)  $<
+	$(FC) $(FFLAGS) -c $< -o $@
 
-main_freq.o: main_freq.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+scf.o: scf.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+td_contmed.o: td_contmed.f90
+	$(FC) $(FFLAGS) -c $< -o $@
 
 main_tdplas.o: main_tdplas.f90
-	$(FC) -c $(FFLAGS) $(INC) $<
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
+
+main_freq.o: main_freq.f90
+	$(FC) $(FFLAGS) $(INC) -c $< -o $@
+
+# dependencies
+
+global_tdplas.o: 
+
+pedra_friends.o: global_tdplas.o
+
+readio_medium.o: global_tdplas.o pedra_friends.o
+
+BEM_medium.o: global_tdplas.o pedra_friends.o readio_medium.o
+
+QM_coupling.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o
+
+scf.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o
+
+td_contmed.o: global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o scf.o
+
+main_tdplas.o: readio_medium.o BEM_medium.o
+
+main_freq.o: readio_medium.o td_contmed.o
+
 

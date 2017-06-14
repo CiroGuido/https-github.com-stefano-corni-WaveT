@@ -1,10 +1,9 @@
       module spectra
-      use readio
-      use readio_medium
-      use pedra_friends
-      
       use, intrinsic :: iso_c_binding
-
+      use readio
+      use pedra_friends
+      use readio_medium
+      
       implicit none
       real(dbl), allocatable:: Sdip(:,:,:), Sfld(:,:)
       save
@@ -18,7 +17,7 @@
        Sdip(:,:,:)=0.0d0
        Sfld(:,:)=0.0d0
       return
-      end subroutine
+      end subroutine init_spectra
 !
       subroutine read_arrays  
       integer(4) :: file_mol=10,file_fld=8,file_med=9,i,x
@@ -46,7 +45,7 @@
        close(file_fld)
        if (mdm.ne.'vac') close(file_med)
       return
-      end subroutine
+      end subroutine read_arrays
 !
       subroutine do_spectra      
       implicit none
@@ -124,6 +123,6 @@
       deallocate (Doutp,Foutp) 
       deallocate (Sdip,Sfld)
       return
-      end subroutine
+      end subroutine do_spectra 
 !
-      end module
+      end module spectra

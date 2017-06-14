@@ -1,11 +1,11 @@
       Module QM_coupling    
-      use cav_types
-      use readio_medium
-      use pedra_friends
-      use BEM_medium
       use, intrinsic :: iso_c_binding
-
+      use global_tdplas
+      use pedra_friends
+      use readio_medium
+      use BEM_medium
       implicit none
+
       real(dbl), allocatable :: omegax(:),Htot(:,:)                
       real(dbl), allocatable :: Meigt(:,:)
       real(dbl), allocatable :: Meigv(:)
@@ -26,7 +26,7 @@
          !deallocate(Kdiag)
        ! omegax(2) Tested against the spherical plasmon
       return
-      end subroutine
+      end subroutine do_modes
 !
       subroutine do_matrix                       
        real(dbl):: omegai,gFi,dp(nts_act)                   
@@ -73,7 +73,7 @@
        enddo
        deallocate(tsm)
       return
-      end subroutine
+      end subroutine do_matrix
        
       subroutine diag_matrix(Mdim)                       
        integer(i4b),intent(in) :: Mdim   
@@ -90,7 +90,7 @@
        call dsyevd (jobz,uplo,Mdim,Meigt,Mdim,Meigv,work,lwork, &
          iwork,liwork,info)
       return
-      end subroutine
+      end subroutine diag_matrix
 !
       subroutine do_diag                         
        integer(i4b) :: Mdim,i   
@@ -117,6 +117,6 @@
        deallocate(Htot)
        deallocate(omegax)
       return
-      end subroutine
+      end subroutine do_diag
 !
-      end module
+      end module QM_coupling

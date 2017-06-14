@@ -2,7 +2,6 @@
       use readio
       use readio_medium
       use td_ContMed
-      use cav_types      
       use pedra_friends  
       use spectra
       use random
@@ -93,7 +92,7 @@
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        if (mdm.ne."vac") then
            call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
-           call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
+           call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int,Sdip)
        endif
        call add_int_vac(f_prev,h_int)
 
@@ -146,7 +145,7 @@
          f_prev=f(:,i-1)
          h_int=zero 
          if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
-                                                      f_prev2,h_int)
+                                                      f_prev2,h_int,Sdip)
          call add_int_vac(f_prev,h_int)
 ! SC field
          if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &

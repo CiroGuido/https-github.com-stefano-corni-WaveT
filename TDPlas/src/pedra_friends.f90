@@ -3,10 +3,6 @@
       use cav_types
       implicit none
       real(dbl) :: dr=0.01
-      real(dbl), parameter :: zero=0.d0
-      real(dbl), parameter :: pi=3.141592653589793D+00
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
       type(tess_pcm), target, allocatable :: cts_act(:), cts_pro(:)
       integer(i4b) :: nts_act, nts_pro
       type(sfera), allocatable :: sfe_act(:), sfe_pro(:)

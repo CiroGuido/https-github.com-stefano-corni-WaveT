@@ -1,14 +1,9 @@
       module readio_medium
       use cav_types       
-      use readio          
       use pedra_friends
       implicit none
       save
 !
-      real(8), parameter    :: ev_to_au=0.0367493
-      real(8), parameter    :: debye_to_au=0.393456
-      real(dbl), parameter  :: TOANGS=0.52917724924D+00
-      real(dbl), parameter  :: ANTOAU=1.0D+00/TOANGS
       integer(4), parameter :: mod_max=10
       integer(4) :: nts
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis

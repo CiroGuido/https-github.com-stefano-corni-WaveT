@@ -1,5 +1,4 @@
       program tdcis
-      use readio  
       use readio_medium
       use td_contmed
       implicit none

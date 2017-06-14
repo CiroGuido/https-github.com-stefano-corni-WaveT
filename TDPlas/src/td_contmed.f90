@@ -1,19 +1,12 @@
       Module td_ContMed       
-      use readio
       use readio_medium
       use cav_types
       use pedra_friends
-      use spectra
       use BEM_medium
       use scf         
       use, intrinsic :: iso_c_binding
 
       implicit none
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-      complex(cmp), parameter :: zeroc=(zero,zero)                
-!LIGHT SPEED IN AU TO BE REVISED
-      real(dbl), parameter :: c=1.37036d2                
       real(dbl) :: qtot,ref    
       real(8), allocatable :: vtsd(:,:,:),vtsv(:,:,:),vtsq(:,:,:)
 ! SC this is the medium contribution to the hamiltonian
@@ -102,12 +95,13 @@
       return
       end subroutine
 !     
-      subroutine prop_mdm(i,c_prev,c_prev2,f_prev,f_prev2,h_int)   
+      subroutine prop_mdm(i,c_prev,c_prev2,f_prev,f_prev2,h_int,Sdip)
       real(dbl), intent(INOUT) :: f_prev(3),f_prev2(3)
       complex(16), intent(IN) :: c_prev(n_ci),c_prev2(n_ci)
       real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
       real(dbl) :: f_d_mat(3,3)
-      integer(i4b), intent(IN) :: i                    
+      integer(i4b), intent(IN) :: i
+      real(dbl), intent(inout) :: Sdip(:,:,:)
       integer(i4b) :: its,k,j                    
       ! Propagate medium only every n_q timesteps  
       !  otherwise, just resum the interaction hamiltonian and exit
@@ -171,7 +165,7 @@
        ! Update the interaction Hamiltonian 
        h_int(:,:)=h_int(:,:)+h_mdm(:,:)
        ! SP 24/02/16  Write output
-      if (mod(i,n_out).eq.0) call out_mdm(i)
+      if (mod(i,n_out).eq.0) call out_mdm(i,Sdip)
       return
       end subroutine
 !     
@@ -1007,8 +1001,9 @@
       return
       end subroutine
 !
-      subroutine out_mdm(i)
-      integer(i4b),intent(IN) :: i  
+      subroutine out_mdm(i,Sdip)
+      integer(i4b),intent(IN) :: i
+      real(dbl), intent(inout) :: Sdip(:,:,:)
       real(dbl):: fm(3)
       Sdip(i,:,2)=mu_mdm(:)
        select case(Fdeb)

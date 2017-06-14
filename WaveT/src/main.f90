@@ -4,13 +4,15 @@
       use propagate    
       use QM_coupling  
       use spectra
-      use dissipation       
+      use dissipation
+      use cav_types, only: set_global_tdplas
       implicit none
       integer :: st,current,rate
 !
 !     read in the input parameter for the present evolution
       call system_clock(st,rate)
       call read_input
+      call set_global_tdplas(dt,mdm,mol_cc,n_ci,n_ci_read,c_i,e_ci,mut,fmax,omega,Ffld,n_out,n_f)
       if (mdm.ne."vac") call read_medium
       call init_spectra
 !

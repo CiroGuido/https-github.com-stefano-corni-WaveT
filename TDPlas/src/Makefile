@@ -24,10 +24,9 @@ INC = -I/usr/include/
 #INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 BINPATH=../bin
-WAVET=../../WaveT/src
 
-OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 
-OBJ_TDPLAS= cav_types.o pedra_friends.o readio.o readio_medium.o  BEM_medium.o main_tdplas.o 
+OBJ_FREQ= cav_types.o pedra_friends.o readio_medium.o BEM_medium.o scf.o td_contmed.o main_freq.o 
+OBJ_TDPLAS= cav_types.o pedra_friends.o readio_medium.o BEM_medium.o main_tdplas.o 
 
 all: $(BINPATH)/freq_bem.x $(BINPATH)/tdplas.x
 
@@ -46,16 +45,10 @@ cav_types.o: cav_types.f90
 pedra_friends.o: pedra_friends.f90
 	$(FC) -c $(FFLAGS) $(INC) $<
 
-readio.o: $(WAVET)/readio.f90
-	$(FC) -c $(FFLAGS)  $<
-
 readio_medium.o: readio_medium.f90
 	$(FC) -c $(FFLAGS)  $<
 
 scf.o: scf.f90
-	$(FC) -c $(FFLAGS)  $<
-
-spectra.o: $(WAVET)/spectra.f90
 	$(FC) -c $(FFLAGS)  $<
 
 BEM_medium.o: BEM_medium.f90

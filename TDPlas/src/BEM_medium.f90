@@ -1,16 +1,10 @@
       Module BEM_medium      
-      use readio
       use readio_medium
       use cav_types
       use pedra_friends
-      use spectra
 !      use, intrinsic :: iso_c_binding
 
       implicit none
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-!LIGHT SPEED IN AU TO BE REVISED
-      real(dbl), parameter :: c=1.37036d2                
       real(dbl) :: f_f,f_w    
       real(dbl), allocatable :: cals(:,:),cald(:,:) !Calderon D and S matrices 
       real(dbl), allocatable :: sm1(:,:)

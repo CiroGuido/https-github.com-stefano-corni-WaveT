@@ -1,11 +1,18 @@
       module readio
-      use cav_types       
       implicit none
       save
 !
+      INTEGER, PARAMETER :: dbl = selected_real_kind(14,200)
+      INTEGER, PARAMETER :: sgl = selected_real_kind(6,30)
+      INTEGER, PARAMETER :: i4b = selected_int_kind(9)
+      INTEGER, PARAMETER :: cmp = dbl
+      ! constants, conversion factors, and number literals
       real(8), parameter :: pi=3.141592653589793D+00
       real(8), parameter :: ev_to_au=0.0367493
       real(8), parameter :: debye_to_au=0.393456
+      real(dbl), parameter :: TOANGS=0.52917724924D+00
+      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
+      real(dbl), parameter :: c=1.37036d2
       real(8), parameter :: slight=137.d0
       real(dbl), parameter :: zero=0.d0
       real(dbl), parameter :: one=1.d0
@@ -13,10 +20,11 @@
       real(dbl), parameter :: twp=two*pi
       real(dbl), parameter :: pt5=0.5d0
       integer(i4b), parameter :: one_i=1
+      complex(cmp), parameter :: zeroc=(zero,zero)
       complex(cmp), parameter :: onec=(one,zero)                
       complex(cmp), parameter :: twoc=(two,zero)                
       complex(16), parameter :: ui=(zero,one)
-      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Euler, tdis=1 Matthews 
+      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Euler, tdis=1 Matthews
       integer(4) :: imar !imar=0 Markvian, imar=1, nonMarkovian
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
@@ -66,7 +74,7 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep,imar,de_gam1,krnd,ernd
+             idep,imar,de_gam1,krnd,ernd,dbl,sgl,i4b,cmp,zeroc
 !
       contains
 !

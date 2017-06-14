@@ -52,7 +52,7 @@ pedra_friends.o: $(TDPLAS)/pedra_friends.f90
 readio.o: readio.f90 cav_types.o
 	$(FC) -c $(FFLAGS)  $<
 
-readio_medium.o: $(TDPLAS)/readio_medium.f90
+readio_medium.o: $(TDPLAS)/readio_medium.f90 cav_types.o
 	$(FC) -c $(FFLAGS)  $<
 
 dissipation.o: dissipation.f90 random.o readio.o cav_types.o
@@ -64,7 +64,7 @@ propagate.o: propagate.f90 dissipation.o cav_types.o td_contmed.o
 scf.o: $(TDPLAS)/scf.f90
 	$(FC) -c $(FFLAGS)  $<
 
-spectra.o: spectra.f90 cav_types.o pedra_friends.o readio_medium.o
+spectra.o: spectra.f90 pedra_friends.o readio_medium.o
 	$(FC) -c $(FFLAGS)  $(INC)  $<
 
 BEM_medium.o: $(TDPLAS)/BEM_medium.f90 $(TDPLAS)/scf.o

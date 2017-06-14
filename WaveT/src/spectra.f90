@@ -1,5 +1,4 @@
-      module spectra  
-      use cav_types
+      module spectra
       use readio
       use readio_medium
       use pedra_friends
@@ -8,7 +7,6 @@
 
       implicit none
       real(dbl), allocatable:: Sdip(:,:,:), Sfld(:,:)
-      complex(cmp), parameter :: zeroc=(zero,zero)                
       save
       private
       public Sdip, Sfld, do_spectra, init_spectra, read_arrays

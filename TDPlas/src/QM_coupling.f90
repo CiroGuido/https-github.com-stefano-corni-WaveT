@@ -1,18 +1,12 @@
       Module QM_coupling    
       use cav_types
-      use readio
       use readio_medium
       use pedra_friends
-      use spectra
       use BEM_medium
       use, intrinsic :: iso_c_binding
 
       implicit none
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-!LIGHT SPEED IN AU TO BE REVISED
       real(dbl), allocatable :: omegax(:),Htot(:,:)                
-      real(dbl), parameter :: c=1.37036d2                
       real(dbl), allocatable :: Meigt(:,:)
       real(dbl), allocatable :: Meigv(:)
       save

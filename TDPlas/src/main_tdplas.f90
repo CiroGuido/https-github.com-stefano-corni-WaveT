@@ -1,5 +1,4 @@
       program tdplas
-      use readio  
       use readio_medium
       use BEM_medium
       implicit none

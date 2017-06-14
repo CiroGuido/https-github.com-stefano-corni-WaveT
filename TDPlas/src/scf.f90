@@ -1,18 +1,12 @@
       Module scf            
       use cav_types
-      use readio
       use readio_medium
       use pedra_friends
       use BEM_medium    
       use, intrinsic :: iso_c_binding
 
       implicit none
-      real(8), parameter :: ev_to_au=0.0367493
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-!LIGHT SPEED IN AU TO BE REVISED
       real(dbl), allocatable :: omegax(:),Htot(:,:)                
-      real(dbl), parameter :: c=1.37036d2                
 ! SP quantities at c-th cycle 
       real(dbl), allocatable :: eigt_c(:,:),eigv_c(:)
       real(dbl) :: fc(3)

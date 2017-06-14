@@ -8,7 +8,6 @@ module dissipation
 
   implicit none
   real(8)                :: norm, dtot, dsp, dnr, dde 
-  complex(16), parameter  :: zeroc=(zero,zero)
   save 
   private
   public norm, dtot, dsp, dnr, dde, add_dis_m, add_dis_nm, loss_norm

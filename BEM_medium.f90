@@ -16,6 +16,8 @@
       real(dbl), allocatable :: sm1(:,:)
       real(dbl), allocatable :: eigv(:),eigt(:,:)
       real(dbl), allocatable :: sm12(:,:),sp12(:,:)
+      real(dbl), allocatable :: eigv_sol(:),eigt_sol(:,:)
+      real(dbl), allocatable :: sm12_sol(:,:),sp12_sol(:,:)
       real(dbl), allocatable :: matq0(:,:),matqd(:,:)
       real(dbl), allocatable :: matqv(:,:),matqq(:,:)
 !      complex(16), allocatable :: matq_omega(:,:)
@@ -48,6 +50,9 @@
              call pedra_int('act')
             elseif (mdm.eq.'nan') then
              call pedra_int('met')
+            elseif (mdm.eq.'nas') then
+             call pedra_int('met')
+             call pedra_int('sol')
             endif
            endif
            ! write out the cavity/nanoparticle surface
@@ -108,12 +113,36 @@
          write (7,'(F22.10)') cts_act(i)%area
        enddo
       close(unit=7)
-!      open(unit=7,file="charges0.inp",status="unknown",form="formatted")
-!       write (7,*) nts_act
-!       do i=1,nts_act
-!         write (7,'(2F22.10)') 0.d0, cts_act(i)%area
-!       enddo
-!      close(unit=7)
+      if (mdm.eq."nas") then
+       open(unit=7,file="cavity_sol.inp",status="unknown", &
+                   form="formatted")
+       write (7,*) nts_sol,nesf_sol
+       do i=1,nesf_sol
+         write (7,'(3F22.10)') sfe_sol(i)%x,sfe_sol(i)%y, &
+                               sfe_sol(i)%z
+       enddo
+       do i=1,nts_sol
+         write (7,'(4F22.10,D14.5)') cts_sol(i)%x,cts_sol(i)%y, &
+                  cts_sol(i)%z, cts_sol(i)%area,cts_sol(i)%rsfe
+       enddo
+       close(unit=7)
+! overwrite np file for gamess with solvent data
+       open(unit=7,file="np_bem.cav",status="unknown",form="formatted")
+        write (7,*) nts_sol
+        do i=1,nts_sol
+          write (7,'(F22.10)') cts_sol(i)%x
+        enddo
+        do i=1,nts_sol
+          write (7,'(F22.10)') cts_sol(i)%y
+        enddo
+        do i=1,nts_sol
+          write (7,'(F22.10)') cts_sol(i)%z
+        enddo
+        do i=1,nts_sol
+          write (7,'(F22.10)') cts_sol(i)%area
+        enddo
+       close(unit=7)
+      endif
       end subroutine
 !
       subroutine output_charge_pqr(st)
@@ -203,7 +232,7 @@
 ! SC 11/08/2016 if this is a writing run, create the matrixes and stop.
       ! Solvent or nanoparticle
       sgn=one                 
-      if(mdm.eq."nan") sgn=-one  
+      if(mdm.eq."nan".or.mdm.eq."nas") sgn=-one  
 !
       If(Fbem.eq.'wri') then
       ! create calderon D, D* and S matrices
@@ -226,10 +255,32 @@
          enddo
          close(7)
          deallocate(cals,cald)
-         write(6,*) "Matrixes S D have been written out, I'll stop now"
+      ! create calderon D, D* and S matrices
+       if (mdm.eq.'nas') then
+         allocate(cals(nts_sol,nts_sol))
+         allocate(cald(nts_sol,nts_sol))
+         do i=1,nts_sol
+          do j=1,nts_sol
+            call green_s_sol(i,j,temp)
+            cals(i,j)=temp
+            call green_d_sol(i,j,temp)
+            cald(i,j)=temp
+          enddo
+         enddo
+         open(7,file="mat_SD_sol.inp",status="unknown")
+         write(7,*) nts_sol
+         do j=1,nts_sol
+          do i=j,nts_sol
+           write(7,'(2E26.16)')cals(i,j),cald(i,j)
+          enddo
+         enddo
+         close(7)
+         deallocate(cals,cald)
+        endif
+        write(6,*) "Matrixes S D have been written out, I'll stop now"
 !SC 18/05/2017: changed stop to return
 !        stop
-         return
+        return
       elseif(Fbem.eq.'rea') then
 !SC 05/11/2016: use the same routine as for frequency calculation
 !   to build S^-1/2 (in sm12), S^1/2 (in sp12), T (in eigt) and Lambda (in eigv) 
@@ -344,7 +395,8 @@
       subroutine green_d (i,j,value)
       integer(i4b), intent(in):: i,j
       real(dbl), intent(out) :: value
-      real(dbl):: dist,diff(3)
+      real(dbl):: dist,diff(3),sum_d
+      integer(i4b) :: k
       if (i.ne.j) then
          diff(1)=(cts_act(i)%x-cts_act(j)%x)
          diff(2)=(cts_act(i)%y-cts_act(j)%y)
@@ -352,9 +404,28 @@
          dist=sqrt(dot_product(diff,diff))
          value=dot_product(cts_act(j)%n,diff)/dist**3 
       else
-         value=-1.0694*sqrt(4.d0*pi*cts_act(i)%area)/(2.d0* &
-                cts_act(i)%rsfe)/cts_act(i)%area
-      endif
+         sum_d=0.d0
+         do k=1,i-1
+          diff(1)=(cts_act(i)%x-cts_act(k)%x)
+          diff(2)=(cts_act(i)%y-cts_act(k)%y)
+          diff(3)=(cts_act(i)%z-cts_act(k)%z)
+          dist=sqrt(dot_product(diff,diff))
+          sum_d=sum_d+dot_product(cts_act(i)%n,diff)/dist**3*cts_act(k)%area 
+         enddo
+         do k=i+1,nts_act
+          diff(1)=(cts_act(i)%x-cts_act(k)%x)
+          diff(2)=(cts_act(i)%y-cts_act(k)%y)
+          diff(3)=(cts_act(i)%z-cts_act(k)%z)
+          dist=sqrt(dot_product(diff,diff))
+          sum_d=sum_d+dot_product(cts_act(i)%n,diff)/dist**3*cts_act(k)%area 
+         enddo
+         sum_d=-(2.0*pi-sum_d)/cts_act(i)%area
+! SC 30/05/2017: changed to a diagonal value of D_ii that should be more general than those for the sphere
+!         value=-1.0694*sqrt(4.d0*pi*cts_act(i)%area)/(2.d0* &
+!                cts_act(i)%rsfe)/cts_act(i)%area
+!         write (6,*) "diag_d ",i,value,sum_d
+         value=sum_d
+       endif
       return
       end subroutine
 !
@@ -371,6 +442,60 @@
 
       else
         value=1.0694*sqrt(4.d0*pi/cts_act(i)%area)
+      endif
+      return
+      end subroutine
+!     
+      subroutine green_d_sol (i,j,value)
+      integer(i4b), intent(in):: i,j
+      real(dbl), intent(out) :: value
+      real(dbl):: dist,diff(3),sum_d
+      integer(i4b) :: k
+      if (i.ne.j) then
+         diff(1)=(cts_sol(i)%x-cts_sol(j)%x)
+         diff(2)=(cts_sol(i)%y-cts_sol(j)%y)
+         diff(3)=(cts_sol(i)%z-cts_sol(j)%z)
+         dist=sqrt(dot_product(diff,diff))
+         value=dot_product(cts_sol(j)%n,diff)/dist**3 
+      else
+         sum_d=0.d0
+         do k=1,i-1
+          diff(1)=(cts_sol(i)%x-cts_sol(k)%x)
+          diff(2)=(cts_sol(i)%y-cts_sol(k)%y)
+          diff(3)=(cts_sol(i)%z-cts_sol(k)%z)
+          dist=sqrt(dot_product(diff,diff))
+          sum_d=sum_d+dot_product(cts_sol(i)%n,diff)/dist**3*cts_sol(k)%area 
+         enddo
+         do k=i+1,nts_sol
+          diff(1)=(cts_sol(i)%x-cts_sol(k)%x)
+          diff(2)=(cts_sol(i)%y-cts_sol(k)%y)
+          diff(3)=(cts_sol(i)%z-cts_sol(k)%z)
+          dist=sqrt(dot_product(diff,diff))
+          sum_d=sum_d+dot_product(cts_sol(i)%n,diff)/dist**3*cts_sol(k)%area 
+         enddo
+         sum_d=-(2.0*pi-sum_d)/cts_sol(i)%area
+! SC 30/05/2017: changed to a diagonal value of D_ii that should be more general than those for the sphere
+!         value=-1.0694*sqrt(4.d0*pi*cts_sol(i)%area)/(2.d0* &
+!                cts_sol(i)%rsfe)/cts_sol(i)%area
+!         write (6,*) "diag_d ",i,value,sum_d
+         value=sum_d
+       endif
+      return
+      end subroutine
+!
+      subroutine green_s_sol (i,j,value)
+      integer(i4b), intent(in):: i,j
+      real(dbl), intent(out) :: value
+      real(dbl):: dist,diff(3)
+      if (i.ne.j) then
+        diff(1)=(cts_sol(i)%x-cts_sol(j)%x)
+        diff(2)=(cts_sol(i)%y-cts_sol(j)%y)
+        diff(3)=(cts_sol(i)%z-cts_sol(j)%z)
+        dist=sqrt(dot_product(diff,diff))
+        value=one/dist 
+
+      else
+        value=1.0694*sqrt(4.d0*pi/cts_sol(i)%area)
       endif
       return
       end subroutine
@@ -464,6 +589,12 @@
       allocate(eigt(nts_act,nts_act))
       allocate(sm12(nts_act,nts_act))
       allocate(sp12(nts_act,nts_act))
+      if (mdm.eq.'nas') then
+       allocate(eigv_sol(nts_sol))
+       allocate(eigt_sol(nts_sol,nts_sol))
+       allocate(sm12_sol(nts_sol,nts_sol))
+       allocate(sp12_sol(nts_sol,nts_sol))
+      endif
       return
       end subroutine
 !
@@ -472,6 +603,12 @@
       deallocate(eigt)
       deallocate(sm12)
       deallocate(sp12)
+      if (mdm.eq.'nas') then
+       deallocate(eigv_sol)
+       deallocate(eigt_sol)
+       deallocate(sm12_sol)
+       deallocate(sp12_sol)
+      endif
       return
       end subroutine
 !
@@ -479,7 +616,7 @@
       integer(i4b) :: i,j,info,lwork,liwork
       real(8), allocatable :: scr1(:,:),scr2(:,:),eigt_t(:,:)
       real(8), allocatable :: scr3(:,:)
-      real(dbl) :: sgn,fac_eps0,fac_epsd
+      real(dbl) :: sgn,sgn_sol,fac_eps0,fac_epsd
       real(dbl):: temp,fact1,fact2
       character jobz,uplo
       integer(i4b), allocatable :: iwork(:)
@@ -492,6 +629,7 @@
       allocate(cals(nts_act,nts_act))
       allocate(cald(nts_act,nts_act))
       sgn=one                 
+      sgn_sol=one                 
       if(mdm.eq."nan") sgn=-one  
 !
       open(7,file="mat_SD.inp",status="old")
@@ -558,6 +696,7 @@
         write(7,*)eigv(j)
       enddo
       close(7)
+!SC 10/06/2017: added to have solvent beside NP
 ! SC 18/05/2017: changed the following to do only when it is a tdplas gamess calculations
 !      if (Feps.eq.'drl') then
       if (Fgam.eq.'yes') then
@@ -596,6 +735,114 @@
          close(7)
          write(6,*) "Written out the dynamic matrix for gamess"
       endif
+      if(mdm.eq.'nas') then
+       deallocate(scr1,scr2)
+       deallocate(scr3)
+       deallocate(eigt_t)
+       deallocate(work)
+       deallocate(iwork)
+       deallocate(cals)
+       deallocate(cald)
+       allocate(scr1(nts_sol,nts_sol),scr2(nts_sol,nts_sol))
+       allocate(scr3(nts_sol,nts_sol))
+       allocate(eigt_t(nts_sol,nts_sol))
+       allocate(work(1+6*nts_sol+2*nts_sol*nts_sol))
+       allocate(iwork(3+5*nts_sol))
+       allocate(cals(nts_sol,nts_sol))
+       allocate(cald(nts_sol,nts_sol))
+       open(7,file="mat_SD_sol.inp",status="old")
+       read(7,*) nts_sol
+       do j=1,nts_sol
+        do i=j,nts_sol
+         read(7,*) cals(i,j), cald(i,j)
+         cals(j,i)=cals(i,j)
+         cald(j,i)=cald(i,j)
+        enddo
+       enddo
+       close(7)
+       write(6,*) "Done reading in S and D for solvent"
+       ! Form S^1/2 and S^-1/2
+       ! Set parameters for diagonalization routine dsyevd
+       jobz = 'V'
+       uplo = 'U'
+       lwork = 1+6*nts_sol+2*nts_sol*nts_sol
+       liwork = 3+5*nts_sol
+       ! Copy the matrix in the eigenvector matrix
+       eigt_sol = cals
+       call dsyevd (jobz,uplo,nts_sol,eigt_sol,nts_sol,eigv_sol,work, &
+         lwork, iwork,liwork,info)
+       do i=1,nts_sol
+         if(eigv_sol(i).lt.0.d0) then
+          write(6,*) "WARNING:",i," eig of S is negative for solvent!"
+          write(6,*) "   I put it to 1e-8"
+          eigv_sol(i)=1.d-8
+         endif
+         scr1(:,i)=eigt_sol(:,i)*sqrt(eigv_sol(i))
+       enddo
+       eigt_t=transpose(eigt_sol)
+       sp12_sol=matmul(scr1,eigt_t)                   
+       do i=1,nts_sol
+         scr1(:,i)=eigt_sol(:,i)/sqrt(eigv_sol(i))
+       enddo
+       sm12_sol=matmul(scr1,eigt_t)                   
+!     Test on S Diagonal passed 
+!     
+!     Form the S^-1/2 D A S^1/2 + S^1/2 A D* S^-1/2 , and diagonalize it
+      !S^-1/2 D A S^1/2
+       do i=1,nts_sol
+         scr1(:,i)=cald(:,i)*cts_sol(i)%area
+       enddo
+       scr3=matmul(sm12_sol,scr1)
+       scr2=matmul(scr3,sp12_sol)                   
+       deallocate(scr3)
+       !S^-1/2 D A S^1/2+S^1/2 A D* S^-1/2 and diagonalise
+       do j=1,nts_sol
+        do i=1,nts_sol
+         eigt_sol(i,j)=0.5*(scr2(i,j)+scr2(j,i))
+        enddo
+       enddo
+       call dsyevd (jobz,uplo,nts_sol,eigt_sol,nts_sol,eigv_sol,work, &
+                    lwork,iwork,liwork,info)
+       open(7,file="TSSK_matrices_sol.mat",status="unknown")
+       write(7,*) nts_sol
+       do j=1,nts_sol
+        do i=j,nts_sol
+         write(7,'(4E26.16)')eigt_sol(i,j),sp12_sol(i,j),sm12_sol(i,j)
+        enddo
+       enddo
+       do j=1,nts_sol
+         write(7,*)eigv_sol(j)
+       enddo
+       close(7)
+       if (Fgam.eq.'yes') then
+! Do Q0 and Qd for solvent in Gamess
+! use dielectric constant for the solvent read from input
+        scr1=matmul(sm12_sol,eigt_sol)
+        scr2=transpose(scr1)
+        do i=1,nts_sol
+         fact2=twp-sgn_sol*eigv_sol(i)
+         fact1=(eps_sol+1.d0)/(eps_sol-1.d0)*twp-sgn_sol*eigv_sol(i)
+         scr1(:,i)=scr1(:,i)*fact2/fact1
+        enddo
+        eigt_t=-matmul(scr1,scr2)
+        open(7,file="np_bem.mat",status="unknown")
+        do j=1,nts_sol
+         do i=1,nts_sol
+          write(7,'(D20.12)') eigt_t(i,j)/cts_sol(i)%area
+         enddo
+        enddo
+        close(7)
+        write(6,*) "Written out the static matrix for gamess, solvent"
+        open(7,file="np_bem.mdy",status="unknown")
+        do j=1,nts_sol
+         do i=1,nts_sol
+          write(7,'(D20.12)') 0.d0
+         enddo
+        enddo
+        close(7)
+        write(6,*) "Written out the dynamic matrix for gamess, solvent"
+       endif
+      endif 
       if(allocated(cals).and.allocated(cald)) deallocate(cals,cald)
       deallocate(work)
       deallocate(scr1,scr2,eigt_t)
@@ -603,13 +850,13 @@
       return
       end subroutine
 !
-      subroutine do_charge_freq(omega_a,eps_a,pot)
+      subroutine do_charge_freq(omega_a,eps_a,pot,pot_sol)
       integer(4) :: its
-      complex(16), allocatable :: q_omega(:)
+      complex(16), allocatable :: q_omega(:),q_omega_sol(:)
       complex(16) :: mu_omega(3)
       complex(16) :: eps_a
       real(8) :: omega_a
-      real(8) :: pot(:)
+      real(8) :: pot(:),pot_sol(:)
 !      real(8), allocatable :: fact1(:),fact2(:)
       complex(16), allocatable :: Kdiag_omega(:)
       complex(16), allocatable :: eigtt(:,:)
@@ -643,6 +890,21 @@
       q_omega=matmul(eigt,q_omega)
       q_omega=-matmul(sm12,q_omega)
       q_omega=q_omega-sum(q_omega)/nts_act
+! SC 11/06/2017: if there is a solvent, do a iterative procedure to include it
+      if(mdm.eq."nas") then
+       deallocate (eigtt)
+       deallocate(Kdiag_omega)
+       allocate(Kdiag_omega(nts_sol,nts_col))
+       allocate (q_omega_sol(nts_act))
+       allocate (eigtt(nts_sol,nts_sol))
+       q_omega_sol=matmul(sm12_sol,pot_sol)
+       eigtt=transpose(eigt_sol)
+       q_omega_sol=matmul(eigtt,q_omega_sol)
+       q_omega_sol=Kdiag_omega*q_omeg_sol 
+       q_omega_sol=matmul(eigt_sol,q_omega_sol)
+       q_omega_sol=-matmul(sm12_sol,q_omega_sol)
+       q_omega_sol=q_omega_sol-sum(q_omega_sol)/nts_sol
+      endif
 !      write(6,*) "q_omega"
       mu_omega=0.d0
       do its=1,nts_act
@@ -654,7 +916,12 @@
       gamma_met=-2.d0*dot_product(aimag(mu_omega),pot)
       write (6,'(8d15.6)') omega_a,real(mu_omega(:)), &
                            aimag(mu_omega(:)),gamma_met
+      deallocate(Kdiag_omega)
       deallocate (q_omega)
+      deallocate (eigtt)
+      if(mdm.eq."nas") then
+       deallocate (q_omega_sol)
+      endif
 !      scr3=matmul(sm12,eigt)
 !      do i=1,nts_act
 !        scr1(:,i)=scr3(:,i)*Kdiag_omega(i) 

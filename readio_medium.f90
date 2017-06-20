@@ -123,16 +123,30 @@
 !     Used in main_tdplas.f90 
       subroutine read_medium_tdplas
        implicit none
-       integer(4)   :: i,lc,db,rf,sc,ns
+       integer(4)   :: i,lc,db,rf,sc,ns,ns_sol
        integer(4),parameter :: nsmax=10
-       character(3) :: which_eps,which_cavity,gamess
+       character(3) :: which_eps,which_cavity,gamess,which_mdm
        real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
+       real(8)      :: xr_sol(nsmax),yr_sol(nsmax),zr_sol(nsmax), &
+                       rr_sol(nsmax)
+       real(8) :: eps_sol_np
        nts_act=0
-       mdm='nan'
+       nts_sol=0
+       eps_sol_np=1.d0
 
 ! SC 16/05/2017: reading data for the dielectric constant is not really needed in tdplas
-       namelist /tdplas/ which_cavity,xr,yr,zr,rr,ns,gamess
+! SC 11/06/2017: only for solvent when a np is also present
+       namelist /tdplas/ which_cavity,xr,yr,zr,rr,ns,gamess,which_mdm, &
+                         eps_sol_np,xr_sol,yr_sol,zr_sol,rr_sol,ns_sol
        read(*,nml=tdplas)
+       eps_sol=eps_sol_np
+! SC 11/06/2017: fix wether there is also a solvent beside the NP
+       select case(which_mdm)
+       case ('Nas','NAS','nas')
+        mdm='nas'             
+       case default
+        mdm='nan'
+       end select
 ! SC 16/05/2017: reading data for the dielectric constant is not really needed in tdplas
 !! read dielectric function type and parameters
 !       select case (which_eps)
@@ -162,7 +176,14 @@
            write(*,*) 'ERROR: ns is larger than', nsmax
            stop
         endif
-        call read_act(xr,yr,zr,rr,ns,nsmax)
+        call get_act(xr,yr,zr,rr,ns)
+        if (mdm.eq.'nas') then
+         if (ns_sol.gt.nsmax) then
+           write(*,*) 'ERROR: ns_sol is larger than', nsmax
+           stop
+         endif
+         call get_sol(xr_sol,yr_sol,zr_sol,rr_sol,ns_sol)
+        endif
        case default
         write(6,*) "Please choose: build or read cavity?"
         stop
@@ -488,7 +509,7 @@
                write(*,*) 'ERROR: ns is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call get_act(xr,yr,zr,rr,ns)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop
@@ -688,7 +709,7 @@
                write(*,*) 'ERROR: ns is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call get_act(xr,yr,zr,rr,ns)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop

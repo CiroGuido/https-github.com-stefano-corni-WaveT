@@ -1155,11 +1155,19 @@
       integer(4):: n_omega,i
       integer(4) :: j,its ! debug
       real(dbl) :: diff(3),dist,vts_dip ! debug
+      real(dbl),allocatable :: potx_t_sol(:)
+      nts_act=0
+      nts_sol=0
       call read_cavity_file
+      if (mdm.eq."nas") call read_cavity_file_sol
       write(6,*) 'nts_act',nts_act
+      write(6,*) 'nts_sol',nts_sol
       call allocate_TS_matrix
       call do_TS_matrix
       allocate(potx_t(nts_act))
+      if (mdm.eq."nas") allocate(potx_t_sol(nts_sol)) 
+      write (6,*) &
+      "freq Re(mux) Re(muy) Re(muz) Im(mux) Im(muy) Im(muz) gamma_nr" 
       select case (Ffreq)
        case ("ext")
         call do_ext_potential(fmax)

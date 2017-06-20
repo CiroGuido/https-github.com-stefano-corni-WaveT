@@ -17,14 +17,23 @@
        case("Ext","EXT","ext")
         Ffreq="ext"
         call read_medium_freq
-        read(5,*) n_omega,omega_ini,omega_end
+        read(5,*) eps_sol
+        write(6,*) "Dynamical solvent constant",eps_sol
+!        read(5,*) n_omega,omega_ini,omega_end
+        read(5,*) n_omega
         allocate(omega_list(n_omega))
         allocate(eps_list(n_omega))
-        do i=1,n_omega
-         omega_list(i)=(omega_end-omega_ini)/(n_omega-1)*(i-1)+omega_ini
-         eps_list(i)=1.d0-eps_A/(omega_list(i)*(omega_list(i)+ui*eps_gm))
+         write(6,*) "frequency and eps read from input"
+         do i=1,n_omega
+          read(5,*) omega_list(i),eps_list(i)
+          write(6,'(3d12.5)') omega_list(i),eps_list(i)
+         enddo
+! SC 19/5/2017:  read dielectric constant from outside
+!        do i=1,n_omega
+!         omega_list(i)=(omega_end-omega_ini)/(n_omega-1)*(i-1)+omega_ini
+!         eps_list(i)=1.d0-eps_A/(omega_list(i)*(omega_list(i)+ui*eps_gm))
 !         write(6,*) 'omega',omega_list(i)
-        enddo
+!        enddo
        case("Mol","mol","MOL")
          Ffreq="dip"
          read(5,*) eps_sol

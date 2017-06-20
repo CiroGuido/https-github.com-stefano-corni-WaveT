@@ -1,4 +1,4 @@
 &tdplas
 which_cavity=gms  
-gamess=yes
+gamess=no 
 /

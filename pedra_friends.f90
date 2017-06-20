@@ -7,30 +7,28 @@
       real(dbl), parameter :: pi=3.141592653589793D+00
       real(dbl), parameter :: TOANGS=0.52917724924D+00
       real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-      type(tess_pcm), target, allocatable :: cts_act(:), cts_pro(:)
-      integer(i4b) :: nts_act, nts_pro
-      type(sfera), allocatable :: sfe_act(:), sfe_pro(:)
-      integer(i4b) :: nesf_act, nesf_pro
+      type(tess_pcm), target, allocatable :: cts_act(:), cts_sol(:)
+      integer(i4b) :: nts_act, nts_sol
+      type(sfera), allocatable :: sfe_act(:), sfe_sol(:)
+      integer(i4b) :: nesf_act, nesf_sol
       save
       private
-      public pedra_int, read_act, read_pro, dealloc_pedra, &
-             nts_act, nts_pro,cts_act,cts_pro,nesf_pro,sfe_pro, &
-             nesf_act,sfe_act,read_cavity_file,read_cavity_full_file,&
-             read_gmsh_file
+      public pedra_int, read_act, read_sol, dealloc_pedra, &
+             nts_act,nts_sol,cts_act,cts_sol,nesf_sol,sfe_sol, &
+             nesf_act,sfe_act,read_cavity_file,read_cavity_file_sol, &
+             read_cavity_full_file,read_gmsh_file,get_act,get_sol
 !
       contains
 !
-      Subroutine read_act(xr,yr,zr,rr,ns,nsmax)
-      integer(i4b) :: isfe,ns,nsmax
-      real(dbl)    :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
+      Subroutine get_act(xr,yr,zr,rr,ns)
+      integer(i4b) :: isfe,ns
+      real(dbl)    :: xr(:),yr(:),zr(:),rr(:)
       !read (iunit,*) nesf_act
       nesf_act=ns 
       write(6,*) "Number of spheres",nesf_act
       write(6,*) "I_sphere  X     Y   Z   Radius"
       allocate(sfe_act(nesf_act))
       do isfe=1,nesf_act
-       !read (iunit,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
-       !           sfe_act(isfe)%r
        sfe_act(isfe)%x=xr(isfe)
        sfe_act(isfe)%y=yr(isfe)
        sfe_act(isfe)%z=zr(isfe)
@@ -41,13 +39,43 @@
       return
       end subroutine
 !
-      Subroutine read_pro
+      Subroutine get_sol(xr,yr,zr,rr,ns)
+      integer(i4b) :: isfe,ns
+      real(dbl)    :: xr(:),yr(:),zr(:),rr(:)
+      !read (iunit,*) nesf_sol
+      nesf_sol=ns 
+      write(6,*) "Number of spheres for solvent",nesf_sol
+      write(6,*) "I_sphere  X     Y   Z   Radius"
+      allocate(sfe_sol(nesf_sol))
+      do isfe=1,nesf_sol
+       sfe_sol(isfe)%x=xr(isfe)
+       sfe_sol(isfe)%y=yr(isfe)
+       sfe_sol(isfe)%z=zr(isfe)
+       sfe_sol(isfe)%r=rr(isfe)
+       write(6,'(I6,4F12.4)') isfe, sfe_sol(isfe)%x,sfe_sol(isfe)%y, &
+                 sfe_sol(isfe)%z, sfe_sol(isfe)%r
+      enddo
+      return
+      end subroutine
+!
+      Subroutine read_sol
       integer(i4b) :: isfe
-      read (5,*) nesf_pro
-      allocate(sfe_pro(nesf_pro))
-      do isfe=1,nesf_pro
-       read (5,*) sfe_pro(isfe)%x,sfe_pro(isfe)%y,sfe_pro(isfe)%z, &
-                  sfe_pro(isfe)%r
+      read (5,*) nesf_sol
+      allocate(sfe_sol(nesf_sol))
+      do isfe=1,nesf_sol
+       read (5,*) sfe_sol(isfe)%x,sfe_sol(isfe)%y,sfe_sol(isfe)%z, &
+                  sfe_sol(isfe)%r
+      enddo
+      return
+      end subroutine
+!
+      Subroutine read_act
+      integer(i4b) :: isfe
+      read (5,*) nesf_act
+      allocate(sfe_sol(nesf_sol))
+      do isfe=1,nesf_act
+       read (5,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
+                  sfe_act(isfe)%r
       enddo
       return
       end subroutine
@@ -109,12 +137,12 @@
         allocate(cts_act(nts_act))
         call pedra(1,1,nesf_act,sfe_act,nts_act,cts_act)
         write (6,*) "nts_act",nts_act
-      else if (what.eq.'pro') then
-        call pedra(0,4,nesf_pro,sfe_pro,nts_pro,dum2)      
-        write (6,*) "nts_pro",nts_pro
-        allocate(cts_pro(nts_pro))
-        call pedra(1,4,nesf_pro,sfe_pro,nts_pro,cts_pro)
-        write (6,*) "nts_pro",nts_pro
+      else if (what.eq.'sol') then
+        call pedra(0,1,nesf_sol,sfe_sol,nts_sol,dum2)      
+        write (6,*) "nts_sol",nts_sol
+        allocate(cts_sol(nts_sol))
+        call pedra(1,1,nesf_sol,sfe_sol,nts_sol,cts_sol)
+        write (6,*) "nts_sol",nts_sol
       else if (what.eq.'met') then
         call pedra(0,4,nesf_act,sfe_act,nts_act,dum2)      
         write (6,*) "nts_act",nts_act
@@ -1221,6 +1249,37 @@
        return
       end subroutine
 !
+      subroutine read_cavity_file_sol
+       integer(4) :: i,nts,nsphe
+       real(dbl)  :: x,y,z,s,r      
+       open(7,file="cavity_sol.inp",status="old")
+         !read(7,*)  
+         read(7,*) nts,nsphe
+!         if(nts_sol.eq.0.or.nts.eq.nts_sol) then
+           nts_sol=nts
+!         else
+!           write(*,*) "Tesserae number conflict"
+!           stop
+!         endif
+         if(.not.allocated(sfe_sol).and.nsphe.gt.0) &
+           allocate (sfe_sol(nsphe))
+         if(.not.allocated(cts_sol)) allocate (cts_sol(nts_sol))
+         do i=1,nsphe
+          read(7,*)  sfe_sol(i)%x,sfe_sol(i)%y, &
+                               sfe_sol(i)%z
+         enddo
+         do i=1,nts_sol 
+           read(7,*) x,y,z,s,r
+           cts_sol(i)%x=x!*antoau 
+           cts_sol(i)%y=y!*antoau
+           cts_sol(i)%z=z!*antoau 
+           cts_sol(i)%area=s!*antoau*antoau 
+           cts_sol(i)%rsfe=r 
+         enddo
+        close(7)
+       return
+      end subroutine
+!
       subroutine read_gmsh_file
 ! this routine read in gmsh mesh files
 !  AFTER they have been massaged by a proper
@@ -1334,9 +1393,9 @@
 !
       subroutine dealloc_pedra
       if (allocated(sfe_act)) deallocate(sfe_act)
-      if (allocated(sfe_pro)) deallocate(sfe_pro)
+      if (allocated(sfe_sol)) deallocate(sfe_sol)
       if (allocated(cts_act)) deallocate(cts_act)
-      if (allocated(cts_pro)) deallocate(cts_pro)
+      if (allocated(cts_sol)) deallocate(cts_sol)
       return
       end subroutine
 !

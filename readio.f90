@@ -51,6 +51,7 @@
 !     mdm=sol: solvent
 !     mdm=nan: nanoparticle
 !     mdm=vac: no medium
+!     mdm=nas: nanoparticle in presence of a solvent ! SC 11/06/2017
 !
 !     Ffld=gau: gaussian impulse
 !SC

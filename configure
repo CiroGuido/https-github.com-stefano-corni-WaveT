@@ -1,3 +1,8 @@
-sudo echo "alias 'makeall'='./makeall'" >> ~/.bashrc
-sudo echo "alias 'cleanall'='./cleanall'" >> ~/.bashrc
+WORKDIR=~/WaveT/WaveT
+sudo echo "alias 'makeall'='$WORKDIR/makeall'" >> ~/.bashrc
+sudo echo "alias 'cleanall'='$WORKDIR/cleanall'" >> ~/.bashrc
+sudo echo "alias 'wavet'='$WORKDIR/WaveT/bin/WaveT.x'" >> ~/.bashrc
+sudo echo "alias 'spectra'='$WORKDIR/WaveT/bin/make_spectra.x'" >> ~/.bashrc
+sudo echo "alias 'tdplas'='$WORKDIR/TDPlas/bin/tdplas.x'" >> ~/.bashrc
+sudo echo "alias 'freq'='$WORKDIR/TDPlas/bin/main_freq.x'" >> ~/.bashrc
 source ~/.bashrc

@@ -92,6 +92,7 @@
 ! neq free energies
       g_neq1=zero
       g_neq2=zero
+
       return
       end subroutine init_mdm
 !     
@@ -650,6 +651,7 @@
       f4=0.5d0*dt
       f5=eps_gm*f2
       write(6,*) "Initiated VV propagator"
+ 
       return
       end subroutine init_vv_propagator
 !

@@ -1,5 +1,7 @@
-cd TDPlas/src
+WORK_DIR=~/WaveT/WaveT
+cd $WORK_DIR/TDPlas/src
 make
 cd -
-cd WaveT/src
+cd $WORK_DIR/WaveT/src
 make
+

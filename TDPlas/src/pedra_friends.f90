@@ -42,11 +42,11 @@
 !
       contains
 !
-      Subroutine read_act(xr,yr,zr,rr,ns,nsmax)
-      integer(i4b) :: isfe,ns,nsmax
+      Subroutine read_act(xr,yr,zr,rr,nspheres,nsmax)
+      integer(i4b) :: isfe,nspheres,nsmax
       real(dbl)    :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
       !read (iunit,*) nesf_act
-      nesf_act=ns 
+      nesf_act=nspheres 
       write(6,*) "Number of spheres",nesf_act
       write(6,*) "I_sphere  X     Y   Z   Radius"
       allocate(sfe_act(nesf_act))
@@ -357,8 +357,12 @@
 !     In INTSPH(numts,10) sono registrate le sfere a cui appartengono
 !     i lati delle tessere.
 !
+      write(*,*) 'prima'
+
       CALL SUBTESSERA(sfe,nsfe,nesf,NV,PTS,CCC,PP,PP1,AREA)
 !
+      write(*,*) 'dopo'
+
       IF(AREA.EQ.ZERO) cycle
       XCTST(n_tes*(ITS-1)+i_tes) = PP(1)
       YCTST(n_tes*(ITS-1)+i_tes) = PP(2)
@@ -558,6 +562,7 @@
 !
 !     Loop sulle altre sfere
 !
+
       DO 150 NSFE1=1,NESF
       IF(NSFE1.EQ.NS) GO TO 150
 !
@@ -1239,6 +1244,7 @@
            !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
            !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
          enddo
+
        close(7)
        return
       end subroutine read_cavity_file

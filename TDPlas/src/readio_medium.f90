@@ -9,12 +9,13 @@
       real(8), allocatable :: vts(:,:,:) !transition potentials on tesserae from cis
       real(8) :: a_cav,b_cav,c_cav,eps_0,eps_d,mdm_dip(3),tau_deb
 ! SP 150316: ncycmax max number of scf cycles
-      integer(4) :: n_q,nmodes,ncycmax,ns
+      integer(4) :: n_q,nmodes,ncycmax,nspheres
       integer(4), parameter :: nsmax=10
       real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
 ! EC 3/5/17
       !integer(4), allocatable :: xmode(:),occmd(:)
       integer   :: xmode(mod_max), occmd(mod_max)
+      integer   :: n_omega 
       character(3) :: Fint,Feps,Fprop,Fbem,Fcav,Fchr,Fdeb,Floc
 ! SP 220216: added equilibrium reaction field eq_rf0
 ! SP 220216: added local field keyword localf
@@ -25,6 +26,7 @@
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
+      real(8) :: omega_ini,omega_end
 ! SP 220216: vtsn: nuclear potential on tesserae
 ! SC: q0 are the charges in equilibrium with ground state 
 ! SP: q0 are the initial charges if read_chr is true 
@@ -45,20 +47,19 @@
              iBEM,q0,fr0,Floc,mdm_dip,qtot0, &
              Fdeb,vtsn,mdm_init_prop, &
              ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq,&
-             read_medium_tdplas     
+             read_medium_tdplas,n_omega,omega_ini,omega_end     
 !
       contains
 
       subroutine read_medium_freq
-      mdm='nan'
-      Fint='pcm'
-      Feps='drl'
-      Fprop='ief'
-      Fbem='rea'
-      Fcav='fil'             
 
-      namelist /freq/ eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel,fmax
+      namelist /freq/ eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel,fmax, &
+                      n_omega,omega_ini,omega_end
+   
+      call init_nml_freq()
       read(*,nml=freq) 
+      write(*,nml=freq)
+ 
       return
       end subroutine read_medium_freq
 !
@@ -71,9 +72,8 @@
        !                which_bound_mat,which_cavity, which_charges, &
        !                which_debug,which_localF
        !character(6) :: which_mdm_init_prop 
-       nts_act=0
 
-       if (mdm.eq.'nan') then
+       !if (mdm.eq.'nan') then
           namelist /nanoparticle/ n_q,which_eps,eps_0,eps_d,eps_A, &
                                   eps_gm,eps_w0,f_vel,which_int,   &
                                   which_prop,nmodes,xmode,occmd,   &
@@ -81,7 +81,7 @@
                                   which_mdm_init_prop,thrshld,     &
                                   mix_coef,ncycmax,which_localF,   &
                                   which_charges,which_debug,tau_deb 
-       elseif (mdm.eq.'sol') then
+       !elseif (mdm.eq.'sol') then
           namelist /solvent/ n_q,which_eps,eps_0,eps_d,eps_A, &
                              eps_gm,eps_w0,f_vel,which_int,   &
                              which_prop,a_cav,b_cav,c_cav,    &
@@ -89,7 +89,9 @@
                              which_mdm_init_prop,thrshld,     &
                              mix_coef,ncycmax,which_localF,   &
                              which_charges,which_debug,tau_deb 
-       endif
+       !endif
+       
+       nts_act=0 
 
        if (mdm.eq.'nan') then
           call init_nml_nanoparticle() 
@@ -108,51 +110,18 @@
 !     Used in main_tdplas.f90 
       subroutine read_medium_tdplas
        implicit none
-       integer(4)   :: i,lc,db,rf,sc,ns
-       integer(4),parameter :: nsmax=10
-       character(3) :: which_eps,which_cavity
-       real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
-       nts_act=0
-       mdm='nan'
+       integer(4)   :: i,lc,db,rf,sc!,ns
+       !integer(4),parameter :: nsmax=10
+       !character(3) :: which_eps,which_cavity
+       !real(8)      :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
 
        namelist /tdplas/ which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm, &
-                         eps_w0,f_vel,which_cavity,xr,yr,zr,rr,ns
+                         eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres
+ 
+       call init_nml_tdplas() 
        read(*,nml=tdplas)
-! read dielectric function type and parameters
-       select case (which_eps)
-         case ('deb','Deb','DEB')
-           Feps='deb'
-           write(6,*) "Debye dielectric constant"
-         case ('drl','Drl','DRL')
-           Feps='drl'
-! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
-           write(6,*) "Drude-Lorentz dielectric constant"
-         case default
-           write(*,*) "Error, specify eps(omega) type DEB or DRL"
-           stop
-       end select
-! Interaction is PCM
-       Fint='pcm'
-! This run prepare matrices
-       Fbem='wri'
-       select case(which_cavity)
-       case ('fil','FIL','Fil')
-        Fcav='fil'             
-       case ('gms','GMS','Gms')
-        Fcav='gms'             
-       case ('bui','Bui','BUI')
-        Fcav='bui'             
-        if (ns.gt.nsmax) then
-           write(*,*) 'ERROR: ns is larger than', nsmax
-           stop
-        endif
-        call read_act(xr,yr,zr,rr,ns,nsmax)
-       case default
-        write(6,*) "Please choose: build or read cavity?"
-        stop
-       end select
-! This is to follow the correct route in init_BEM
-       Fprop='ief'
+       call write_nml_tdplas()
+
        return
       end subroutine read_medium_tdplas
 !
@@ -318,6 +287,70 @@
 
       end subroutine init_nml_solvent
 
+      subroutine init_nml_freq()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist freq 
+!
+! @date Created   : E. Coccia 11 May 2017
+! Modified  :
+! @param eps_0,eps_d,eps_A,eps_gm,eps_w0,f_vel,fmax
+!        n_omega,omega_ini,omega_end 
+!------------------------------------------------------------------------
+
+       mdm='nan'
+       Fint='pcm'
+       Feps='drl'
+       Fprop='ief'
+       Fbem='rea'
+       Fcav='fil'
+       eps_0=35.688
+       eps_d=1.806874
+       eps_A=0.110224
+       eps_gm=0.000757576
+       eps_w0=0.0
+       f_vel=0.0
+       fmax=0.0 
+       n_omega=5000 
+       omega_ini=0.01
+       omega_end= 0.35
+
+       return
+
+      end subroutine init_nml_freq
+
+      subroutine init_nml_tdplas()
+!------------------------------------------------------------------------
+! @brief Initialize variables in the namelist tdplas 
+!
+! @date Created   : E. Coccia 16 May 2017
+! Modified  :
+! @param which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm,
+!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres  
+!------------------------------------------------------------------------
+
+       nts_act=0
+       mdm='nan'
+       Fint='pcm'
+       Fbem='wri'
+       Fprop='ief'
+       which_eps='deb'
+       eps_0=35.688
+       eps_d=1.806874
+       tau_deb=1000.
+       eps_A=0.110224
+       eps_gm=0.000757576
+       f_vel=0.0
+       which_cavity='bui'
+       xr=0.0
+       yr=0.0
+       zr=0.0
+       rr=100.0 
+       nspheres=1 
+
+       return
+
+      end subroutine init_nml_tdplas
+
       subroutine write_nml_nanoparticle()
 !------------------------------------------------------------------------
 ! @brief Write variables in the namelist nanoparticle and put conditions 
@@ -430,11 +463,11 @@
           Fcav='gms'
          case ('bui','Bui','BUI')
           Fcav='bui'
-           if (ns.gt.nsmax) then
-               write(*,*) 'ERROR: ns is larger than', nsmax
+           if (nspheres.gt.nsmax) then
+               write(*,*) 'ERROR: nspheres is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call read_act(xr,yr,zr,rr,nspheres,nsmax)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop
@@ -630,11 +663,11 @@
           Fcav='gms'
          case ('bui','Bui','BUI')
           Fcav='bui'
-           if (ns.gt.nsmax) then
-               write(*,*) 'ERROR: ns is larger than', nsmax
+           if (nspheres.gt.nsmax) then
+               write(*,*) 'ERROR: nspheres is larger than', nsmax
                stop
           endif
-          call read_act(xr,yr,zr,rr,ns,nsmax)
+          call read_act(xr,yr,zr,rr,nspheres,nsmax)
          case default
           write(6,*) "Please choose: build or read cavity?"
           stop
@@ -704,6 +737,54 @@
 
       end subroutine write_nml_solvent
 
+      subroutine write_nml_tdplas()
+!------------------------------------------------------------------------
+! @brief Write variables in the namelist tdplas and put conditions 
+!
+! @date Created   : E. Coccia 16 May 2017
+! Modified  :
+! @param which_eps,eps_0,eps_d,tau_deb,eps_A,eps_gm,
+!        eps_w0,f_vel,which_cavity,xr,yr,zr,rr,nspheres  
+!------------------------------------------------------------------------
 
+! read dielectric function type and parameters
+       select case (which_eps)
+         case ('deb','Deb','DEB')
+           Feps='deb'
+           write(6,*) "Debye dielectric constant"
+         case ('drl','Drl','DRL')
+           Feps='drl'
+! SP 30/05/16: changed to have eps_0 and eps_d in input for solids
+           write(6,*) "Drude-Lorentz dielectric constant"
+         case default
+           write(*,*) "Error, specify eps(omega) type DEB or DRL"
+           stop
+       end select
+! Interaction is PCM
+       !Fint='pcm'
+! This run prepare matrices
+       !Fbem='wri'
+       select case(which_cavity)
+       case ('fil','FIL','Fil')
+        Fcav='fil'
+       case ('gms','GMS','Gms')
+        Fcav='gms'
+       case ('bui','Bui','BUI')
+        Fcav='bui'
+        if (nspheres.gt.nsmax) then
+           write(*,*) 'ERROR: nspheres is larger than', nsmax
+           stop
+        endif
+        call read_act(xr,yr,zr,rr,nspheres,nsmax)
+       case default
+        write(6,*) "Please choose: build or read cavity?"
+        stop
+       end select
+! This is to follow the correct route in init_BEM
+       !Fprop='ief'
+
+       return
+
+      end subroutine  write_nml_tdplas
 
  end module readio_medium

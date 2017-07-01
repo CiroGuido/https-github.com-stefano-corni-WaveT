@@ -307,12 +307,23 @@
             write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("gau")
-         do i=1,n_step
-          t_a=dt*(i-1)
-          f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
-         enddo
+          select case (npulse)
+          case (1)
+           do i=1,n_step
+              t_a=dt*(i-1)
+              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+              if (mod(i,n_out).eq.0) &
+                write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+           enddo
+          case(2)
+           do i=1,n_step
+              t_a=dt*(i-1)
+              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+              f(:,i)=f(:,i)+fmax(:)*exp(-(t_a-(t_mid+tdelay))**2/(sigma**2))
+              if (mod(i,n_out).eq.0) &
+                write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+           enddo
+          end select
         case ("css")
          ti=t_mid-sigma/two
          tf=t_mid+sigma/two

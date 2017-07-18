@@ -132,31 +132,20 @@
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
 !
 ! PROPAGATION CYCLE: starts the propagation at timestep 3
-       do i=3,n_step
-         f_prev2=f(:,i-2)
-         f_prev=f(:,i-1)
-         h_int=zero 
-         if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
+! SSE with quantum jump
+! Markovian dissipation (quantum jump) -> dis.and.qjump
+       if (dis.and.qjump) then 
+          do i=3,n_step
+            f_prev2=f(:,i-2)
+            f_prev=f(:,i-1)
+            h_int=zero 
+            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
                                                       f_prev2,h_int)
-         call add_int_vac(f_prev,h_int)
+            call add_int_vac(f_prev,h_int)
 ! SC field
-         if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
 
-! No dissipation in the propagation -> .not.dis
-! Markovian dissipation (quantum jump) -> dis.and.qjump
-! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
-         if (.not.dis) then
-            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-            if (ernd) then
-               do j=1,n_ci
-                  c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
-               enddo
-            endif
-            c=c/sqrt(dot_product(c,c))
-            c_prev2=c_prev
-            c_prev=c
-         elseif (dis.and.qjump) then
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
             if (i.eq.ijump+1) then
@@ -182,7 +171,25 @@
                 c_prev2=c_prev
                 c_prev=c
             endif
-         elseif (dis.and..not.qjump) then
+         
+            call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+         
+          enddo
+
+       elseif (dis.and..not.qjump) then
+! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
+          do i=3,n_step
+            f_prev2=f(:,i-2)
+            f_prev=f(:,i-1)
+            h_int=zero 
+            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
+                                                      f_prev2,h_int)
+            call add_int_vac(f_prev,h_int)
+! SC field
+            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+                                                mu_prev4,mu_prev5,h_int)
+
 ! Dissipation by a continuous stochastic propagation
             call rnd_noise(w,w_prev,n_ci,first,tdis)
             call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis)
@@ -194,11 +201,40 @@
             endif
             !c=c/sqrt(dot_product(c,c))
             c_prev=c
-         endif
-         call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-         if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
          
-       enddo
+            call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+         
+          enddo
+
+       elseif (.not.dis) then
+! No dissipation in the propagation -> .not.dis 
+          do i=3,n_step
+            f_prev2=f(:,i-2)
+            f_prev=f(:,i-1)
+            h_int=zero 
+            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
+                                                      f_prev2,h_int)
+            call add_int_vac(f_prev,h_int)
+! SC field
+            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+                                                mu_prev4,mu_prev5,h_int)
+         
+            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+            if (ernd) then
+               do j=1,n_ci
+                  c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
+               enddo
+            endif
+            c=c/sqrt(dot_product(c,c))
+            c_prev2=c_prev
+            c_prev=c
+         
+            call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+         
+          enddo
+       endif
 
 ! DEALLOCATION AND CLOSING
        deallocate (c,c_prev,c_prev2,h_int)

@@ -32,7 +32,8 @@
 !SP 29/05/16:  pot_gs contains vts(1,1,:), but works also with Fint='ons'
       real(dbl), allocatable :: pot_t(:),pot_tp(:),pot_gs(:)
       real(dbl), allocatable :: potx_t(:),potx_tp(:)
-      real(dbl), allocatable :: q_t(:),dq_t(:),q_t_a(:)
+!     real(dbl), allocatable :: q_t(:),dq_t(:),q_t_a(:)
+      real(dbl), allocatable :: dq_t(:),q_t_a(:)
       real(dbl), allocatable :: q_tp(:),dq_tp(:)
       real(dbl), allocatable :: qext_t(:),dqext_t(:)
       real(dbl), allocatable :: qext_tp(:),dqext_tp(:)

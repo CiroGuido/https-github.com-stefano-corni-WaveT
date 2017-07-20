@@ -22,7 +22,7 @@
 ! SP 180516: added pot_file to see if a file with potentials is present
 ! SC 11/08/2016: instead of automatic detection of pot_file, now it is part 
 !                of the Fbem mechanism (reading or writing)
-      logical :: molint,iBEM
+      logical :: molint,iBEM,np_relax
 ! SP 220216: total charge as read from input qtot0
 ! SP 150316: thrshld threshold for scf convergence
       real(8) :: eps_A,eps_gm,eps_w0,f_vel,qtot0,thrshld,mix_coef
@@ -30,10 +30,10 @@
 ! SP 220216: vtsn: nuclear potential on tesserae
 ! SC: q0 are the charges in equilibrium with ground state 
 ! SP: q0 are the initial charges if read_chr is true 
-      real(dbl), allocatable :: q0(:),vtsn(:)
+      real(dbl), allocatable :: q0(:),vtsn(:),q_t(:)
 !     fr0 is the Onsager reaction field in equilibrium with the GS
       real(dbl) :: fr0(3)
-      character(3) :: mdm_init_prop
+      character(3) :: mdm_init_prop,np_relaxation
       character(3) :: which_int, which_eps, which_prop, &
                        which_bound_mat,which_cavity, which_charges, &
                        which_debug,which_localF
@@ -44,10 +44,11 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,a_cav,  &
              b_cav,c_cav,eps_0,eps_d,tau_deb,n_q,eps_A,molint,     &
              nmodes,xmode,occmd,nts,vts,eps_gm,eps_w0,f_vel,  &
-             iBEM,q0,fr0,Floc,mdm_dip,qtot0, &
+             iBEM,q0,fr0,Floc,mdm_dip,qtot0,q_t &
              Fdeb,vtsn,mdm_init_prop, &
              ncycmax,thrshld,mix_coef,Fbem,Fcav,Fchr,read_medium_freq,&
-             read_medium_tdplas,n_omega,omega_ini,omega_end     
+             read_medium_tdplas,n_omega,omega_ini,omega_end, &
+             np_relaxation, np_relax 
 !
       contains
 
@@ -242,6 +243,7 @@
        which_charges='fro'
        which_debug='non'
        tau_deb=1000.
+       np_relaxation='rel'
 
        return
 
@@ -532,6 +534,17 @@
        case default
         Fdeb='non'
        end select
+       select case(np_relaxation)
+          case ('rel', 'Rel', 'REL', 'REl')
+           write(*,*) 'NP charges follow the quantum jump'
+           np_relax=.true.
+          case ('non', 'NoN', 'NON', 'NOn')
+           write(*,*) 'NP charges do not follow the quantum jump'
+           np_relax=.false.
+          case default
+           np_relax=.true.
+       end select
+       if (mdm.ne.'nan') np_relax=.false.
 
        return
 

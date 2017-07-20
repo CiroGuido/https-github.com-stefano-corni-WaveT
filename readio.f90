@@ -13,9 +13,9 @@
       real(dbl), parameter :: twp=two*pi
       real(dbl), parameter :: pt5=0.5d0
       integer(i4b), parameter :: one_i=1
-      complex(cmp), parameter :: onec=(one,zero)                
-      complex(cmp), parameter :: twoc=(two,zero)                
-      complex(16), parameter :: ui=(zero,one)
+      double complex, parameter :: onec=(one,zero)                
+      double complex, parameter :: twoc=(two,zero)                
+      double complex, parameter :: ui=(zero,one)
       integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Euler, tdis=1 Matthews 
       integer(4) :: imar !imar=0 Markvian, imar=1, nonMarkovian
       integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences

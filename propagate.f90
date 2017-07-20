@@ -25,7 +25,7 @@
       subroutine prop
        implicit none
        integer(4)                :: i,j,k,istop,ijump=0
-       complex(16), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       double complex, allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
        real(8),     allocatable  :: h_int(:,:), h_dis(:,:)
        real(8),     allocatable  :: pjump(:) 
        real(8)                   :: f_prev(3),f_prev2(3)
@@ -382,7 +382,7 @@
 !
       subroutine do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        implicit none
-       complex(16), intent(IN) :: c(n_ci)
+       double complex, intent(IN) :: c(n_ci)
        real(8)::mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
                 mu_prev5(3)
        mu_a(1)=dot_product(c,matmul(mut(:,:,1),c))
@@ -400,7 +400,7 @@
       subroutine output(i,c,f_prev,h_int)     
        implicit none
        integer(4), intent(IN) :: i
-       complex(16), intent(IN) :: c(n_ci)
+       double complex, intent(IN) :: c(n_ci)
        real(8), intent(IN) :: h_int(n_ci,n_ci)
        real(8), intent(IN) :: f_prev(3)
        real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
@@ -518,10 +518,10 @@
         integer(4),    intent(in)    :: int1, int2, int3
         character(20), intent(in)    :: char20, char1_20 
         real(8),       intent(in)    :: t
-        complex(16),   intent(in)    :: c(nci)
-        complex(16)                  :: cc(nci,nci)
+        double complex,   intent(in)    :: c(nci)
+        double complex                  :: cc(nci,nci)
         integer(4)                   :: j, k
-        complex(16)                  :: tmp
+        double complex                  :: tmp
         real(8)                      :: r(nci,nci)
         real(8)                      :: p(nci,nci)
         real(8)                      :: rtmp, itmp 

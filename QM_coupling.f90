@@ -22,7 +22,7 @@
       contains
 !     
       subroutine do_modes                     
-         !complex(cmp), allocatable :: Kdiag(:)                
+         !double complex, allocatable :: Kdiag(:)                
        call do_eps
        ! obtinaed by solving Re(2pi*(eps+1)/(eps-1)+lambda_i)=0
          !allocate(Kdiag(nts_act))

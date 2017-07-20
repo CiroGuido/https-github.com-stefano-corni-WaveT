@@ -8,7 +8,7 @@ module dissipation
 
   implicit none
   real(8)                :: norm, dtot, dsp, dnr, dde 
-  complex(16), parameter  :: zeroc=(zero,zero)
+  double complex, parameter  :: zeroc=(zero,zero)
   save 
   private
   public norm, dtot, dsp, dnr, dde, add_dis_m, add_dis_nm, loss_norm
@@ -109,7 +109,7 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   complex(16), intent(in)   :: c(nci)
+   double complex, intent(in)   :: c(nci)
    integer,     intent(in)   :: nci
    real(8),     intent(inout):: pjump(3*nexc+1)
    integer                   :: i
@@ -192,14 +192,14 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   complex(16), intent(inout)   :: c(nci)
-   complex(16), intent(in)      :: c_prev(nci)
+   double complex, intent(inout)   :: c(nci)
+   double complex, intent(in)      :: c_prev(nci)
    integer(4),  intent(in)      :: nci
    real(8),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
    real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
    real(8)                      :: left, right 
-   complex(16)                  :: cph 
+   double complex                  :: cph 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
@@ -321,7 +321,7 @@ module dissipation
    implicit none
    integer, intent(in)        :: nci, tdis
    real(8), intent(in)        :: w(3*nci), w_prev(3*nci)
-   complex(16), intent(inout) :: h_rnd(nci,nci)
+   double complex, intent(inout) :: h_rnd(nci,nci)
    integer                    :: i
    real(8)                    :: rate, rtmp, itmp 
    real(8)                    :: wrnd(3*nci)
@@ -457,7 +457,7 @@ module dissipation
 
    implicit none
    integer, intent(in)        :: nci
-   complex(16), intent(inout) :: h_rnd2(nci,nci)
+   double complex, intent(inout) :: h_rnd2(nci,nci)
    integer                    :: i
    real(8)                    :: rtmp, itmp 
 

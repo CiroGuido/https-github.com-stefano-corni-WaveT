@@ -20,10 +20,10 @@
       real(dbl), parameter :: twp=two*pi
       real(dbl), parameter :: pt5=0.5d0
       integer(i4b), parameter :: one_i=1
-      complex(cmp), parameter :: zeroc=(zero,zero)      
-      complex(cmp), parameter :: onec=(one,zero)                
-      complex(cmp), parameter :: twoc=(two,zero)                
-      complex(16), parameter :: ui=(zero,one)
+      double complex, parameter :: zeroc=(zero,zero)      
+      double complex, parameter :: onec=(one,zero)                
+      double complex, parameter :: twoc=(two,zero)                
+      double complex, parameter :: ui=(zero,one)
 
       ! block of global variables to be supplied by WaveT
       real(8) 		:: dt				! time step

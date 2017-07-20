@@ -30,6 +30,7 @@
       integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
       integer(4) :: nr_typ !type of decay for the internal conversion
       integer(4) :: idep !choose the dephasing operator
+      integer(4) :: npulse !number of pulses
       real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
       real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
       real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
@@ -38,7 +39,10 @@
       real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
       real(8), allocatable :: delta(:) !phases randomly added during the propagation 
       real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
+      real(8), allocatable :: mut_np2(:,:) !squared dipole from NP
       real(8) :: dt,tau(2),start, krnd
+      real(8) :: tdelay, pshift  ! time delay and phase shift with two pulses
+      real(8) :: omega1, sigma1  ! for the second pulse
       logical :: dis !turns on the dissipation
       logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
       logical :: ernd=.false. !add normal number to E: E -> E + krnd*rnd()
@@ -49,7 +53,7 @@
 ! SP 28/10/16: improved with a vector
 !      integer(4) :: dir_ft
       real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
-      character(3) :: mdm,Ffld,rad 
+      character(3) :: mdm,Ffld,rad,pulse 
       character(3) :: medium,radiative,dissipative
       character(5) :: dis_prop
       integer(4) :: iseed  !seed for random number generator
@@ -74,7 +78,8 @@
              one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
              dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
              deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep,imar,de_gam1,krnd,ernd,dbl,sgl,i4b,cmp,zeroc
+             idep,imar,de_gam1,krnd,ernd,dbl,sgl,i4b,cmp,zeroc &
+             npulse,omega1,sigma1,tdelay, pshift &
 !
       contains
 !
@@ -89,7 +94,8 @@
        !Molecular parameters 
        namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium
        !External field paramaters
-       namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax
+       namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
+                        pulse,omega1,sigma1,tdelay,pshift
        !Namelist spectra
        namelist /spectra/ start,tau,dir_ft
        !Stochastic Schroedinger equation
@@ -219,8 +225,11 @@
 !------------------------------------------------------------------------
      
        implicit none
-       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, err   
-       real(8)  :: term  
+       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
+       real(8)  :: term   
+       real(8)  :: rdum
+       real(8)   :: rx,ry,rz
+       real(8)   :: ix,iy,iz
 
        open(8,file='nr_rate.inp',status="old",iostat=ierr0,err=100)
        open(9,file='de_rate.inp',status="old",iostat=ierr1,err=101)
@@ -276,6 +285,30 @@
        do i=1,nexc 
           tmom2_0i(i) = mut(1,i+1,1)**2 + mut(1,i+1,2)**2 + mut(1,i+1,3)**2
        enddo
+       if (mdm.eq.'nan') then
+          open(7,file="ci_mut_np.inp",status="old",iostat=ierr4,err=104)
+          allocate(mut_np2(nexc,3))
+          do i=1,nexc
+             read(7,*) rdum, rx, ry, rz, ix, iy, iz, rdum
+             mut_np2(i,1) = rx**2 + ix**2
+             mut_np2(i,2) = ry**2 + iy**2
+             mut_np2(i,3) = rz**2 + iz**2
+          enddo
+         close(7)
+         do i=1,nexc
+            tmom2_0i(i) = tmom2_0i(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
+         enddo
+
+         write(*,*)'Contribution to the transition dipole <0|mu|i> from NP'
+
+104      if (ierr4.ne.0) then
+           write(*,*)
+           write(*,*) 'Dissipation and NP:'
+           write(*,*) 'An error occurred during reading ci_mut_np.inp'
+           write(*,*)
+           stop
+         endif
+       endif
 
 ! Read phase randomly added during the propagation
        if (idep.eq.0) then
@@ -340,6 +373,7 @@
        deallocate(sp_fact)
        deallocate(tmom2_0i)
        if (idep.eq.0) deallocate(delta)
+        if (dis.and.mdm.eq.'nan') deallocate(mut_np2)
 
        return
 
@@ -420,6 +454,16 @@
        iseed=12345678
        ! Amplitude of the external field
        fmax=0.d0
+       ! Number of pulses
+       pulse='one'
+       ! Time delay
+       tdelay=2000.
+       ! Phase shift
+       pshift=0.d0
+       ! Frequency second pulse
+       omega1=0.d0
+       ! Sigma for the second pulse
+       sigma1=0.d0
 
        return
 
@@ -534,7 +578,22 @@
         case default
          rad='non'
        end select
+       select case (pulse)
+        case ('one', 'ONE', 'One')
+          write(*,*) 'One pulse'
+          npulse=1
+        case ('two', 'TWO', 'Two')
+          write(*,*) 'Two pulses'
+          write(*,*) 'Time delay =', tdelay
+          write(*,*) 'Phase shift =', pshift
+          write(*,*) 'Frequency second pulse (au) =', omega1
+          write(*,*) 'Sigma second pulse =', sigma1
+          npulse=2
+        case default
+          npulse=1
+       end select
        write(*,*) ''
+
 
        return
 

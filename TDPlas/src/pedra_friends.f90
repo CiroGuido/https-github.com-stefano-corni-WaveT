@@ -357,11 +357,11 @@
 !     In INTSPH(numts,10) sono registrate le sfere a cui appartengono
 !     i lati delle tessere.
 !
-      write(*,*) 'prima'
+      
 
       CALL SUBTESSERA(sfe,nsfe,nesf,NV,PTS,CCC,PP,PP1,AREA)
 !
-      write(*,*) 'dopo'
+      
 
       IF(AREA.EQ.ZERO) cycle
       XCTST(n_tes*(ITS-1)+i_tes) = PP(1)

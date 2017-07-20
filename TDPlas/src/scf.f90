@@ -22,7 +22,7 @@
       subroutine do_scf(qst,c_prev)                  
        implicit none
        real(dbl), intent(INOUT):: qst(:)     
-       complex(16), intent(INOUT) :: c_prev(:)
+       double complex, intent(INOUT) :: c_prev(:)
        integer(i4b) :: ncyc=1 
        integer(i4b) :: its,i,j
        logical :: docycle=.true. 

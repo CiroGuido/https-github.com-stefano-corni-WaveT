@@ -14,7 +14,7 @@
 !      complex(16), allocatable :: matq_omega(:,:)
 !SP 22/02/16:  Onsager's factors for reaction and local(x) fields
       real(8) :: f_0,f_d,tau_ons,fx_0,fx_d,taux_ons
-      complex(cmp) :: eps,eps_f
+      double complex :: eps,eps_f
       save
       private
       public init_BEM,deallocate_BEM,do_eps,eps,eps_f,eigv,eigt, &
@@ -190,7 +190,7 @@
       real(8), allocatable :: scr2(:,:),scr3(:,:)
       real(dbl), dimension(nts_act) :: fact1,fact2
       real(dbl), dimension(nts_act) :: Kdiag0,Kdiagd
-      complex(16), allocatable :: Kdiag_omega(:)
+      double complex, allocatable :: Kdiag_omega(:)
       real(dbl) :: sgn,fac_eps0,fac_epsd
       real(dbl):: temp
 ! SC 11/08/2016 if this is a writing run, create the matrixes and stop.
@@ -586,12 +586,12 @@
 !
       subroutine do_charge_freq(omega_a,pot)
       integer(4) :: its
-      complex(16), allocatable :: q_omega(:)
-      complex(16) :: mu_omega(3)
+      double complex, allocatable :: q_omega(:)
+      double complex :: mu_omega(3)
       real(8) :: omega_a
       real(8) :: pot(:)
 !      real(8), allocatable :: fact1(:),fact2(:)
-      complex(16), allocatable :: Kdiag_omega(:)
+      double complex, allocatable :: Kdiag_omega(:)
       integer(4) :: sgn,i
       allocate(Kdiag_omega(nts_act))
 !      allocate(fact1(nts_act))

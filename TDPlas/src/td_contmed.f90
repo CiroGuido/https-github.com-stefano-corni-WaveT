@@ -967,7 +967,7 @@
       end subroutine correct_potentials
 !
       subroutine do_ref(c)      
-      doueble complex, intent(IN) :: c(:)
+      double complex, intent(IN) :: c(:)
       double complex :: refc, eps, E0
       integer(i4b) :: its  
       real(dbl):: dist,pos(3),dp,emol(3)  

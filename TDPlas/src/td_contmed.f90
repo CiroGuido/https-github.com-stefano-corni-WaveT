@@ -54,7 +54,7 @@
 ! SP 23/02/16 : added f_prev2 for onsager local field propagation
       subroutine init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)   
       real(dbl), intent(INOUT) :: f_prev(3),f_prev2(3)
-      complex(16), intent(INOUT) :: c_prev(n_ci),c_prev2(n_ci)
+      double complex, intent(INOUT) :: c_prev(n_ci),c_prev2(n_ci)
       real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
       integer(i4b) :: its,i,j                   
       character(20) :: name_f
@@ -98,7 +98,7 @@
 !     
       subroutine prop_mdm(i,c_prev,c_prev2,f_prev,f_prev2,h_int,Sdip)
       real(dbl), intent(INOUT) :: f_prev(3),f_prev2(3)
-      complex(16), intent(IN) :: c_prev(n_ci),c_prev2(n_ci)
+      double complex, intent(IN) :: c_prev(n_ci),c_prev2(n_ci)
       real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
       real(dbl) :: f_d_mat(3,3)
       integer(i4b), intent(IN) :: i
@@ -184,8 +184,8 @@
 !
       ! Initialize potential
       subroutine init_potential(c)
-       complex(16), intent(IN) :: c(:)
-       complex(16) :: c_gs(n_ci)
+       double complex, intent(IN) :: c(:)
+       double complex :: c_gs(n_ci)
        integer(i4b) :: its  
        allocate(pot_t(nts_act))
        allocate(pot_gs(nts_act))
@@ -213,7 +213,7 @@
       ! Initialize charges
       subroutine init_charges(c_prev)
        implicit none
-       complex(16), intent(INOUT) :: c_prev(n_ci)
+       double complex, intent(INOUT) :: c_prev(n_ci)
        integer(i4b):: its
        allocate(q_t(nts_act))
        allocate(q_t_a(nts_act))
@@ -304,7 +304,7 @@
       subroutine init_dip(c_prev,f_prev)
       ! inizialize onsager 
        implicit none
-       complex(16), intent(INOUT) :: c_prev(:)
+       double complex, intent(INOUT) :: c_prev(:)
        real(dbl), intent(IN) :: f_prev(3)
        mu0(:)=mut(1,1,:)
        if(Fdeb.eq."deb") mu0(:)=zero
@@ -408,7 +408,7 @@
       !
       subroutine do_dip_ts(c)
       ! Builds dipole from CIS coefficients 
-       complex(16), intent(IN) :: c(n_ci)
+       double complex, intent(IN) :: c(n_ci)
        integer(i4b) :: its  
          dip(1)=dot_product(c,matmul(mut(:,:,1),c))
          dip(2)=dot_product(c,matmul(mut(:,:,2),c))
@@ -419,7 +419,7 @@
       subroutine do_potential_ts(c,pot)
       ! Builds dipole from CIS coefficients and calculates the potential
       !  on tesserae                 
-       complex(16), intent(IN) :: c(n_ci)
+       double complex, intent(IN) :: c(n_ci)
        real(dbl), intent(OUT) :: pot(nts_act)
        real(dbl):: diff(3)  
        real(dbl):: dist
@@ -524,7 +524,7 @@
 !             DGEMV shoud be efficient for big matrices              
 !
       subroutine prop_chr(c,c_prev)
-      complex(16), intent(IN) :: c(n_ci),c_prev(n_ci)
+      double complex, intent(IN) :: c(n_ci),c_prev(n_ci)
        ! Propagate
        if(Feps.eq."deb") then
          if(Fprop.eq."ief") then
@@ -561,7 +561,7 @@
       subroutine prop_dip(c_prev,f_prev,f_prev2)
       ! evolve onsager field/charges 
        implicit none
-       complex(16), intent(IN) :: c_prev(n_ci)
+       double complex, intent(IN) :: c_prev(n_ci)
        real(dbl), intent(IN):: f_prev(3),f_prev2(3)  
        mu_a(1)=dot_product(c_prev,matmul(mut(:,:,1),c_prev))
        mu_a(2)=dot_product(c_prev,matmul(mut(:,:,2),c_prev))
@@ -698,7 +698,7 @@
 !
       subroutine prop_ief_drl_c(c)
       ! PCM interaction with drude/lorentz and IEF equations (c) 
-      complex(16), intent(IN) :: c(n_ci)
+      double complex, intent(IN) :: c(n_ci)
       integer(i4b) :: its  
        ! Reaction Field
        q_t=q_tp+dt*dq_tp
@@ -750,7 +750,7 @@
 !
       subroutine prop_ief_deb_c(c,c_prev)
       ! PCM interaction with debye and IEF equations 
-      complex(16), intent(IN) :: c(n_ci),c_prev(n_ci)
+      double complex, intent(IN) :: c(n_ci),c_prev(n_ci)
       integer(i4b) :: its  
       ! Reaction Field
       q_t(:)=q_tp(:)
@@ -780,7 +780,7 @@
 !
       subroutine prop_dbg(c,c_prev)
       ! PCM interaction with debye and IEF equations 
-      complex(16), intent(IN) :: c(n_ci),c_prev(n_ci)
+      double complex, intent(IN) :: c(n_ci),c_prev(n_ci)
       integer(i4b) :: its  
       real(dbl):: dpot, tmp(nts_act)              
       ! Reaction Field
@@ -828,7 +828,7 @@
       subroutine do_gneq(c,mu_or_v,df_or_dq,f_or_q,f_or_q0,fact_d, &
                            n_coor_or_ts,sig)
        implicit none
-       complex(16), intent(in) :: c(n_ci)
+       double complex, intent(in) :: c(n_ci)
        integer(i4b),intent(in) :: n_coor_or_ts,sig
        real(dbl),intent(in) :: mu_or_v(n_ci,n_ci,n_coor_or_ts)
        real(dbl),intent(in) :: df_or_dq(n_coor_or_ts), &
@@ -967,8 +967,8 @@
       end subroutine correct_potentials
 !
       subroutine do_ref(c)      
-      complex(16), intent(IN) :: c(:)
-      complex(cmp) :: refc, eps, E0
+      doueble complex, intent(IN) :: c(:)
+      double complex :: refc, eps, E0
       integer(i4b) :: its  
       real(dbl):: dist,pos(3),dp,emol(3)  
        select case (Fdeb)

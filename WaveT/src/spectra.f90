@@ -54,7 +54,7 @@
       real(dbl) :: Deq(3),Deq_np(3)    
       integer(i4b) :: i,isp,vdim,istart  
       integer*8 plan
-      complex(cmp), allocatable :: Doutp(:),Foutp(:),src       
+      double complex, allocatable :: Doutp(:),Foutp(:),src       
       character(len=15):: fname
 ! SC 15/01/2016: changed Makefile from Silvio's version
 !      find a better way to include this file

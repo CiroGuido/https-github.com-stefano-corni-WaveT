@@ -1,12 +1,15 @@
-module dissipation
-  use, intrinsic :: iso_c_binding
-  use random 
+module dissipation 
   use readio
+  use random
+  use readio_medium, only: q_t,q0, np_relax
+
+  use, intrinsic :: iso_c_binding
 
 ! @brief Contains routines for SSE
 
   implicit none
   real(8)                :: norm, dtot, dsp, dnr, dde 
+  complex(16), parameter  :: zeroc=(zero,zero)
   save 
   private
   public norm, dtot, dsp, dnr, dde, add_dis_m, add_dis_nm, loss_norm
@@ -236,6 +239,10 @@ module dissipation
       c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1
       write(*,*) 'Jump due to spontaneous emission, channel n.:', istate 
+      !Update charges to those in equilibrium with the ground state
+      if (np_relax) then
+         q_t(:)=q0(:)
+      endif
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
       call random_number(eta1)
@@ -492,4 +499,4 @@ module dissipation
 
   end subroutine add_h_rnd2
 
-end module dissipation
+end module 

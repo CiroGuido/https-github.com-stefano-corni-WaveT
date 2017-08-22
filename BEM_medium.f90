@@ -913,7 +913,7 @@
        mu_omega(2)=mu_omega(2)+q_omega(its)*(cts_act(its)%y)
        mu_omega(3)=mu_omega(3)+q_omega(its)*(cts_act(its)%z)
       enddo
-      gamma_met=-2.d0*dot_product(aimag(mu_omega),pot)
+      gamma_met=-2.d0*dot_product(aimag(q_omega),pot)
       write (6,'(8d15.6)') omega_a,real(mu_omega(:)), &
                            aimag(mu_omega(:)),gamma_met
       deallocate(Kdiag_omega)

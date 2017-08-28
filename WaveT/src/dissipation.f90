@@ -1,15 +1,15 @@
 module dissipation 
+  use constants   
   use readio
   use random
-  use readio_medium, only: q_t,q0, np_relax
+  use global_wavet, only: set_q0charges,Fmdm_relax
 
   use, intrinsic :: iso_c_binding
 
 ! @brief Contains routines for SSE
 
   implicit none
-  real(8)                :: norm, dtot, dsp, dnr, dde 
-  double complex, parameter  :: zeroc=(zero,zero)
+  real(dbl)                :: norm, dtot, dsp, dnr, dde 
   save 
   private
   public norm, dtot, dsp, dnr, dde, add_dis_m, add_dis_nm, loss_norm
@@ -31,11 +31,12 @@ module dissipation
 
    implicit none
    integer, intent(in)    :: nci
-   real(8), intent(inout) :: h_dis(nci,nci)    
+   real(dbl), intent(inout) :: h_dis(nci,nci)    
    integer                :: i,j
-   real(8)                :: rate, sde
+   real(dbl)                :: rate, sde
 
-   if (idep.eq.1) sde = sum(de_gam1)
+!   if (idep.eq.1) sde = sum(de_gam1)
+   if (Fdis_deph.eq."i-0") sde = sum(de_gam1)
 
 ! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
    do i=2, nci
@@ -44,25 +45,31 @@ module dissipation
       h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2_0i(i-1)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
-      if (nr_typ.eq.0) then
+!      if (nr_typ.eq.0) then
+      if (Fdis_rel.eq."dip") then
          rate = nr_gam(i-1)*tmom2_0i(i-1)
-      elseif (nr_typ.eq.1) then
+!      elseif (nr_typ.eq.1) then
+      elseif (Fdis_rel.eq."mat") then
          rate = nr_gam(i-1)
       endif
       h_dis(i,i) = h_dis(i,i) + rate 
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
-      if (idep.eq.0) then
+!      if (idep.eq.0) then
+      if (Fdis_deph.eq."exp") then
          h_dis(i,i) = h_dis(i,i) + de_gam(i)
 ! S_alpha = sqrt(de_gam_alpha) * (|Phi_alpha> <Phi_alpha| - |Phi_0> <Phi_0|)
-      elseif (idep.eq.1) then
+!      elseif (idep.eq.1) then
+      elseif (Fdis_deph.eq."i-0") then
          h_dis(i,i) = h_dis(i,i) + sde
       endif
    enddo
 
-   if (idep.eq.0) then
+!   if (idep.eq.0) then
+   if (Fdis_deph.eq."exp") then
       h_dis(1,1) = de_gam(1) 
-   elseif (idep.eq.1) then
+!   elseif (idep.eq.1) then
+   elseif (Fdis_deph.eq."i-0") then
       h_dis(1,1) = sde
    endif
 
@@ -85,7 +92,7 @@ module dissipation
 
     implicit none
     integer, intent(in)    :: nci
-    real(8), intent(inout) :: h_dis(nci,nci)
+    real(dbl), intent(inout) :: h_dis(nci,nci)
 
     write(*,*)
     write(*,*) ' NONMARKOVIAN SSE'
@@ -112,11 +119,11 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   double complex, intent(in)   :: c(nci)
+   complex(cmp), intent(in)   :: c(nci)
    integer,     intent(in)   :: nci
-   real(8),     intent(inout):: pjump(3*nexc+1)
+   real(dbl),     intent(inout):: pjump(3*nexc+1)
    integer                   :: i
-   real(8)                   :: weight, tmp, sumc
+   real(dbl)                   :: weight, tmp, sumc
 
    dsp=0.d0
    dnr=0.d0
@@ -128,20 +135,25 @@ module dissipation
       tmp=abs(c(i+1))
       weight=tmom2_0i(i)*tmp**2
       dsp = dsp + sp_gam(i)*weight
-      if (nr_typ.eq.0) then
+!      if (nr_typ.eq.0) then
+      if (Fdis_rel.eq."dip") then
          dnr = dnr + nr_gam(i)*weight
-      elseif (nr_typ.eq.1) then
+!      elseif (nr_typ.eq.1) then
+      elseif (Fdis_rel.eq."mat") then
          dnr = dnr + nr_gam(i)*tmp**2
       endif   
       pjump(i) = sp_gam(i)*weight
-      if (nr_typ.eq.0) then
+!      if (nr_typ.eq.0) then
+      if (Fdis_rel.eq."dip") then
          pjump(i+nexc) = nr_gam(i)*weight
-      elseif (nr_typ.eq.1) then
+!      elseif (nr_typ.eq.1) then
+      elseif (Fdis_rel.eq."mat") then
          pjump(i+nexc) = nr_gam(i)*tmp**2
       endif
    enddo
 
-   if (idep.eq.0) then
+!   if (idep.eq.0) then
+   if (Fdis_deph.eq."exp") then
       pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
       dde = dde + pjump(1+2*nexc)
       do i=1,nexc
@@ -149,7 +161,8 @@ module dissipation
          pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
          dde = dde + pjump(i+1+2*nexc)
       enddo
-   elseif (idep.eq.1) then
+!   elseif (idep.eq.1) then
+   elseif (Fdis_deph.eq."i-0") then
       sumc=0.d0 
       do i=1,nexc+1
          tmp=abs(c(i))**2
@@ -196,14 +209,14 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   double complex, intent(inout)   :: c(nci)
-   double complex, intent(in)      :: c_prev(nci)
+   complex(cmp), intent(inout)   :: c(nci)
+   complex(cmp), intent(in)      :: c_prev(nci)
    integer(4),  intent(in)      :: nci
-   real(8),     intent(in)      :: pjump(3*nexc+1)
+   real(dbl),     intent(in)      :: pjump(3*nexc+1)
    integer(4)                   :: i,istate
-   real(8)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
-   real(8)                      :: left, right 
-   double complex                  :: cph 
+   real(dbl)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
+   real(dbl)                      :: left, right 
+   complex(cmp)                  :: cph 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
 ! Select the type of event according to
@@ -240,8 +253,9 @@ module dissipation
       i_sp=i_sp+1
       write(*,*) 'Jump due to spontaneous emission, channel n.:', istate 
       !Update charges to those in equilibrium with the ground state
-      if (np_relax) then
-         q_t(:)=q0(:)
+      if (Fmdm_relax.eq."rel") then
+         call set_q0charges
+         !qr_t(:)=q0(:)
       endif
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
@@ -256,10 +270,12 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      if (nr_typ.eq.0) then
+!      if (nr_typ.eq.0) then
+      if (Fdis_rel.eq."dip") then
          creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
          ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
-      elseif (nr_typ.eq.1) then
+!      elseif (nr_typ.eq.1) then
+      elseif (Fdis_rel.eq."mat") then
          creal = real(c_prev(istate+1))*sqrt(nr_gam(istate))
          ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate))
       endif
@@ -273,7 +289,8 @@ module dissipation
       call random_number(eta1)
       left=0.d0
       right=pjump(2*nexc+1)
-      if (idep.eq.0) then
+!      if (idep.eq.0) then
+      if (Fdis_deph.eq."exp") then
          do i=2*nexc+1,3*nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
                istate=i-2*nexc
@@ -287,7 +304,8 @@ module dissipation
          if (istate.ne.1) c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
          c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
-      elseif (idep.eq.1) then
+!      elseif (idep.eq.1) then
+      elseif (Fdis_deph.eq."i-0") then
          do i=2*nexc+1,3*nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
                istate=i-2*nexc
@@ -313,7 +331,7 @@ module dissipation
 
   end subroutine quan_jump
 
-  subroutine add_h_rnd(h_rnd,nci,w,w_prev,tdis)
+  subroutine add_h_rnd(h_rnd,nci,w,w_prev)
 !------------------------------------------------------------------------
 ! @brief Random term in the Hamiltonian for the stochastic propagation 
 ! Random events: dissipation, nonradiative and dephasing
@@ -324,17 +342,19 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   integer, intent(in)        :: nci, tdis
-   real(8), intent(in)        :: w(3*nci), w_prev(3*nci)
-   double complex, intent(inout) :: h_rnd(nci,nci)
+   integer, intent(in)        :: nci
+   real(dbl), intent(in)        :: w(3*nci), w_prev(3*nci)
+   complex(cmp), intent(inout) :: h_rnd(nci,nci)
    integer                    :: i
-   real(8)                    :: rate, rtmp, itmp 
-   real(8)                    :: wrnd(3*nci)
+   real(dbl)                    :: rate, rtmp, itmp 
+   real(dbl)                    :: wrnd(3*nci)
 
 
-   if (tdis.eq.0) then
+!   if (tdis.eq.0) then
+   if (Fdis(5:9).eq."EuMar") then
       wrnd=w
-   elseif (tdis.eq.1) then
+!   elseif (tdis.eq.1) then
+   elseif (Fdis(5:9).eq."LeiMa") then
       wrnd=w+w_prev
    endif 
 
@@ -349,9 +369,11 @@ module dissipation
       rtmp = rtmp + sqrt(sp_gam(i-1)*tmom2_0i(i-1))*wrnd(i)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
-      if (nr_typ.eq.0) then
+!      if (nr_typ.eq.0) then
+      if (Fdis_rel.eq."dip") then
          rate = sqrt(nr_gam(i-1)*tmom2_0i(i-1))
-      elseif (nr_typ.eq.1) then
+!      elseif (nr_typ.eq.1) then
+      elseif (Fdis_rel.eq."mat") then
          rate = sqrt(nr_gam(i-1))
       endif
       rtmp = rtmp + rate*wrnd(i+nci)
@@ -359,7 +381,8 @@ module dissipation
    enddo
 
 
-   if (idep.eq.0) then
+!   if (idep.eq.0) then
+   if (Fdis_deph.eq."exp") then
       do i=1, nci
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
@@ -367,7 +390,8 @@ module dissipation
          itmp = sqrt(de_gam(i))*sin(delta(i))*wrnd(i+2*nci) 
          h_rnd(i,i) = h_rnd(1,1) + cmplx(rtmp,itmp)
       enddo
-   elseif (idep.eq.1) then 
+!   elseif (idep.eq.1) then 
+   elseif (Fdis_deph.eq."i-0") then 
       do i=2,nci
           h_rnd(i,i) = sqrt(de_gam(i-1))*wrnd(i+2*nci)
           h_rnd(1,1) = h_rnd(1,1) + h_rnd(i,i)
@@ -378,7 +402,7 @@ module dissipation
 
   end subroutine add_h_rnd
 
-  subroutine define_h_dis(h_dis,nci,imar)
+  subroutine define_h_dis(h_dis,nci)
 !------------------------------------------------------------------------    
 ! @brief Define the Markovian (imar=0) or non-Markovian (imar=1)
 ! dissipative term in the system Hamiltonian
@@ -389,15 +413,17 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none  
-   integer, intent(in)    :: nci, imar 
-   real(8), intent(inout) :: h_dis(nci,nci)
+   integer, intent(in)    :: nci 
+   real(dbl), intent(inout) :: h_dis(nci,nci)
    integer                :: i
 
    h_dis=zero
 
-   if (imar.eq.0) then 
+!   if (imar.eq.0) then 
+   if (Fdis(1:3).eq."mar") then 
       call add_dis_m(h_dis,n_ci)
-   elseif (imar.eq.1) then 
+!   elseif (imar.eq.1) then 
+   elseif (Fdis.eq."nma") then 
       call add_dis_nm(h_dis,n_ci) 
    endif 
 
@@ -405,7 +431,7 @@ module dissipation
  
   end subroutine define_h_dis
 
-  subroutine rnd_noise(w,w_prev,nci,first,tdis) 
+  subroutine rnd_noise(w,w_prev,nci,first) 
 !------------------------------------------------------------------------
 ! @brief Define the random fluctuating term in the
 ! stochastic propagator
@@ -416,12 +442,13 @@ module dissipation
 !------------------------------------------------------------------------
 
    implicit none
-   integer, intent(in)    :: nci, tdis
-   real(8), intent(inout) :: w(3*nci), w_prev(3*nci)
+   integer, intent(in)    :: nci
+   real(dbl), intent(inout) :: w(3*nci), w_prev(3*nci)
    logical, intent(in)    :: first
    integer                :: i,j
 
-   if (tdis.eq.1) then
+!   if (tdis.eq.1) then
+   if (Fdis(5:9).eq."LeiMa") then
       if (first) then
          w=0.d0
          w_prev=0.d0
@@ -440,7 +467,8 @@ module dissipation
             enddo
          enddo
       endif
-   elseif (tdis.eq.0) then
+!   elseif (tdis.eq.0) then
+   elseif (Fdis(5:9).eq."EuMar") then
       w=0.d0
       do i=1,3*nci
          do j=1,nrnd
@@ -465,9 +493,9 @@ module dissipation
 
    implicit none
    integer, intent(in)        :: nci
-   double complex, intent(inout) :: h_rnd2(nci,nci)
+   complex(cmp), intent(inout) :: h_rnd2(nci,nci)
    integer                    :: i
-   real(8)                    :: rtmp, itmp 
+   real(dbl)                    :: rtmp, itmp 
 
 ! Matrix elements of S^2_alpha in the basis of the system eigenstates 
    h_rnd2=zeroc
@@ -479,13 +507,15 @@ module dissipation
 
 ! Pure dephasing (de)
 ! S^2_alpha = de_gam_alpha exp(i 2*delta_alpha) |Phi_alpha> <Phi_alpha|
-   if (idep.eq.0) then
+   !if (idep.eq.0) then
+   if (Fdis_deph.eq."exp") then
       do i=1, nci
          rtmp = de_gam(i)*cos(2.d0*delta(i))
          itmp = de_gam(i)*sin(2.d0*delta(i)) 
          h_rnd2(i,i) = h_rnd2(i,i) + cmplx(rtmp,itmp)
       enddo
-   elseif (idep.eq.1) then
+   !elseif (idep.eq.1) then
+   elseif (Fdis_deph.eq."i-0") then 
 ! S^2_alpha = de_gam_alpha * (|Phi_alpha> <Phi_alpha| + |Phi_0> <Phi_0|)
      do i=2,nci
         h_rnd2(i,i) = h_rnd2(i,i) + de_gam(i-1)
@@ -499,4 +529,4 @@ module dissipation
 
   end subroutine add_h_rnd2
 
-end module 
+end module dissipation

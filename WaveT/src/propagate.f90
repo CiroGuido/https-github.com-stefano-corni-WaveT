@@ -1,21 +1,20 @@
       module propagate
+      use constants   
+      use global_wavet
       use readio
-      use readio_medium
-      use td_ContMed
-      use cav_types      
-      use pedra_friends  
+      !use pedra_friends  
       use spectra
       use random
       use dissipation
 
       implicit none
-      real(8),allocatable :: f(:,:)
+      real(dbl),allocatable :: f(:,:)
 ! SC mu_a is the dipole moment at current step,
 !    int_rad is the classical radiated power at current step
 !    int_rad_int is the integral of the classical radiated power at current step
-      real(8) :: mu_a(3),int_rad,int_rad_int
-      integer(4) :: file_c=10,file_e=8,file_mu=9,file_p=15 
-      integer(4) :: file_dm=12, file_dp=13, file_d=14
+      real(dbl) :: mu_a(3),int_rad,int_rad_int
+      integer(i4b) :: file_c=10,file_e=8,file_mu=9,file_p=15 
+      integer(i4b) :: file_dm=12, file_dp=13, file_d=14
       save
       private
       public create_field, prop
@@ -33,15 +32,15 @@
 !------------------------------------------------------------------------
 
        implicit none
-       integer(4)                :: i,j,k,istop,ijump=0
-       double complex, allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
-       real(8),     allocatable  :: h_int(:,:), h_dis(:,:)
-       real(8),     allocatable  :: pjump(:) 
-       real(8)                   :: f_prev(3),f_prev2(3)
-       real(8)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
+       integer(i4b)                :: i,j,k,istop,ijump=0
+       complex(cmp), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       real(dbl),     allocatable  :: h_int(:,:), h_dis(:,:)
+       real(dbl),     allocatable  :: pjump(:) 
+       real(dbl)                   :: f_prev(3),f_prev2(3)
+       real(dbl)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
                                     mu_prev4(3), mu_prev5(3)
-       real(8)                   :: eps  
-       real(8),     allocatable  :: w(:), w_prev(:)
+       real(dbl)                   :: eps  
+       real(dbl),     allocatable  :: w(:), w_prev(:)
        character(20)             :: name_f
        logical                   :: first=.true. 
 
@@ -65,11 +64,15 @@
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
-       if (dis) then
+! SP 17/07/17: new flags
+       !if (dis) then
+       if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
           allocate (h_dis(n_ci,n_ci))
-          if (qjump) then
+          !if (qjump) then
+          if (Fdis(5:9).eq."qjump") then
              allocate (pjump(3*nexc+1))
-          elseif (dis.and..not.qjump) then 
+          !elseif (dis.and..not.qjump) then 
+          else
              allocate (h_rnd(n_ci,n_ci))
              allocate (h_rnd2(n_ci,n_ci))
              allocate (w(3*n_ci), w_prev(3*n_ci))
@@ -80,7 +83,9 @@
        c_prev2=c_i
        c_prev=c_i
        c=c_i
-       f_prev2=f(:,2)
+! SP: 17/07/17: changed the following f_prev2 <= f_prev
+       !f_prev2=f(:,2)
+       f_prev2=f(:,1)
        f_prev=f(:,1)
        h_int=zero  
        mu_prev=0.d0
@@ -89,13 +94,20 @@
        mu_prev4=0.d0
        mu_prev5=0.d0
        int_rad_int=0.d0
-       if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
+       !if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
+       if(Frad.eq."arl".or.Fdis.ne."nodis") & 
+                               call seed_random_number_sc(iseed)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-       if (mdm.ne."vac") then
-           call init_mdm(c_prev,c_prev2,f_prev,f_prev2,h_int)
-           call prop_mdm(1,c_prev,c_prev2,f_prev,f_prev2,h_int)
+       i=1
+       if (Fmdm(1:3).ne."vac") then
+           call init_medium(c_prev,f_prev,h_int)
+           call prop_medium(i,c_prev,f_prev,h_int)
        endif
        call add_int_vac(f_prev,h_int)
+
+! SP 16/07/17: added call to output at step 0 to have full output in outfiles
+       call out_header
+       call output(1,c,f_prev,h_int)
 
 ! EC 20/12/16
 ! Dissipation according to the Markovian SSE (eq 25 J. Phys: Condens.
@@ -104,56 +116,65 @@
 ! Dissipation according to the non-Markovian SSE (eq 24 J. Phys:
 ! Condens. Matter vol. 24 (2012) 273201) 
 ! Add a random fluctuation for the stochastic propagation (.not.qjump)
-       if (dis) then
-          call define_h_dis(h_dis,n_ci,imar)
-          if (.not.qjump) then 
-             call rnd_noise(w,w_prev,n_ci,first,tdis)
+       !if (dis) then
+       if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
+          call define_h_dis(h_dis,n_ci)
+          !if (.not.qjump) then
+          if (Fdis(5:9).ne."qjump") then 
+             call rnd_noise(w,w_prev,n_ci,first)
              first=.false.
-             call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis) 
+             call add_h_rnd(h_rnd,n_ci,w,w_prev) 
              call add_h_rnd2(h_rnd2,n_ci)
           endif
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
        c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-       if (ernd) then
+!       if (ernd) then
+       if (Fdis.eq."ernd") then
           do j=1,n_ci
              c(j) = c(j) - ui*dt*krnd*random_normal()*c_prev(j)
           enddo
        endif
-       if (dis) then
+       !if (dis) then
+       if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
           c=c-dt*matmul(h_dis,c_prev)
-          if (.not.qjump) then
-             if (tdis.eq.0) then
-             ! Euler-Maruyama
-               c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)               
-             elseif (tdis.eq.1) then
-             ! Leimkuhler-Matthews
-               c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
-             endif
+          !if (.not.qjump) then
+          !if (tdis.eq.0) then
+          if (Fdis(5:9).eq."EuMar") then
+          ! Euler-Maruyama
+            c=c-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)               
+          !elseif (tdis.eq.1) then
+          elseif (Fdis(5:9).eq."LeiMa") then
+          ! Leimkuhler-Matthews
+            c=c-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
           endif
        endif
        c=c/sqrt(dot_product(c,c))
        c_prev=c
 
+! SP 16/07/17: added call to medium propagation at step 2 to have full output
+       i=2
+       if (Fmdm(1:3).ne."vac") call prop_medium(i,c_prev,f_prev,h_int)
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-       call out_header
+! SP 16/07/17: heder called at step 1                                        
+       !call out_header
        if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
+!
 !
 ! PROPAGATION CYCLE: starts the propagation at timestep 3
 ! Markovian dissipation (quantum jump) -> dis.and.qjump
-       if (dis.and.qjump) then
+!       if (dis.and.qjump) then
+       if (Fdis(5:9).eq."qjump") then
           do i=3,n_step
             f_prev2=f(:,i-2)
             f_prev=f(:,i-1)
             h_int=zero 
-            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
-                                                      f_prev2,h_int)
+            if (Fmdm(1:3).ne."vac") call prop_medium(i,c_prev,f_prev,h_int)
             call add_int_vac(f_prev,h_int)
 ! SC field
-            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+            if (Frad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-
 ! Quantum jump (spontaneous or nonradiative relaxation, pure dephasing)
 ! Algorithm from J. Opt. Soc. Am. B. vol. 10 (1993) 524
             if (i.eq.ijump+1) then
@@ -161,7 +182,6 @@
             else 
                c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-2.d0*dt*matmul(h_dis,c_prev)
             endif 
-          
 ! loss_norm computes: 
 ! norm = 1 - dtot
 ! dtot = dsp + dnr + dde
@@ -179,56 +199,52 @@
                 c_prev2=c_prev
                 c_prev=c
             endif
-        
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
             if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
-         
           enddo
 ! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
-       elseif (dis.and..not.qjump) then
+!       elseif (dis.and..not.qjump) then
+       elseif (Fdis(1:3).eq."mar") then
           do i=3,n_step
             f_prev2=f(:,i-2)
             f_prev=f(:,i-1)
             h_int=zero 
-            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
-                                                      f_prev2,h_int)
+            if (Fmdm(1:3).ne."vac") call prop_medium(i,c_prev,f_prev,h_int)
             call add_int_vac(f_prev,h_int)
 ! SC field
-            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+            if (Frad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-
 ! Dissipation by a continuous stochastic propagation
-            call rnd_noise(w,w_prev,n_ci,first,tdis)
-            call add_h_rnd(h_rnd,n_ci,w,w_prev,tdis)
-            if (tdis.eq.0) then
+            call rnd_noise(w,w_prev,n_ci,first)
+            call add_h_rnd(h_rnd,n_ci,w,w_prev)
+            if (Fdis(5:9).eq."EuMar") then
             ! Euler-Maruyama 
-              c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
-            elseif (tdis.eq.1) then
-              c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt*matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)*matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
+              c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt* &
+                matmul(h_dis,c_prev)-ui*sqrt(dt)*matmul(h_rnd,c_prev)- &
+                dt*matmul(h_rnd2,c_prev)
+            elseif (Fdis(5:9).eq."LeiMa") then
+              c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))-dt* &
+                matmul(h_dis,c_prev)-ui*0.5d0*sqrt(dt)* &
+                matmul(h_rnd,c_prev)-dt*matmul(h_rnd2,c_prev)
             endif
             !c=c/sqrt(dot_product(c,c))
             c_prev=c
-            
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
             if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
-         
           enddo
-
-       elseif (.not.dis) then
+       elseif (Fdis.eq."nodis".or.Fdis.eq."ernd") then
 ! No dissipation in the propagation -> .not.dis
           do i=3,n_step
             f_prev2=f(:,i-2)
             f_prev=f(:,i-1)
             h_int=zero 
-            if (mdm.ne."vac") call prop_mdm(i,c_prev,c_prev2,f_prev, & 
-                                                      f_prev2,h_int)
+            if (Fmdm(1:3).ne."vac") call prop_medium(i,c_prev,f_prev,h_int)
             call add_int_vac(f_prev,h_int)
 ! SC field
-            if (rad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
+            if (Frad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-
             c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
-            if (ernd) then
+            if (Fdis.eq."ernd") then
                do j=1,n_ci
                   c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
                enddo
@@ -236,30 +252,35 @@
             c=c/sqrt(dot_product(c,c))
             c_prev2=c_prev
             c_prev=c
-        
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
             if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
-         
           enddo
        endif 
 
 ! DEALLOCATION AND CLOSING
        deallocate (c,c_prev,c_prev2,h_int)
-       if (dis) then
+!       if (dis) then
+       if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
           call deallocate_dis()
           deallocate(h_dis)
-          if (.not.qjump) then
+          !if (.not.qjump) then
+          if (Fdis(5:9).ne."qjump") then
              deallocate(h_rnd)
              deallocate(h_rnd2)
              deallocate(w)
              deallocate(w_prev)
           endif 
-          if (qjump) then
+!          if (qjump) then
+          if (Fdis(5:9).eq."qjump") then
              write(*,*)
-             write(*,*) 'Total number of quantum jumps', i_sp+i_nr+i_de, '(',  real(i_sp+i_nr+i_de)/real(n_step),')'
-             write(*,*) 'Spontaneous emission quantum jumps', i_sp,'(',  real(i_sp)/real(n_step),')'
-             write(*,*) 'Nonradiarive relaxation quantum jumps', i_nr,'(', real(i_nr)/real(n_step),')'
-             write(*,*) 'Dephasing relaxation quantum jumps', i_de, '(', real(i_de)/real(n_step),')'
+             write(*,*) 'Total number of quantum jumps',i_sp+i_nr+i_de,&
+                        '(',  real(i_sp+i_nr+i_de)/real(n_step),')'
+             write(*,*) 'Spontaneous emission quantum jumps', i_sp,    &
+                        '(',  real(i_sp)/real(n_step),')'
+             write(*,*) 'Nonradiarive relaxation quantum jumps', i_nr, &
+                        '(', real(i_nr)/real(n_step),')'
+             write(*,*) 'Dephasing relaxation quantum jumps', i_de,    &
+                        '(', real(i_de)/real(n_step),')'
              write(*,*)
           endif
        endif
@@ -267,16 +288,14 @@
        close (file_e)
        close (file_mu)
        close (file_p)
-       if(mdm.ne.'vac') then 
-         call  end_mdm
-       endif
+       if(Fmdm(1:3).ne.'vac') call finalize_medium
        return
-      end subroutine
+      end subroutine prop
 !
       subroutine create_field
        implicit none
-       integer(4) :: i,i_max
-       real(8) :: t_a,ti,tf
+       integer(i4b) :: i,i_max
+       real(dbl) :: t_a,ti,tf,arg
        character(15) :: name_f
        allocate (f(3,n_step))
        write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
@@ -284,6 +303,7 @@
         f(:,:)=0.d0
         select case (Ffld)
         case ("mdg")
+        ! Gaussian modulated sinusoid: exp(-(t-t0)^2/s^2) * sin(wt) 
          select case (npulse)
           case (1)
            do i=1,n_step 
@@ -305,96 +325,109 @@
            enddo
          end select 
         case ("mds")
+        ! Cosine^2 modulated sinusoid: 1/2* cos^2(pi(t-t0)/(2t0)) * sin(wt) 
+        !          f=0 for t>t0
          i_max=int(t_mid/dt)
          do i=1,2*i_max
-          t_a=dt*(i-1)
-          f(:,i)=fmax*cos(pi*(t_a-t_mid)/(2*t_mid))**2/2.d0* &
+          t_a=dt*(dble(i)-1)
+          f(:,i)=fmax(:)*cos(pi*(t_a-t_mid)/(2*t_mid))**2/2.d0* &
                  sin(omega*t_a)
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
          do i=2*i_max+1,n_step
           t_a=dt*(i-1)
           f(:,i)=0.
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("pip")
+        ! Pi pulse: cos^2(pi(t-t0)/(2s)) * cos(w(t-t0)) 
          i_max=int(t_mid/dt)
          do i=1,n_step
-          t_a=dt*(i-1)
+          t_a=dt*(dble(i)-1)
           f(:,i)=0.
           if (abs(t_a-t_mid).lt.sigma) then
             f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(2*sigma)))**2* &
                cos(omega*(t_a-t_mid))
           endif
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("sin")
+        ! Sinusoid:  sin(wt) 
          do i=1,n_step
-          t_a=dt*(i-1)
+          t_a=dt*(dble(i)-1)
           f(:,i)=fmax(:)*sin(omega*t_a)
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("snd")
+        ! Linearly modulated (up to t0) Sinusoid:
+        !         0 < t < t0 : t/to* sin(wt) 
+        !             t > t0 :       sin(wt) 
          do i=1,n_step
-          t_a=dt*(i-1)
+          t_a=dt*(dble(i)-1)
           if (t_a.gt.t_mid) then
             f(:,i)=fmax(:)*sin(omega*t_a)
           else
-            if (t_a.gt.0.d0) f(:,i)=fmax(:)*t_a/t_mid*sin(omega*t_a)
+            if (t_a.gt.zero) f(:,i)=fmax(:)*t_a/t_mid*sin(omega*t_a)
           endif            
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case ("gau")
+        ! Gaussian pulse: exp(-(t-t0)^2/s^2) 
           select case (npulse)
           case (1)
            do i=1,n_step
               t_a=dt*(i-1)
-              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+              f(:,i)=fmax(:)*exp(-pt5*(t_a-t_mid)**2/(sigma**2))
               if (mod(i,n_out).eq.0) &
                 write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
            enddo
           case(2)
            do i=1,n_step
               t_a=dt*(i-1)
-              f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
-              f(:,i)=f(:,i)+fmax(:)*exp(-(t_a-(t_mid+tdelay))**2/(sigma**2))
+              f(:,i)=fmax(:)*exp(-pt5*(t_a-t_mid)**2/(sigma**2))
+              f(:,i)=f(:,i)+fmax(:)*exp(-pt5*(t_a-(t_mid+tdelay))**2/(sigma**2))
               if (mod(i,n_out).eq.0) &
                 write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
            enddo
           end select
+! SP 270817: the following (commented) is probably needed for spectra  
+         !do i=1,n_step
+         ! t_a=dt*(dble(i)-1)
+         ! arg=-pt5*(t_a-t_mid)**2/(sigma**2)
+         ! if(arg.lt.-50.d0) then 
+         !   f(:,i)=zero
+         ! else
+         !   f(:,i)=fmax(:)*exp(arg)
+         ! endif
+         !enddo
         case ("css")
+        ! Cos^2 pulse (only half a period): cos^2(pi*(t-t0)/(s)) 
          ti=t_mid-sigma/two
          tf=t_mid+sigma/two
          do i=1,n_step
-          t_a=dt*(i-1)
+          t_a=dt*(dble(i)-1)
           f(:,i)=zero
           if (t_a.gt.ti.and.t_a.le.tf) then
             f(:,i)=fmax(:)*(cos(pi*(t_a-t_mid)/(sigma)))**2
           endif
-          if (mod(i,n_out).eq.0) &
-            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
          enddo
         case default
          write(*,*)  "Error: wrong field type !"
          stop
         end select
+        ! write out field 
+        do i=1,n_step
+         t_a=dt*(i-1)
+         if (mod(i,n_out).eq.0) &
+           write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+        enddo
         close(7)
        return
-      end subroutine
+      end subroutine create_field
 !
       subroutine do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
        implicit none
-       double complex, intent(IN) :: c(n_ci)
-       real(8)::mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
+       complex(cmp), intent(IN) :: c(n_ci)
+       real(dbl)::mu_prev(3),mu_prev2(3),mu_prev3(3),mu_prev4(3), &
                 mu_prev5(3)
-       mu_a(1)=dot_product(c,matmul(mut(:,:,1),c))
-       mu_a(2)=dot_product(c,matmul(mut(:,:,2),c))
-       mu_a(3)=dot_product(c,matmul(mut(:,:,3),c))
+       mu_a(1)=dot_product(c,matmul(mut(1,:,:),c))
+       mu_a(2)=dot_product(c,matmul(mut(2,:,:),c))
+       mu_a(3)=dot_product(c,matmul(mut(3,:,:),c))
 ! SC save previous mu for radiative damping
        mu_prev5=mu_prev4
        mu_prev4=mu_prev3
@@ -402,27 +435,27 @@
        mu_prev2=mu_prev
        mu_prev=mu_a
       return
-      end subroutine
+      end subroutine do_mu
 
       subroutine output(i,c,f_prev,h_int)     
        implicit none
-       integer(4), intent(IN) :: i
-       double complex, intent(IN) :: c(n_ci)
-       real(8), intent(IN) :: h_int(n_ci,n_ci)
-       real(8), intent(IN) :: f_prev(3)
-       real(8) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
-       real(8) :: ctmp(n_ci)
+       integer(i4b), intent(IN) :: i
+       complex(cmp), intent(IN) :: c(n_ci)
+       real(dbl), intent(IN) :: h_int(n_ci,n_ci)
+       real(dbl), intent(IN) :: f_prev(3)
+       real(dbl) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
+       real(dbl) :: ctmp(n_ci)
        character(20) :: fmt_ci,fmt_ci1,fmt_ci2
-       integer(4)    :: itmp,j
+       integer(i4b)    :: itmp,j
         t=(i-1)*dt 
         e_a=dot_product(c,e_ci*c+matmul(h_int,c))
 ! SC 07/02/16: added printing of g_neq, g_eq 
-        if(mdm.ne.'vac') then 
+        if(Fmdm(1:3).ne.'vac') then 
          g_eq_t=e_a
          g_neq_t=e_a
          g_neq2_t=e_a
          e_vac=e_a
-         call get_gneq(e_vac,g_eq_t,g_neq_t,g_neq2_t)
+         call get_energies(e_vac,g_eq_t,g_neq_t,g_neq2_t)
          write (file_e,'(i8,f14.4,7e20.8)') i,t,e_a,e_vac, &
                    g_eq_t,g_neq2_t,g_neq_t,int_rad,int_rad_int
         else
@@ -438,34 +471,37 @@
         enddo
         write (file_c,fmt_ci) i,t,ctmp(:)
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
+! SP 10/07/17: commented the following, strange error 
         call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,fmt_ci2,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)
-        Sdip(i,:,1)=mu_a(:)
-        !Sfld(i,:)=f(:,i-1)
-        ! SP 25/10/16: changed for FT
-        Sfld(i,:)=f(:,i)
+        j=int(dble(i)/dble(n_out))
+        if(j.lt.1) j=1
+        Sdip(:,1,j)=mu_a(:)
+! SP 270817: using get_* functions to communicate with TDPlas
+        if(Fmdm(1:3).ne."vac") call get_medium_dip(Sdip(:,2,j))
+        Sfld(:,j)=f(:,i)
        return
-      end subroutine
+      end subroutine output
 !
       subroutine add_int_vac(f_prev,h_int)
        implicit none
-       real(8), intent(IN) :: f_prev(3)
-       real(8), intent(INOUT) :: h_int(n_ci,n_ci)
+       real(dbl), intent(IN) :: f_prev(3)
+       real(dbl), intent(INOUT) :: h_int(n_ci,n_ci)
        ! create the field term of the hamiltonian
 ! SC 16/02/2016: changed to - sign, 
-       h_int(:,:)=h_int(:,:)-mut(:,:,1)*f_prev(1)-             &
-                   mut(:,:,2)*f_prev(2)-mut(:,:,3)*f_prev(3)
+       h_int(:,:)=h_int(:,:)-mut(1,:,:)*f_prev(1)-             &
+                   mut(2,:,:)*f_prev(2)-mut(3,:,:)*f_prev(3)
       return
-      end subroutine
+      end subroutine add_int_vac
 !
       subroutine add_int_rad(mu_prev,mu_prev2,mu_prev3,mu_prev4, &
                                                    mu_prev5,h_int)
 ! SC calculate the Aharonov Lorentz radiative damping
        implicit none
-       real(8),intent(in) :: mu_prev(3),mu_prev2(3),mu_prev3(3), &
+       real(dbl),intent(in) :: mu_prev(3),mu_prev2(3),mu_prev3(3), &
                  mu_prev4(3), mu_prev5(3)
-       real(8), intent(INOUT) :: h_int(n_ci,n_ci)
-       real(8) :: d3_mu(3),d2_mu(3),d_mu(3),d2_mod_mu,coeff,scoeff, &
+       real(dbl), intent(INOUT) :: h_int(n_ci,n_ci)
+       real(dbl) :: d3_mu(3),d2_mu(3),d_mu(3),d2_mod_mu,coeff,scoeff, &
                   force(3),de
 !       d3_mu=(mu_prev-3.*mu_prev2+3.*mu_prev3-mu_prev4)/(dt*dt*dt)
        d3_mu=(2.5*mu_prev-9.*mu_prev2+12.*mu_prev3-7.*mu_prev4+ &
@@ -496,10 +532,10 @@
 !       int_rad=coeff*d2_mod_mu*d2_mod_mu
        int_rad=coeff*dot_product(d2_mu,d2_mu)+de/dt
        int_rad_int=int_rad_int+int_rad*dt
-       h_int(:,:)=h_int(:,:)-mut(:,:,1)*d3_mu(1)-             &
-                   mut(:,:,2)*d3_mu(2)-mut(:,:,3)*d3_mu(3)
+       h_int(:,:)=h_int(:,:)-mut(1,:,:)*d3_mu(1)-             &
+                   mut(2,:,:)*d3_mu(2)-mut(3,:,:)*d3_mu(3)
        return
-      end subroutine
+      end subroutine add_int_rad
 !
       subroutine out_header
 ! SC write headers to output files, to be completed!
@@ -507,8 +543,10 @@
       write(file_e,'(8a)') '#   istep time',' <H(t)>-E_gs(0)', &
               ' DE_vac(t)',' DG_eq(t)',' DG_neq(t)',  '  Const', &
               '  Rad. Int', '  Rad. Ene'   
+      write(file_mu,'(5a)') '#   istep time',' dipole-x ', &
+              ' dipole-y ',' dipole-z '
       return
-      end subroutine
+      end subroutine out_header
 !
       subroutine wrt_decoherence(i,t,int1,int2,int3,char20,char1_20,c,nci)
 !------------------------------------------------------------------------
@@ -521,17 +559,17 @@
   
         implicit none
 
-        integer(4),    intent(in)    :: i, nci
-        integer(4),    intent(in)    :: int1, int2, int3
+        integer(i4b),    intent(in)    :: i, nci
+        integer(i4b),    intent(in)    :: int1, int2, int3
         character(20), intent(in)    :: char20, char1_20 
-        real(8),       intent(in)    :: t
-        double complex,   intent(in)    :: c(nci)
-        double complex                  :: cc(nci,nci)
-        integer(4)                   :: j, k
-        double complex                  :: tmp
-        real(8)                      :: r(nci,nci)
-        real(8)                      :: p(nci,nci)
-        real(8)                      :: rtmp, itmp
+        real(dbl),       intent(in)    :: t
+        complex(cmp),   intent(in)    :: c(nci)
+        complex(cmp)                  :: cc(nci,nci)
+        integer(i4b)                   :: j, k
+        complex(cmp)                  :: tmp
+        real(dbl)                      :: r(nci,nci)
+        real(dbl)                      :: p(nci,nci)
+        real(dbl)                      :: rtmp, itmp
 
         tmp=cmplx(0.d0,0.d0)
         r=0.d0

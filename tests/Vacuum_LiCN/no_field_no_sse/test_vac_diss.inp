@@ -4,11 +4,11 @@ mol_cc=
 0.0
 0.0
 0.0
-n_f=NN
+n_f=1 
 medium='vac'
 / 
 
-&field dt=0.05,n_step=100000,n_out=2,Ffld='gau',omega=0.2420,sigma=1000,
+&field dt=0.05,n_step=100000,n_out=2,Ffld='gau',omega=0.2420,sigma=707.106781187,
        t_mid=2500,radiative='non',iseed=123456789
 fmax=
 0.0

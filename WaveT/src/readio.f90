@@ -1,93 +1,87 @@
       module readio
+      use constants       
       implicit none
       save
 !
-      INTEGER, PARAMETER :: dbl = selected_real_kind(14,200)
-      INTEGER, PARAMETER :: sgl = selected_real_kind(6,30)
-      INTEGER, PARAMETER :: i4b = selected_int_kind(9)
-      INTEGER, PARAMETER :: cmp = dbl
-      ! constants, conversion factors, and number literals
-      real(8), parameter :: pi=3.141592653589793D+00
-      real(8), parameter :: ev_to_au=0.0367493
-      real(8), parameter :: debye_to_au=0.393456
-      real(dbl), parameter :: TOANGS=0.52917724924D+00
-      real(dbl), parameter :: ANTOAU=1.0D+00/TOANGS
-      real(dbl), parameter :: c=1.37036d2
-      real(8), parameter :: slight=137.d0
-      real(dbl), parameter :: zero=0.d0
-      real(dbl), parameter :: one=1.d0
-      real(dbl), parameter :: two=2.d0
-      real(dbl), parameter :: twp=two*pi
-      real(dbl), parameter :: pt5=0.5d0
-      integer(i4b), parameter :: one_i=1
-      double complex, parameter :: zeroc=(zero,zero)
-      double complex, parameter :: onec=(one,zero)                
-      double complex, parameter :: twoc=(two,zero)                
-      double complex, parameter :: ui=(zero,one)
-      integer(4) :: n_f,n_ci,n_ci_read,n_step,n_out,tdis !tdis=0 Euler, tdis=1 Matthews
-      integer(4) :: imar !imar=0 Markvian, imar=1, nonMarkovian
-      integer(4) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
-      integer(4) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
-      integer(4) :: nr_typ !type of decay for the internal conversion
-      integer(4) :: idep !choose the dephasing operator
-      integer(4) :: npulse !number of pulses
-      real(8), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
-      real(8), allocatable :: mut(:,:,:) !transition dipoles from cis
-      real(8), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
-      real(8), allocatable :: sp_gam(:) !decay rate for spontaneous emission  
-      real(8), allocatable :: sp_fact(:) !multiplicative factor for the decay rate for spontaneous emission
-      real(8), allocatable :: tmom2_0i(:) !square transition moments i->0
-      real(8), allocatable :: delta(:) !phases randomly added during the propagation 
-      real(8), allocatable :: de_gam1(:) !combined decay rates for idep=1
-      real(8), allocatable :: mut_np2(:,:) !squared dipole from NP
-      real(8) :: dt,tau(2),start, krnd
-      real(8) :: tdelay, pshift  ! time delay and phase shift with two pulses
-      real(8) :: omega1, sigma1  ! for the second pulse
-      logical :: dis !turns on the dissipation
-      logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
-      logical :: ernd=.false. !add normal number to E: E -> E + krnd*rnd()
+      integer(i4b) :: n_f,n_ci,n_ci_read,n_step,n_out 
+      !integer(i4b) :: imar !imar=0 Markvian, imar=1, nonMarkovian
+      integer(i4b) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
+      integer(i4b) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
+! SP 17/07/17: Changed to char flags
+      integer(i4b) :: nr_typ !input integer for type of decay for the internal conversion
+      integer(i4b) :: idep   !input integer for the dephasing operator
+      integer(i4b) :: tdis   !input integer for Euler tdis=0, Matthews tdis=1 
+      character(flg) :: Fdis_rel  !< Flag for decay for internal conversion, relaxation via dipole "dip" or matrix "mat"
+      character(flg) :: Fdis_deph !< Flag for dephasing operator: exp(i delta_i)|i><i| "exp" or |i><i|-|0><0| "i-0"
+! SP270917: added for merging to newer master
+      integer(i4b) :: npulse !number of pulses
+      real(dbl), allocatable :: mut_np2(:,:) !squared dipole from NP
+      real(dbl) :: tdelay, pshift  ! time delay and phase shift with two pulses
+      real(dbl) :: omega1, sigma1  ! for the second pulse
+!
+      real(dbl), allocatable :: c_i(:),e_ci(:)  ! coeff and energy from cis
+      real(dbl), allocatable :: mut(:,:,:) !transition dipoles from cis
+      real(dbl), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
+      real(dbl), allocatable :: sp_gam(:) !decay rate for spontaneous emission  
+      real(dbl), allocatable :: sp_fact(:) !multiplicative factor for the decay rate for spontaneous emission
+      real(dbl), allocatable :: tmom2_0i(:) !square transition moments i->0
+      real(dbl), allocatable :: delta(:) !phases randomly added during the propagation 
+      real(dbl), allocatable :: de_gam1(:) !combined decay rates for idep=1
+      real(dbl) :: dt,tau(2),start, krnd
+! SP 17/07/17: Changed to char flags
+      !logical :: dis !turns on the dissipation
+      !logical :: qjump ! =.true. quantum jump, =.false. stochastic propagation
+      !logical :: ernd=.false. !add normal number to E: E -> E + krnd*rnd()
+! Global flags         
+      character(flg) :: Fdis !< Flag for dissipation type: 
+                             !! Markovian     : quantum jumps "mar-qjump", Euler-Maruyama "mar-EuMar", Leimkuhler-Matthews "mar-LeiMa"
+                             !! Non-Markovian : quantum jumps "nma-qjump", Continuous stochastic propagator "nma-cstoc"
+                             !! Random        : random energy term "ernd" 
       ! qjump works for the Markovian case
       ! Stochastic propagation from:
       ! Appl. Math. Res. Express vol. 2013 34-56 (2013)
       ! IMA J. Numer. Anal. vol. 36 13-79 (2016)
-! SP 28/10/16: improved with a vector
-!      integer(4) :: dir_ft
-      real(8) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
-      character(3) :: mdm,Ffld,rad,pulse 
-      character(3) :: medium,radiative,dissipative
-      character(5) :: dis_prop
-      integer(4) :: iseed  !seed for random number generator
-      integer(4) :: nexc !number of excited states
-      integer(4) :: i,nspectra
+      real(dbl) :: t_mid,sigma,dir_ft(3),fmax(3),omega,mol_cc(3)
+      character(flg) :: Ffld !< Field type 
+      character(flg) :: Fmdm !< Flag for medium type, this will be defined in readio_medium after separation
+      character(flg) :: Frad !< Flag for radiative damping 
+!      character(flg) :: Fpulse !< Flag for pulse             
+! Flags read from input file
+      character(flg) :: medium,radiative,dissipative,pulse
+      character(flg) :: dis_prop
+      integer(i4b) :: iseed  !seed for random number generator
+      integer(i4b) :: nexc !number of excited states
+      integer(i4b) :: i,nspectra
 ! kind of surrounding medium and shape of the impulse
-!     mdm=sol: solvent
-!     mdm=nan: nanoparticle
-!     mdm=vac: no medium
+!     Fmdm=sol: solvent
+!     Fmdm=nan: nanoparticle
+!     Fmdm=vac: no medium
 !
 !     Ffld=gau: gaussian impulse
 !SC
-!     rad: wheter or not to apply radiative damping
+!     Frad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
-      real(8) :: eps_A,eps_gm,eps_w0,f_vel
+      real(dbl) :: eps_A,eps_gm,eps_w0,f_vel
 
       
       private
-      public read_input,n_ci,n_ci_read,n_step,dt, &
-             Ffld,t_mid,sigma,omega,fmax, & 
-             mdm,mol_cc,tau,start,c_i,e_ci,mut,ui,pi,zero,one,two,twp,&
-             one_i,onec,twoc,pt5,rad,n_out,iseed,n_f,dir_ft, &
-             dis,tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
-             deallocate_dis,qjump,i_sp,i_nr,i_de,nrnd,sp_fact,nr_typ, &
-             idep,imar,de_gam1,krnd,ernd,dbl,sgl,i4b,cmp,zeroc &
-             npulse,omega1,sigma1,tdelay, pshift &
+      public read_input,n_ci,n_ci_read,n_step,dt,           &
+             Ffld,t_mid,sigma,omega,fmax,                   & 
+             Fmdm,mol_cc,tau,start,c_i,e_ci,mut,            &
+             Frad,n_out,iseed,n_f,dir_ft,                   &
+! SP 17/07/17: Changed to char flags
+             tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
+             deallocate_dis,i_sp,i_nr,i_de,nrnd,sp_fact,    &
+!             nr_typ,idep,imar,de_gam1,krnd,ernd       
+             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,          &
+             npulse,omega1,sigma1,tdelay,pshift 
+             
 !
       contains
 !
       subroutine read_input
-      
 
-
-       !integer(4):: i,nspectra
+       !integer(i4b):: i,nspectra
        !character(3) :: medium,radiative,dissipative
        !character(5) :: dis_prop 
      
@@ -145,14 +139,14 @@
        call init_nml_sse() 
        read(*,nml=sse) 
        call write_nml_sse()
-       if (dis) call read_dis_params   
+       if (Fdis(1:5).ne."nodis") call read_dis_params   
 
        return
-      end subroutine read_input
+      end subroutine
 !
 !
       subroutine read_gau_out
-       integer(4) :: i,j
+       integer(i4b) :: i,j
        character(4) :: junk
 !    read ci energy
        open(7,file="ci_energy.inp",status="old")
@@ -171,17 +165,15 @@
        close(7)
 !    read transition dipoles (also for pcm: useful for analysis)
        open(7,file="ci_mut.inp",status="old")
-! SC 16/02/2016: for efficiency reasons, it would be better
-!   to define mut(3,n_ci,n_ci)
-       allocate (mut(n_ci,n_ci,3))
+       allocate (mut(3,n_ci,n_ci))
 ! SC 31/05/2016: now the GS data from gaussian is in debye and same format as others
-!       read(7,*) junk,mut(1,1,1),mut(1,1,2),mut(1,1,3)
-!       mut(1,1,:)=mut(1,1,:)*debye_to_au
+!       read(7,*) junk,mut(1,1,1),mut(2,1,1),mut(3,1,1)
+!       mut(:,1,1)=mut(:,1,1)*debye_to_au
        do i=1,n_ci_read
-!         read(7,*) junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
+!         read(7,*) junk,mut(1,1,i),mut(2,1,i),mut(3,1,i)
         if (i.le.n_ci) then
-         read(7,*)junk,junk,junk,junk,mut(1,i,1),mut(1,i,2),mut(1,i,3)
-         mut(i,1,:)=mut(1,i,:)
+         read(7,*)junk,junk,junk,junk,mut(1,1,i),mut(2,1,i),mut(3,1,i)
+         mut(:,i,1)=mut(:,1,i)
         else
          read(7,*)
         endif
@@ -189,8 +181,8 @@
        do i=2,n_ci_read
          do j=2,i   
           if (i.le.n_ci.and.j.le.n_ci) then
-           read(7,*)junk,junk,junk,junk,mut(i,j,1),mut(i,j,2),mut(i,j,3)
-           mut(j,i,:)=mut(i,j,:)
+           read(7,*)junk,junk,junk,junk,mut(1,i,j),mut(2,i,j),mut(3,i,j)
+           mut(:,j,i)=mut(:,i,j)
           else
            read(7,*)
           endif
@@ -199,7 +191,7 @@
 !       write(6,*) "mut"
 !       do i=1,n_ci
 !        do j=1,n_ci
-!         write(6,'(2i4,3f8.4)') i,j,mut(i,j,:)
+!         write(6,'(2i4,3f8.4)') i,j,mut(:,i,j)
 !        enddo
 !       enddo
        close(7)
@@ -212,7 +204,7 @@
        c_i=c_i/sqrt(dot_product(c_i,c_i))
        close(7)
        return
-      end subroutine read_gau_out
+      end subroutine
 !
       subroutine read_dis_params()
 !------------------------------------------------------------------------
@@ -225,11 +217,11 @@
 !------------------------------------------------------------------------
      
        implicit none
-       integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
-       real(8)  :: term   
-       real(8)  :: rdum
-       real(8)   :: rx,ry,rz
-       real(8)   :: ix,iy,iz
+        integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
+        real(dbl)  :: term   
+        real(dbl)  :: rdum
+        real(dbl)   :: rx,ry,rz
+        real(dbl)   :: ix,iy,iz
 
        open(8,file='nr_rate.inp',status="old",iostat=ierr0,err=100)
        open(9,file='de_rate.inp',status="old",iostat=ierr1,err=101)
@@ -283,9 +275,9 @@
 
 ! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  
        do i=1,nexc 
-          tmom2_0i(i) = mut(1,i+1,1)**2 + mut(1,i+1,2)**2 + mut(1,i+1,3)**2
+          tmom2_0i(i) = mut(1,1,i+1)**2 + mut(2,1,i+1)**2 + mut(3,1,i+1)**2
        enddo
-       if (mdm.eq.'nan') then
+       if (Fmdm.eq.'nan') then
           open(7,file="ci_mut_np.inp",status="old",iostat=ierr4,err=104)
           allocate(mut_np2(nexc,3))
           do i=1,nexc
@@ -299,7 +291,8 @@
             tmom2_0i(i) = tmom2_0i(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
          enddo
 
-         write(*,*)'Contribution to the transition dipole <0|mu|i> from NP'
+         write(*,*)"Contribution to the transition dipole <0|mu|i> ", &
+                   "from NP"
 
 104      if (ierr4.ne.0) then
            write(*,*)
@@ -309,7 +302,6 @@
            stop
          endif
        endif
-
 ! Read phase randomly added during the propagation
        if (idep.eq.0) then
           do i=1,nexc+1
@@ -373,7 +365,7 @@
        deallocate(sp_fact)
        deallocate(tmom2_0i)
        if (idep.eq.0) deallocate(delta)
-        if (dis.and.mdm.eq.'nan') deallocate(mut_np2)
+       if (Fdis.ne."nodis".and.Fmdm.eq.'nan') deallocate(mut_np2)
 
        return
 
@@ -393,8 +385,8 @@
        implicit none
        integer                :: i
        integer, intent(in)    :: nci
-       real(8), intent(in)    :: de_gam(nci-1)
-       real(8), intent(inout) :: de_gam1(nci)
+       real(dbl), intent(in)    :: de_gam(nci-1)
+       real(dbl), intent(inout) :: de_gam1(nci)
 
        de_gam1(1) = 0.d0
        do i=1,nexc
@@ -541,13 +533,19 @@
        select case (medium)
         case ('sol','Sol','SOL')
           write(*,*) "Solvent as external medium"
-          mdm='sol'
+          Fmdm='Csol'
+        case ('qso','Qso','QSO')
+          write(*,*) "Quantum Solvent as external medium"
+          Fmdm='Csol'
         case ('nan','Nan','NAN')
           write(*,*) "Nanoparticle as external medium"
-          mdm='nan'
+          Fmdm='Cnan'
+        case ('Qna','qna','QNA')
+          write(*,*) "Quantum Nanoparticle as external medium"
+          Fmdm='Qnan'
         case default
           write(*,*) "No external medium, vacuum calculation"
-          mdm='vac'
+          Fmdm='vac'
        end select
        write(*,*) ''
 
@@ -574,9 +572,9 @@
        !SC
        select case (radiative)
         case ('rad','Rad','RAD')
-         rad='arl'
+         Frad='arl'
         case default
-         rad='non'
+         Frad='non'
        end select
        select case (pulse)
         case ('one', 'ONE', 'One')
@@ -593,7 +591,6 @@
           npulse=1
        end select
        write(*,*) ''
-
 
        return
 
@@ -630,55 +627,66 @@
 
        select case (dissipative)
         case ('mar', 'Mar', 'MAR')
-          dis=.true.
-          imar=0
+          !dis=.true.
+          !imar=0
           select case (idep)
            case (0)
+            Fdis_deph="exp"
             write(*,*) 'Use sqrt(gamma_i) exp(i delta_i)|i><i|(i=0,nci)'
            case (1)
+            Fdis_deph="i-0"
             write(*,*) 'Use sqrt(gamma_i) (|i><i|-|0><0|)'
           end select
           write(*,*) 'Markovian dissipation'
           select case (dis_prop)
            case ('qjump', 'Qjump', 'QJump')
-             qjump=.true.
+             !qjump=.true. 
+             Fdis="mar-qjump"
              write(*,*) 'Quantum jump algorithm'
            case ('Euler', 'EUler', 'EULER', 'euler')
-             qjump=.false.
+             !qjump=.false.
              write(*,*) 'Continuous stochastic propagator'
              write(*,*) 'Time step for the Brownian motion is:', dt/nrnd
              select case (tdis)
               case (0)
                 write(*,*) 'Euler-Maruyama algorithm'
+                Fdis="mar-EuMar"
               case (1)
                 write(*,*) 'Leimkuhler-Matthews algorithm'
+                Fdis="mar-LeiMa"
              end select
           end select
           select case (nr_typ)
            case (0)
+            Fdis_rel="dip"
             write(*,*) 'Internal conversion relaxation via dipole'
            case (1)
+            Fdis_rel="mat"
             write(*,*) 'Internal conversion relaxation via given matrix'
           end select
         case ('nma', 'NMa', 'NMA', 'Nma')
-          dis=.true.
-          imar=1
+          !dis=.true.
+          !imar=1
           write(*,*) 'NonMarkovian dissipation'
           read(*,*) dis_prop
           select case (dis_prop)
            case ('qjump', 'Qjump', 'QJump')
-             qjump=.true.
+             !qjump=.true.
+             Fdis="nma-qjump"
              write(*,*) 'Quantum jump algorithm'
            case default
-             qjump=.false.
+             !qjump=.false.
+             Fdis="nma-cstoc"
              write(*,*) 'Continuous stochastic propagator'
           end select
         case ('rnd', 'RND', 'Rnd', 'RNd')
-          dis=.false.
-          ernd=.true.
+          !dis=.false.
+          !ernd=.true.
+          Fdis="ernd"
           write(*,*) "Normal random term added to CI energies"
         case default
-          dis=.false.
+          !dis=.false.
+          Fdis="nodis"
           write(*,*) 'No dissipation'
        end select
        write(*,*) ''

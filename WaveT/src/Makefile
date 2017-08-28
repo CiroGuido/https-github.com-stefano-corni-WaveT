@@ -1,5 +1,5 @@
-#FC = gfortran
-FC = ifort
+FC = gfortran
+#FC = ifort
 FFLAGS_XEON= -O3 -ftz -align -arch pn4 -tune pn4 -xN -tpp7
 FFLAGS_PAR= -parallel -par_threshold75 -par_report3
 FFLAGS_HYD= -O3 -ftz -align -xHost
@@ -13,21 +13,23 @@ FFLAGS_LAP= -O3 -ftz -align -xAVX -no-prec-div
 FFLAGS_GF= -O3
 LDLAGS= 
 #LDLAGS= --static --disable-shared --enable-static
-FFLAGS= $(FFLAGS_DEB)
+#FFLAGS= $(FFLAGS_DEB)
+FFLAGS= $(FFLAGS_GF_DEB)
 #LIBS = -L/usr/lib -llapack  -lblas 
 #LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
-LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
+#LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
+LIBS = -L/usr/lib -llapack  -lblas -lfftw3
 #LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group#
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
-LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
+#LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
 INC = -I/usr/include/ 
 #INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 BINPATH=../bin
 TDPLAS=../../TDPlas/src/
 
-OBJ= random.o readio.o spectra.o dissipation.o propagate.o main.o global_tdplas.o pedra_friends.o readio_medium.o BEM_medium.o QM_coupling.o scf.o td_contmed.o  
-OBJ_SPECTRA= readio.o spectra.o main_spectra.o global_tdplas.o pedra_friends.o readio_medium.o  
+OBJ= constants.o global_wavet.o global_tdplas.o random.o readio.o readio_medium.o MathTools.o BEM_medium.o QM_coupling.o scf.o td_contmed.o spectra.o dissipation.o propagate.o main.o pedra_friends.o  
+OBJ_SPECTRA= constants.o pedra_friends.o global_wavet.o global_tdplas.o readio.o readio_medium.o MathTools.o BEM_medium.o QM_coupling.o scf.o td_contmed.o spectra.o main_spectra.o 
 
 # rules
 
@@ -41,6 +43,12 @@ $(BINPATH)/WaveT.x: $(OBJ)
 
 clean:
 	rm -f *.o *.mod *.il $(BINPATH)/*.x
+
+constants.o: constants.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+global_wavet.o: global_wavet.f90
+	$(FC) $(FFLAGS) -c $< -o $@
 
 random.o: random.f90
 	$(FC) $(FFLAGS) -c $< -o $@
@@ -64,6 +72,12 @@ main.o: main.f90
 	$(FC) $(FFLAGS) $(INC) -c $< -o $@
 
 
+MathTools.o: $(TDPLAS)/MathTools.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+td_contmed.o: $(TDPLAS)/td_contmed.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
 global_tdplas.o: $(TDPLAS)/global_tdplas.f90
 	$(FC) $(FFLAGS) -c $< -o $@
 
@@ -82,24 +96,24 @@ QM_coupling.o: $(TDPLAS)/QM_coupling.f90
 scf.o: $(TDPLAS)/scf.f90
 	$(FC) $(FFLAGS) -c $< -o $@
 
-td_contmed.o: $(TDPLAS)/td_contmed.f90
-	$(FC) $(FFLAGS) -c $< -o $@
 
 # dependencies
 
 random.o: 
 
-readio.o: global_tdplas.o
+readio.o: global_wavet.o
 
-spectra.o: readio.o pedra_friends.o readio_medium.o
+global_wavet.o: td_contmed.o
+
+spectra.o: global_wavet.o readio.o pedra_friends.o readio_medium.o
 
 main_spectra.o: readio.o readio_medium.o spectra.o
 
-dissipation.o: readio.o random.o
+dissipation.o: global_wavet.o readio.o random.o
 
-propagate.o: random.o readio.o spectra.o readio_medium.o pedra_friends.o td_contmed.o
+propagate.o: global_wavet.o random.o readio.o spectra.o readio_medium.o pedra_friends.o td_contmed.o
 
-main.o: readio.o spectra.o dissipation.o propagate.o global_tdplas.o readio_medium.o QM_coupling.o  
+main.o: readio.o spectra.o dissipation.o propagate.o readio_medium.o QM_coupling.o  
 
 global_tdplas.o: 
 

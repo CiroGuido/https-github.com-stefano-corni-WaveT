@@ -18,10 +18,13 @@
       real(dbl) :: mu_tp(3),mu_tp2(3),mu_0(3)                 !< molecular dipole 
       real(dbl), allocatable :: pot_tp(:),pot_tp2(:),pot_0(:) !< molecular potential on BEM points
       real(dbl), allocatable :: potf_tp(:),potf_tp2(:)        !< Maxwell potential on BEM points
+      ! Complex potentials for ful propagation  
+      complex(cmp), allocatable :: cpot_tp(:,:),cpot_0(:,:)  !< state "potential" on BEM points $\tilde{V}_{\alpha,K}(t)$
       !SP mu_0 contains mut(:,1,1)  
-      !SP pot_0 contains vts(:,1,1) for Fint="ief" and potential of mu_0 if Fint='ons'
+      !SP pot_0 contains vts(:,1,1) for Fint(5:7)="ief" and potential of mu_0 if Fint(5:7)='ons'
 ! Interaction and medium description
-      real(dbl), allocatable :: h_mdm(:,:),h_mdm_0(:,:) !< medium contribution to the hamiltonian 
+      complex(cmp), allocatable :: h_mdm(:,:),h_mdm_0(:,:) !< medium contribution to the hamiltonian (generally complex)
+      complex(cmp), allocatable :: c_mdm(:)             !< medium contribution to the state coefficients in the ful propagation
       real(dbl), allocatable :: q_mdm(:)                !< medium total charges at current time            
       real(dbl), allocatable :: mu_mdm(:,:)             !< medium total dipole for each spheroid/cavity at current time
       real(dbl) ::  f_mdm(3)                            !< medium total field on the molecule center of charge
@@ -37,10 +40,21 @@
       ! Charges
       real(dbl), allocatable :: qr_t(:),qr_tp(:)        !< reaction BEM charges (qr) 
       real(dbl), allocatable :: dqr_t(:),dqr_tp(:)      !< reaction charge difference qr_t-qr_tp
-      real(dbl), allocatable :: fqr_t(:),fqr_tp(:)      !< force on the reaction chares (vv propagator)
+      real(dbl), allocatable :: fqr_t(:),fqr_tp(:)      !< force on the reaction charges (vv propagator)
       real(dbl), allocatable :: qx_t(:),qx_tp(:)        !< charges induced by the Maxwell field ("external" charges - qx)
       real(dbl), allocatable :: dqx_t(:),dqx_tp(:)      !< external charge difference qx_t-qx_tp
-      real(dbl), allocatable :: fqx_t(:),fqx_tp(:)      !< force on the external medium dipole (vv propagator)
+      real(dbl), allocatable :: fqx_t(:),fqx_tp(:)      !< force on the external charges (vv propagator)
+      real(dbl), allocatable :: qn_t(:),qn_tp(:)        !< random charges for ful propagation (qn)
+      real(dbl), allocatable :: dqn_t(:),dqn_tp(:)      !< random   charge difference qn_t-qn_tp
+      real(dbl), allocatable :: fqn_t(:),fqn_tp(:)      !< force on the random  charges                         
+      ! Complex charges (cq) and oscillators (co) for full propagation
+      complex(cmp), allocatable :: cqr_t(:,:),cqr_tp(:,:)   !< reaction BEM complex charges (cqr) 
+      complex(cmp), allocatable :: dcqr_t(:,:),dcqr_tp(:,:) !< reaction complex charge difference cqr_t-cqr_tp
+      complex(cmp), allocatable :: fcqr_t(:,:),fcqr_tp(:,:) !< force on the reaction complex charges (vv propagator)
+      ! Only one set of array for cherges or independent oscillators depending on Fprop(1:3)="chr" or "osc" this is probably not the best way to go but definetely the easyest to implement without doubling pieces of codes
+      !complex(cmp), allocatable :: cor_t(:,:),cor_tp(:,:)   !< reaction BEM complex oscillators (cor) 
+      !complex(cmp), allocatable :: cdor_t(:,:),cdor_tp(:,:) !< reaction complex oscillator difference cqr_t-cqr_tp
+      !complex(cmp), allocatable :: cfor_t(:,:),cfor_tp(:,:) !< force on the reaction complex oscillator (vv propagator)
       ! Fields and potentials
       real(dbl) :: fr_t(3),fr_tp(3)                     !< reaction field on the molecule centre of charge
       real(dbl) :: dfr_t(3)                             !< reaction field difference (fr_t-fr_tp) 
@@ -55,6 +69,10 @@
       real(dbl) :: qtot                                 !< total BEM charge    
       real(dbl) :: taum1                                !< onsager tau-1 for charges single-tau propagation 
       real(dbl) :: qtot0                                !< total charge at time 0                           
+      real(dbl) :: twokTm1                                !< 1/(2*k*T)                                        
+      complex(cmp), allocatable :: cq_scr(:)            !< scratch array for charges                        
+      real(dbl), allocatable :: q_scr(:)                !< scratch array for charges                        
+      real(dbl), allocatable :: v_scr(:)                !< scratch array for potentials                     
       integer(i4b) :: file_med=11                       !< medium output file number 
       save
       private
@@ -81,8 +99,8 @@
       open (file_med,file=name_f,status="unknown")
       write(file_med,*) "# step  time  dipole  field  qtot  qtot0"
       allocate(h_mdm(n_ci,n_ci),h_mdm_0(n_ci,n_ci))
-      h_mdm=zero
-      h_mdm_0=zero
+      h_mdm=zeroc
+      h_mdm_0=zeroc
       f_tp2=f_tp
       if(Fprop(1:3).eq."dip") then
 ! SC: First dipole propagation...
@@ -95,8 +113,9 @@
 ! SC 03/05/2016: create a new BEM_Q0=BEM_Qw^-1*BEM_Qf that should avoid
 !                spurious charge dynamics for stationary states
 !        call init_BEM_Q0
-        call init_potential(c_tp,f_tp)
+        call init_potentials(c_tp,f_tp)
         call init_charges(c_tp)
+        if (Fint(1:3).eq."ful") allocate(cq_scr(nts_act),q_scr(nts_act),v_scr(nts_act))
 ! SC: predifine the factors used in the VV propagator, used for
 ! Drude-Lorentz
       endif
@@ -106,6 +125,7 @@
 ! neq free energies
       g_neq1=zero
       g_neq2=zero
+      twokTm1=1/(two*temp)
       return
       end subroutine
 !     
@@ -142,7 +162,7 @@
          if(Floc.eq."loc") call do_pot_from_field(f_tp,potf_tp)
          ! Calculate the molecule potential on tesserae
 ! SP 26/06/17: changed to use general MathTools  
-         if(Fint.eq.'ons') then
+         if(Fint(5:7).eq.'ons') then
            call do_dip_from_coeff(c_tp,dip,n_ci)
            call do_pot_from_dip(dip,pot_tp)
          else 
@@ -157,14 +177,14 @@
          if((Ftest(2:3).eq."-l").or.(Fdeb.eq."off")) mu_mdm=zero
          if(Floc.eq."loc") call do_dip_from_charges(qx_t,mu_mdm(:,1),qtot)
          ! Calculate Reaction Field from charges
-         if (Fint.eq.'ons') dfr_t=-fr_t
+         if (Fint(5:7).eq.'ons') dfr_t=-fr_t
          call do_field_from_charges(qr_t,fr_t)
-         if (Fint.eq.'ons') dfr_t=dfr_t+fr_t
+         if (Fint(5:7).eq.'ons') dfr_t=dfr_t+fr_t
          ! Calculate Local Field from external charges
          if(Floc.eq."loc") call do_field_from_charges(qx_t,fx_t)
        ! SC calculate free energy:
-         if (Fint.eq.'ons') then 
-! SP 10/07/17: commented the following, with Fint=ons do_gneq should be changed
+         if (Fint(5:7).eq.'ons') then 
+! SP 10/07/17: commented the following, with Fint(5:7)=ons do_gneq should be changed
            !call do_gneq(c_tp,mut,dfr_t,fr_t,fr_0,mat_fd,3,-1)
          else
            call do_gneq(c_tp,vts,dqr_t,qr_t,q0,BEM_Qd,nts_act,1)
@@ -197,7 +217,7 @@
        call finalize_prop
        if (Fprop(1:3).eq."chr") then
          call deallocate_BEM_public    
-       elseif (Fprop(1:3).eq."dip".or.Fint.eq."ons") then
+       elseif (Fprop(1:3).eq."dip".or.Fint(5:7).eq."ons") then
          call deallocate_MPL_public    
        endif
        close (file_med)
@@ -248,26 +268,46 @@
 ! SC 19/03/2016: added a temporarty array to avoid summing the local field
 ! to ther reaction field for onsager
 ! SC 19/03/2016: moved from prop_mdm (so that h_mdm has values assined only here 
-       h_mdm(:,:)=zero
-       if (Fint.eq.'ons') then
-         f_mdm(:)=fr_t(:)
-         if(Floc.eq."loc") f_mdm(:)=f_mdm(:)+fx_t(:) 
-         h_mdm(:,:)=-h_mdm_0(:,:)-mut(1,:,:)*f_mdm(1) &
-                          -mut(2,:,:)*f_mdm(2) -mut(3,:,:)*f_mdm(3)
-       elseif(Fint.eq.'pcm') then
-         q_mdm=qr_t
-         if(Floc.eq."loc") q_mdm(:)=qr_t(:)+qx_t(:)
-! SC 31/10/2016: avoid including interaction with an unwanted net charge
-         q_mdm=q_mdm+(qtot0-sum(q_mdm))/nts_act
+       h_mdm(:,:)=zeroc
+       if(Fint(1:3).eq."scf") then
+         if (Fint(5:7).eq.'ons') then
+           f_mdm(:)=fr_t(:)
+           if(Floc.eq."loc") f_mdm(:)=f_mdm(:)+fx_t(:) 
+           h_mdm(:,:)=-h_mdm_0(:,:)-mut(1,:,:)*f_mdm(1) &
+                            -mut(2,:,:)*f_mdm(2) -mut(3,:,:)*f_mdm(3)
+         elseif(Fint(5:7).eq.'pcm') then
+           q_mdm=qr_t
+           if(Floc.eq."loc") q_mdm(:)=qr_t(:)+qx_t(:)
+           ! SC 31/10/2016: avoid including interaction with an unwanted net charge
+           q_mdm=q_mdm+(qtot0-sum(q_mdm))/nts_act
+           do j=1,n_ci   
+             do i=1,j       
+               h_mdm(i,j)=-h_mdm_0(i,j)+dot_product(q_mdm(:),vts(:,i,j))
+               h_mdm(j,i)=h_mdm(i,j)
+             enddo
+           enddo
+         else
+           write(*,*) "wrong interaction type "
+           stop
+         endif
+       elseif(Fint(1:3).eq."ful") then
+         q_scr(:)=(qn_t(:)*eps_gm*pt5+dqn_t(:)/dt)/ &
+                  (dtanh(BEM_bW(:)*twokTm1)*BEM_bW(:))
          do j=1,n_ci   
+           cq_scr(:)=(cqr_t(:,j)*eps_gm*pt5+dcqr_t(:,j)/dt)/ &
+                       (dtanh(BEM_bW(:)*twokTm1)*BEM_bW(:))
            do i=1,j       
-             h_mdm(i,j)=-h_mdm_0(i,j)+dot_product(q_mdm(:),vts(:,i,j))
+             if(Fprop(1:3).eq."chr") v_scr(:)=vts(:,i,j)
+             if(Fprop(1:3).eq."osc") v_scr(:)=ovts(:,i,j)
+             h_mdm(i,j)=-h_mdm_0(i,j)+ &
+               exp(-ui*e_ci(j)*t)*dot_product(cqr_t(:,j),v_scr(:))+&
+               exp(-ui*e_ci(j)*t)*dot_product(cq_scr(:),v_scr(:))+  &
+               dot_product(qn_t(:),v_scr(:))+                    &
+               dot_product(q_scr(:),v_scr(:))    
+             if(Floc.eq."loc") h_mdm(i,j)=h_mdm(i,j)+dot_product(qx_t(:),vts(:,i,j))
              h_mdm(j,i)=h_mdm(i,j)
            enddo
          enddo
-       else
-         write(*,*) "wrong interaction type "
-         stop
        endif
       return
       end subroutine
@@ -279,10 +319,10 @@
       ! A routine to coorect the hamiltonian matrx with the PCM initial state.
        implicit none
        integer(4) :: its,i,j 
-       if (Fint.eq.'ons') then
+       if (Fint(5:7).eq.'ons') then
          h_mdm_0(:,:)=-mut(1,:,:)*fr_0(1)-mut(2,:,:)*fr_0(2) &
                                          -mut(3,:,:)*fr_0(3)
-       elseif (Fint.eq.'pcm') then
+       elseif (Fint(5:7).eq.'pcm') then
 !SC 04/05/2016: updated to be coerent with both GS and SCF initialization
 !SC 27/09/2016: corrected bug introduced previously
          q_mdm=q0+(qtot0-sum(q0))/nts_act
@@ -309,38 +349,68 @@
 !> Initialize potentials for propagation
 !------------------------------------------------------------------------
       ! Initialize potential
-      subroutine init_potential(c_tp,f_tp)
+      subroutine init_potentials(c_tp,f_tp)
        complex(cmp), intent(IN) :: c_tp(n_ci)
        real(dbl), intent(IN) :: f_tp(3)
        complex(cmp) :: c_gs(n_ci)
-       integer(i4b) :: its  
-       allocate(pot_tp(nts_act))
+       integer(i4b) :: i,j  
        allocate(pot_0(nts_act))
+       if (Fint(1:3).eq.'scf') then                
+         allocate(pot_tp(nts_act))
+       else                 
+         allocate(cpot_tp(nts_act,n_ci),cpot_0(nts_act,n_ci))
+       endif      
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
        if (Fdeb.eq.'vmu') call do_vts_from_dip
+       if (Fprop(1:3).eq."osc") then
+         do i=1,n_ci   
+           do j=1,i      
+             ovts(:,i,j)=matmul(BEM_TSm12,vts(:,i,j))
+             ovts(:,j,i)=ovts(:,i,j)
+           enddo
+         enddo
+       endif
 ! SP 26/06/17: changed to use general MathTools  
-       if(Fint.eq.'ons') then
-         call do_dip_from_coeff(c_tp,dip,n_ci)
-         call do_pot_from_dip(dip,pot_tp)
-! SP 10/07/17: commented the following, is it really needed here? Should stay in the init_charges
-         !call do_field_from_charges(q0,fr_tp)
-       else 
-         call do_pot_from_coeff(c_tp,pot_tp)
+       if(Fint(1:3).eq."scf") then
+         if(Fint(5:7).eq.'ons') then
+           call do_dip_from_coeff(c_tp,dip,n_ci)
+           call do_pot_from_dip(dip,pot_tp)
+         else 
+           call do_pot_from_coeff(c_tp,pot_tp)
+         endif
+       else
+         if(Fint(5:7).eq.'ons') then
+           ! SP 300817: Fint=ful easy to implement of ons interaction (to be done)
+           write(6,*) "ons and full not implemented yet"
+           stop                             
+         endif
+         do i=1,nts_act
+           if(Fprop(1:3).eq."chr") call do_cpot_from_coeff(c_tp,cpot_tp(i,:),vts(i,:,:))
+           if(Fprop(1:3).eq."osc") call do_cpot_from_coeff(c_tp,cpot_tp(i,:),ovts(i,:,:))
+         enddo  
        endif
        c_gs(:)=zeroc
        c_gs(1)=onec
-! SP 26/06/17: changed to use general MathTools  
-       if(Fint.eq.'ons') then
-         call do_dip_from_coeff(c_gs,dip,n_ci)
-         call do_pot_from_dip(dip,pot_0)
-       else 
-         call do_pot_from_coeff(c_gs,pot_0)
+       if(Fint(1:3).eq."scf") then
+         if(Fint(5:7).eq.'ons') then
+           call do_dip_from_coeff(c_gs,dip,n_ci)
+           call do_pot_from_dip(dip,pot_0)
+         else 
+           call do_pot_from_coeff(c_gs,pot_0)
+         endif
+       else
+         do i=1,nts_act
+           if(Fprop(1:3).eq."chr") call do_cpot_from_coeff(c_gs,cpot_0(i,:),vts(i,:,:))
+           if(Fprop(1:3).eq."osc") call do_cpot_from_coeff(c_gs,cpot_0(i,:),ovts(i,:,:))
+         enddo  
        endif
-       ! Test for a sudden switch-on of an unpolarizable molecular dipole
-       if(Ftest.eq."s-r") pot_0=zero
-       if(Ftest.eq."s-r") pot_tp=zero
-       allocate(pot_tp2(nts_act))
-       pot_tp2=pot_tp
+       if(Fint(1:3).eq."scf") then
+         ! Test for a sudden switch-on of an unpolarizable molecular dipole
+         if(Ftest.eq."s-r") pot_0=zero
+         if(Ftest.eq."s-r") pot_tp=zero
+         allocate(pot_tp2(nts_act))
+         pot_tp2=pot_tp
+       endif
        if(Floc.eq."loc") then
          allocate(potf_tp(nts_act))
          allocate(potf_tp2(nts_act))      
@@ -358,22 +428,28 @@
       subroutine init_charges(c_tp)
        implicit none
        complex(cmp), intent(INOUT) :: c_tp(n_ci)
-       integer(i4b):: its
+       integer(i4b):: i
        real(dbl), allocatable :: qd(:)
-       allocate(qd(nts_act))
-       allocate(qr_t(nts_act))
-       allocate(q_mdm(nts_act))
-       allocate(qr_tp(nts_act))
-       allocate(dqr_t(nts_act))
+       if (Fint(1:3).eq."scf") then
+         allocate(qd(nts_act))
+         allocate(qr_t(nts_act))
+         allocate(q_mdm(nts_act))
+         allocate(qr_tp(nts_act))
+         allocate(dqr_t(nts_act))
+       else
+         allocate(cqr_t(nts_act,n_ci))
+         allocate(cqr_tp(nts_act,n_ci))
+         allocate(dcqr_t(nts_act,n_ci))
+       endif
        if (.not.allocated(q0)) allocate (q0(nts_act))
        ! init the state and the RF before propagation
-!SP 29/05/16: pot_0 replaces vts(:,1,1) to allow treating Fprop=ief and Fint=ons
+!SP 29/05/16: pot_0 replaces vts(:,1,1) to allow treating Fprop=ief and Fint(5:7)=ons
        select case(Finit_mdm)
         case ('vac') 
-          q0(:)=zero                  
+          q0=zero                  
           qtot0=zero
         case ('fro') 
-          q0(:)=matmul(BEM_Q0,pot_0)
+          q0=matmul(BEM_Q0,pot_0)
           qtot0=sum(q0)
         case ('rea') 
           call read_charges_gau
@@ -387,46 +463,59 @@
        write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
        ! see readio_medium for Finit_int
-       select case (Finit_int)
-        case ('nsc')
-
-!         g_neq_0=0.5*MPL_fd*dot_product(mu_tp,mu_tp) &
-!                -MPL_fd*dot_product(mu_tp,mu_0) &
-!                +0.5*MPL_fd*dot_product(mu_0,mu_0)
-!         g_neq_0=-g_neq_0
-
+       if(Fint(1:3).eq."scf") then
+         select case (Finit_int)
+          case ('nsc')
+           !g_neq_0=0.5*MPL_fd*dot_product(mu_tp,mu_tp) &
+           !       -MPL_fd*dot_product(mu_tp,mu_0) &
+           !       +0.5*MPL_fd*dot_product(mu_0,mu_0)
+           !g_neq_0=-g_neq_0
 ! SC in principle a non equilibrium self consistency if eps_d=1 is needed
 !    here we use the non self-consitent density but use the correct RF
-         qd=matmul(BEM_Qd,pot_0)
-         g_neq_0=0.5d0*dot_product(qd,pot_0)
-         g_neq2_0=g_neq_0
-         g_neq_0=g_neq_0-dot_product(qd,pot_tp)
-         qd=matmul(BEM_Qd,pot_tp)
-         g_neq_0=g_neq_0+0.5d0*dot_product(qd,pot_tp)
-         qr_tp=q0+matmul(BEM_Qd,(pot_tp-pot_0))
-        case ('sce')
-         qr_tp=mix_coef*matmul(BEM_Q0,pot_tp)+(1.-mix_coef)*q0
-         call do_scf(qr_tp,c_tp)
+           qd=matmul(BEM_Qd,pot_0)
+           g_neq_0=0.5d0*dot_product(qd,pot_0)
+           g_neq2_0=g_neq_0
+           g_neq_0=g_neq_0-dot_product(qd,pot_tp)
+           qd=matmul(BEM_Qd,pot_tp)
+           g_neq_0=g_neq_0+0.5d0*dot_product(qd,pot_tp)
+           qr_tp=q0+matmul(BEM_Qd,(pot_tp-pot_0))
+          case ('sce')
+           qr_tp=mix_coef*matmul(BEM_Q0,pot_tp)+(1.-mix_coef)*q0
+           call do_scf(qr_tp,c_tp)
 ! update the potential
-!         do its=1,nts_act
-!          pot_tp(its)=dot_product(c_tp,matmul(vts(its,:,:),c_tp))
-!         enddo
+!           do its=1,nts_act
+!            pot_tp(its)=dot_product(c_tp,matmul(vts(its,:,:),c_tp))
+!           enddo
 ! SP 26/06/17: changed to use general MathTools  
-         if(Fint.eq.'ons') then
-           call do_dip_from_coeff(c_tp,dip,n_ci)
-           call do_pot_from_dip(dip,pot_tp)
-         else 
-           call do_pot_from_coeff(c_tp,pot_tp)
-         endif
-         g_neq_0=0.5*dot_product(qr_tp,pot_tp)
-         qr_tp=matmul(BEM_Qd,pot_tp)
-         g_neq2_0=0.5*dot_product(qr_tp,pot_tp)
-         qr_tp=matmul(BEM_Q0,pot_tp)
-       end select
-       write(6,*) 'G_neq at t=0:',g_neq_0
-       qr_t(:)=qr_tp(:)
-       dqr_t(:)=zero  
-       if(Fint.eq."ons") call do_field_from_charges(qr_t,fr_0)
+           if(Fint(5:7).eq.'ons') then
+             call do_dip_from_coeff(c_tp,dip,n_ci)
+             call do_pot_from_dip(dip,pot_tp)
+           else 
+             call do_pot_from_coeff(c_tp,pot_tp)
+           endif
+           g_neq_0=0.5*dot_product(qr_tp,pot_tp)
+           qr_tp=matmul(BEM_Qd,pot_tp)
+           g_neq2_0=0.5*dot_product(qr_tp,pot_tp)
+           qr_tp=matmul(BEM_Q0,pot_tp)
+         end select
+         write(6,*) 'G_neq at t=0:',g_neq_0
+         qr_t(:)=qr_tp(:)
+         dqr_t(:)=zero  
+         if(Fint(5:7).eq."ons") call do_field_from_charges(qr_t,fr_0)
+       else
+         select case (Finit_int)
+          case ('nsc')
+           do i=1,n_ci
+             cqr_tp(:,i)=q0+matmul(BEM_Qd,(cpot_tp(:,i)-cpot_0(:,i)))
+           enddo
+          case ('sce')
+           do i=1,n_ci
+           cqr_tp(:,i)=matmul(BEM_Q0,cpot_tp(:,i))
+           enddo
+         end select
+         cqr_t=cqr_tp
+         dcqr_t=zeroc  
+       endif 
        if(Floc.eq."loc") then
          allocate(qx_t(nts_act))
          allocate(qx_tp(nts_act))
@@ -437,11 +526,19 @@
          dqx_t(:)=zero 
        endif
        if(Feps.eq."drl") then
-         allocate(dqr_tp(nts_act))
-         allocate(fqr_tp(nts_act))
-         allocate(fqr_t(nts_act))
-         dqr_tp(:)=zero
-         fqr_tp=zero
+         if(Fint(1:3).eq."scf") then
+           allocate(dqr_tp(nts_act))
+           allocate(fqr_tp(nts_act))
+           allocate(fqr_t(nts_act))
+           dqr_tp(:)=zero
+           fqr_tp=zero
+         else
+           allocate(dcqr_tp(nts_act,n_ci))
+           allocate(fcqr_tp(nts_act,n_ci))
+           allocate(fcqr_t(nts_act,n_ci))
+           dcqr_tp=zeroc
+           fcqr_tp=zeroc
+         endif
          if(Floc.eq."loc") then
            allocate(dqx_tp(nts_act))
            allocate(fqx_tp(nts_act))
@@ -450,7 +547,7 @@
            fqx_tp=zero
          endif
        endif
-       deallocate(qd)
+       if (allocated(qd)) deallocate(qd)
        return
       end subroutine
 !     
@@ -654,7 +751,9 @@
       integer(i4b) :: its  
       ! Molecule
       if(allocated(pot_0)) deallocate (pot_0)
+      if(allocated(cpot_0)) deallocate (cpot_0)
       if(allocated(pot_tp)) deallocate (pot_tp)
+      if(allocated(cpot_tp)) deallocate (cpot_tp)
       if(allocated(pot_tp2)) deallocate (pot_tp2)
       if(allocated(potf_tp)) deallocate (potf_tp)
       if(allocated(potf_tp2)) deallocate (potf_tp2)
@@ -682,6 +781,14 @@
       if(allocated(dqr_tp)) deallocate(dqr_tp)
       if(allocated(fqr_t)) deallocate(fqr_t)
       if(allocated(fqr_tp)) deallocate(fqr_tp)
+      if(allocated(cqr_t)) deallocate(cqr_t)
+      if(allocated(cqr_tp)) deallocate(cqr_tp)
+      if(allocated(dcqr_t)) deallocate(dcqr_t)
+      if(allocated(dcqr_tp)) deallocate(dcqr_tp)
+      if(allocated(fcqr_t)) deallocate(fcqr_t)
+      if(allocated(fcqr_tp)) deallocate(fcqr_tp)
+      if(allocated(cq_scr)) deallocate(cq_scr)
+      if(allocated(q_scr)) deallocate(q_scr)
       if(allocated(qx_t)) deallocate(qx_t)
       if(allocated(qx_tp)) deallocate(qx_tp)
       if(allocated(dqx_t)) deallocate(dqx_t)
@@ -1337,3 +1444,4 @@
 !
 !
       end module
+

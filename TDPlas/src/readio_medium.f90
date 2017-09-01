@@ -18,6 +18,7 @@
       real(dbl) :: fr_0(3)                       !< Reaction field at time 0 defined with Finit_mdm, here because used in scf
       ! Charges propagation
       real(dbl), allocatable :: vts(:,:,:)       !<transition potentials on tesserae from cis
+      real(dbl), allocatable :: ovts(:,:,:)        !< potential integrals for oscillators $V_{\alpha,KJ}$ 
       real(dbl), allocatable :: vtsn(:)          !<nuclear potential on tesserae
       real(dbl), allocatable :: q0(:)            !< Charges at time 0 defined with Finit_mdm, here because used in scf
 ! Dielectric function variables 
@@ -31,8 +32,10 @@
 ! Frequancy calculation specifica variables
       integer   :: n_omega                !< number of points of the discretized spectrum
       real(dbl) :: omega_ini,omega_end    !< initial and final value of $\omega$ for spectrum
+      real(dbl) :: temp                   !< temperature for full propagation                
 ! SP 220216: vtsn: 
       integer(i4b) :: MPL_ord             ! Order of the multipole expansion (not used for the moment)
+      integer(i4b) :: n_BEM               ! Number of BEM objects                                     
       integer(i4b), parameter :: nsmax=10 !< Maximum number of speres/spheroids to read from input
 !SP 270517:
       character(flg) :: Fint,      & !< Interaction type "ons" for -mu*F "pcm" for q*V
@@ -79,13 +82,13 @@
       public read_medium,deallocate_medium,Fint,Feps,Fprop,          &
              nsph,sph_maj,sph_min,sph_centre,sph_vrs,                &
              eps_0,eps_d,tau_deb,eps_A,eps_gm,eps_w0,f_vel,          &
-             vts,n_q,Fmdm_pol,                                       &
+             vts,ovts,n_q,Fmdm_pol,n_BEM,                            &
              MPL_ord,Fbem,Fshape,fr_0,q0,Floc,                       &
              Fdeb,vtsn,Finit_int,Fqbem,Ftest,                        &
              ncycmax,thrshld,mix_coef,                               &
              FinitBEM,Fsurf,Finit_mdm,read_medium_freq,              &
              read_medium_tdplas,n_omega,omega_ini,omega_end,         &
-             Fwrite,Fmdm_relax 
+             Fwrite,Fmdm_relax,temp
 !
       contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -100,7 +103,7 @@
                          interaction_type,propagation_type,            &
                          scf_mix_coeff,scf_max_cycles,scf_threshold,   &
                          local_field,debug_type,out_level,test_type,   &
-                         medium_relax    
+                         medium_relax,temp   
        namelist /medium/ medium_type,medium_init,medium_pol,bem_type,  &
                          bem_read_write                   
        namelist /surface/input_surface,spheres_number,spheroids_number,&
@@ -225,6 +228,8 @@
        medium_init='fro'
        MPL_ord=1 ! SP 29/06/17: multipole order (not used)
        nts_act=0 
+       ! BEM
+       n_BEM=1 ! Number of BEM objects fixed to 1 for now
       return
       end subroutine
 !     
@@ -244,6 +249,7 @@
        input_surface='fil'
        propagation_type='ief'
        local_field='loc'
+       temp=300.
        return
       end subroutine 
 !     
@@ -429,6 +435,9 @@
         case ('ief','Ief','IEF')
          write(6,*) 'Apparent charges are propagated'
          Fprop='chr-ief'
+        case ('osc-ief')
+         write(6,*) 'Apparent oscillators are propagated'
+         Fprop='osc-ief'
         case ('ied','Ied','IED')
          write(6,*) 'Apparent charges are propagated'
          Fprop='chr-ied'
@@ -466,6 +475,7 @@
            Fmdm_relax="non"
            !np_relax=.true.
        end select
+       temp=temp/3.1577464d5
       return
       end subroutine
 !     
@@ -534,16 +544,20 @@
        !   -mu*F_RF
        !   pcm: the reaction potential is used, the coupling is \int dr rho(r) V_RF(r)=sum_i q_i*V_rho(r_i)
         case ('ons','Ons','ONS')
-         Fint='ons'
+         Fint='scf-ons'
          write(*,*) 'The coupling is of Onsager type: dip \cdot Fld'
         case ('pcm','Pcm','PCM')
-         Fint='pcm'
+         Fint='scf-pcm'
          write(*,*) 'The coupling is of PCM type: pot \cdot chr'
          if (Fprop.eq.'dip') then
            write(*,*) &
            "Error: PCM incompatible with dipole/field propagation"
            stop
          endif
+        case ('bor','Bor','BOR')
+         Fint='bop-pcm'
+        case ('ful','Ful','FUL')
+         Fint='ful-pcm'
         case default
          write(*,*) "Error, specify interaction type ONS or PCM"
          stop
@@ -616,7 +630,7 @@
          select case(bem_read_write)
          case ('rea','Rea','REA')
           FinitBEM='rea'
-          if(Fprop(1:3).eq."chr") call read_gau_out_medium
+          if(Fprop(1:3).ne."dip") call read_gau_out_medium
           write(6,*) "This is full run reading matrix and boundary"
          case ('wri','Wri', 'WRI')
           FinitBEM='wri'
@@ -627,7 +641,7 @@
           stop
          end select
        endif
-       if (Fprop(1:3).eq.'chr'.or.Fprop(1:3).eq.'dip') then
+       !if (Fprop(1:3).eq.'chr'.or.Fprop(1:3).eq.'dip') then
          ! Medium initialization for propagation: how to set q0 and fr_0
          select case(medium_init)
          case ('vac','VAC','Vac') ! q0=zero, fr_0=zero
@@ -644,7 +658,7 @@
           write(6,*) "Please choose how to initialize charges/RField"
           stop
          end select
-       endif     
+       !endif     
        return
       end subroutine 
 !     
@@ -782,6 +796,7 @@
          stop
        endif
        allocate (vts(nts_act,n_ci,n_ci))
+       if(Fprop(1:3).eq."osc") allocate (ovts(nts_act,n_ci,n_ci))
        allocate (vtsn(nts_act))
        ! V00
        read(7,*) 
@@ -848,6 +863,7 @@
       subroutine deallocate_medium
        if(allocated(q0)) deallocate(q0)
        if(allocated(vts)) deallocate(vts)
+       if(allocated(ovts)) deallocate(ovts)
        if(allocated(vtsn)) deallocate(vtsn)
        if(allocated(sph_maj)) deallocate(sph_maj)
        if(allocated(sph_min)) deallocate(sph_min)

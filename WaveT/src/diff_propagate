@@ -1,0 +1,100 @@
+287,299c254,256
+<          select case (npulse)
+<           case (1)
+<            do i=1,n_step 
+<               t_a=dt*(i-1)
+<               f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+<                          sin(omega*t_a)
+<               if (mod(i,n_out).eq.0) &
+<               write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+<            enddo
+<           case (2)
+<            do i=1,n_step
+<               t_a=dt*(i-1)
+<               f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+---
+>          do i=1,n_step 
+>           t_a=dt*(i-1)
+>           f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))*   &
+301,306c258,260
+<               f(:,i)=f(:,i) + fmax(:)*exp(-(t_a-(t_mid+tdelay))**2 &
+<                      /(sigma1**2))*sin(omega1*t_a+pshift) 
+<               if (mod(i,n_out).eq.0) &
+<               write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+<            enddo
+<          end select 
+---
+>           if (mod(i,n_out).eq.0) &
+>            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+>          enddo
+353,369c307,312
+<           select case (npulse)
+<           case (1)
+<            do i=1,n_step
+<               t_a=dt*(i-1)
+<               f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+<               if (mod(i,n_out).eq.0) &
+<                 write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+<            enddo
+<           case(2)
+<            do i=1,n_step
+<               t_a=dt*(i-1)
+<               f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+<               f(:,i)=f(:,i)+fmax(:)*exp(-(t_a-(t_mid+tdelay))**2/(sigma**2))
+<               if (mod(i,n_out).eq.0) &
+<                 write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+<            enddo
+<           end select
+---
+>          do i=1,n_step
+>           t_a=dt*(i-1)
+>           f(:,i)=fmax(:)*exp(-(t_a-t_mid)**2/(sigma**2))
+>           if (mod(i,n_out).eq.0) &
+>             write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+>          enddo
+388c331
+<       end subroutine
+---
+>       end subroutine create_field
+392c335
+<        double complex, intent(IN) :: c(n_ci)
+---
+>        complex(16), intent(IN) :: c(n_ci)
+405c348
+<       end subroutine
+---
+>       end subroutine do_mu
+410c353
+<        double complex, intent(IN) :: c(n_ci)
+---
+>        complex(16), intent(IN) :: c(n_ci)
+448c391
+<       end subroutine
+---
+>       end subroutine output
+459c402
+<       end subroutine
+---
+>       end subroutine add_int_vac
+502c445
+<       end subroutine
+---
+>       end subroutine add_int_rad
+511c454
+<       end subroutine
+---
+>       end subroutine out_header
+528,529c471,472
+<         double complex,   intent(in)    :: c(nci)
+<         double complex                  :: cc(nci,nci)
+---
+>         complex(16),   intent(in)    :: c(nci)
+>         complex(16)                  :: cc(nci,nci)
+531c474
+<         double complex                  :: tmp
+---
+>         complex(16)                  :: tmp
+581c524
+<       end module
+---
+>       end module propagate

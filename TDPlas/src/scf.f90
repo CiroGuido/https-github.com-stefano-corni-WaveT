@@ -50,13 +50,13 @@
        ! scf cycle
        do while (docycle.and.ncyc.le.ncycmax) 
          ! Build the Hamiltonian
-         if(Fint.eq."ons".and.Fprop(1:3).eq."chr") then 
+         if(Fint(5:7).eq."ons".and.Fprop(1:3).eq."chr") then 
            call do_field_from_charges(q_or_f,fld)
            call do_matrix_f(fld)
          endif
-         if(Fint.eq."ons".and.Fprop(1:3).eq."dip") & 
+         if(Fint(5:7).eq."ons".and.Fprop(1:3).eq."dip") & 
                            call do_matrix_f(q_or_f)
-         if(Fint.eq."pcm") call do_matrix_q(q_or_f)
+         if(Fint(5:7).eq."pcm") call do_matrix_q(q_or_f)
          ! Diagonalize Hamiltonian                          
          eigt_c=Htot
          call diag_mat(eigt_c,eigv_c,n_ci)       

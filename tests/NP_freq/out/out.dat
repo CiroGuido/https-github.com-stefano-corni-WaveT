@@ -1,0 +1,40 @@
+&FREQ
+ FMAX=  1.0000000000000000     , 2*0.0000000000000000       ,
+ N_OMEGA=       5000,
+ OMEGA_INI=  1.0000000000000000E-002,
+ OMEGA_END= 0.34999999999999998     ,
+ DEBUG_TYPE="non       ",
+ OUT_LEVEL="low       ",
+ TEST_TYPE="non       ",
+ /
+&MEDIUM
+ MEDIUM_TYPE="nan       ",
+ MEDIUM_INIT="fro       ",
+ MEDIUM_POL="chr       ",
+ BEM_TYPE="diag      ",
+ BEM_READ_WRITE="rea       ",
+ /
+ Nanoparticle as external medium
+ Medium polarization described by apparent charges
+ Diagonal BEM furmulation
+ This is a Classical BEM run
+ This is full run reading matrix and boundary
+ Surface read from file cavity.inp
+&EPS_FUNCTION
+ EPSILON_OMEGA="drl       ",
+ EPS_0=  1000.0000000000000     ,
+ EPS_D=  1.0000000000000000     ,
+ EPS_A= 0.11022400000000000     ,
+ EPS_GM=  7.5757600000000000E-003,
+ EPS_W0=  0.0000000000000000     ,
+ F_VEL=  0.0000000000000000     ,
+ TAU_DEB=  0.0000000000000000     ,
+ /
+ Essential output written.
+Done reading input, took     0.024s
+ BEM surface and Matrixes S D have been read in
+ BEM correctly initialized
+ Done BEM diagonal
+ Written out the static matrix for gamess
+ Written out the dynamic matrix for gamess
+Done , total elapsed time     5.046s

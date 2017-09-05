@@ -1107,7 +1107,7 @@
       ! Charge propagation with drude/lorentz and IEF equations 
       integer(i4b) :: i  
       qn_t=qn_tp+f1*dqn_tp+f2*fqn_tp
-      fqn_t=-BEM_W2*qn_t+BEM_Kf*pot_rn
+      fqn_t=-BEM_W2*qn_t+BEM_Kf*a_rn*pot_rn
       dqn_t=f3*dqn_tp+f4*(fqn_t+fqn_tp)-f5*fqn_tp
       fqn_tp=fqn_t
       dqn_tp=dqn_t
@@ -1121,7 +1121,7 @@
       ! Charge propagation with drude/lorentz and IEF equations 
       integer(i4b) :: i  
       qn_t=qn_tp+f1*dqn_tp+f2*fqn_tp
-      fqn_t=-matmul(BEM_Qw,qn_t)+matmul(BEM_Qf,pot_rn)
+      fqn_t=-matmul(BEM_Qw,qn_t)+matmul(BEM_Qf,a_rn*pot_rn)
       dqn_t=f3*dqn_tp+f4*(fqn_t+fqn_tp)-f5*fqn_tp
       fqn_tp=fqn_t
       dqn_tp=dqn_t

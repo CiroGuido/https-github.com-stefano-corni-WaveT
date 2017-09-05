@@ -13,9 +13,10 @@
       real(dbl), allocatable :: BEM_L(:),BEM_T(:,:)      !< $\Lambda$ and T eigenMatrices
       real(dbl), allocatable :: BEM_W2(:),BEM_Modes(:,:) !< BEM squared frequencies and Modes ($T*S^{1/2}$)
       real(dbl), allocatable :: BEM_bW(:)                !< BEM $\bar{\omega_{0ii}}$
-! SP 25/06/17: K0 and Kd are still common to 'deb' and 'drl' cases
-      real(dbl), allocatable :: K0(:),Kd(:)              !< Diagonal $K_0$ and $K_d$ matrices 
-      real(dbl), allocatable :: fact1(:),K_fii(:)        !< Diagonal vectors for propagation matrices
+! SP 25/06/17: BEM_K0 and Kd are still common to 'deb' and 'drl' cases
+      real(dbl), allocatable :: BEM_K0(:),Kd(:)              !< Diagonal $K_0$ and $K_d$ matrices 
+      real(dbl), allocatable :: fact1(:),fact2(:)        !< Diagonal vectors for propagation matrices
+      real(dbl), allocatable :: BEM_Kf(:)                !< Diagonal vectors for propagation matrices
       real(dbl), allocatable :: BEM_Sm12T(:,:),BEM_TSm12(:,:)    !< $S^{-1/2}T$ and $T*S^{-1/2}$ matrices
       real(dbl), allocatable :: TSp12(:,:)               !< $T*S^{1/2}$ matrices
       real(dbl), allocatable :: BEM_Sm12(:,:),Sp12(:,:)  !< $S^{-1/2}$ and $S^{1/2}$ matrices
@@ -46,7 +47,7 @@
              MPL_Tauxm1,MPL_Taum1,mat_f0,mat_fd,MPL_Ff,MPL_Fw,         &
              ONS_f0,ONS_fd,ONS_taum1,ONS_fx0,ONS_fxd,ONS_tauxm1,       &
              BEM_Qt,BEM_R,BEM_Qw,BEM_Qf,BEM_Qd,BEM_Q0,BEM_W2,BEM_Modes,&
-             BEM_Sm12T,BEM_TSm12,BEM_bW,                               &
+             BEM_Sm12T,BEM_TSm12,BEM_bW,BEM_K0,BEM_Kf,                 &
              do_BEM_prop,do_BEM_freq,do_BEM_quant,do_MPL_prop,         &
              do_eps_drl,do_eps_deb,do_charge_freq,                     &
              deallocate_BEM_public,deallocate_MPL_public
@@ -215,8 +216,6 @@
        deallocate(BEM_S)
        if(allocated(BEM_D)) deallocate(BEM_D)
        if(allocated(fact1)) deallocate(fact1)
-       if(allocated(K_fii)) deallocate(K_fii)
-       if(allocated(K0)) deallocate(K0)
        if(allocated(Kd)) deallocate(Kd)
        if(allocated(Sp12)) deallocate(Sp12)
        if(allocated(TSp12)) deallocate(TSp12)
@@ -238,6 +237,8 @@
          if(allocated(BEM_Sm12)) deallocate(BEM_Sm12)
          if(allocated(BEM_Sm12T)) deallocate(BEM_Sm12T)
          if(allocated(BEM_TSm12)) deallocate(BEM_TSm12)
+         if(allocated(BEM_K0)) deallocate(BEM_K0)
+         if(allocated(BEM_Kf)) deallocate(BEM_Kf)
        endif
       return
       end subroutine
@@ -517,9 +518,9 @@
 !       debye dielectric function  
         if(eps_0.ne.one) then
           fac_eps0=(eps_0+one)/(eps_0-one)
-          K0(:)=(twp-sgn*BEM_L(:))/(twp*fac_eps0-sgn*BEM_L(:))
+          BEM_K0(:)=(twp-sgn*BEM_L(:))/(twp*fac_eps0-sgn*BEM_L(:))
         else
-          K0(:)=zero
+          BEM_K0(:)=zero
         endif
         if(eps_d.ne.one) then
           fac_epsd=(eps_d+one)/(eps_d-one)
@@ -530,25 +531,25 @@
         ! SP: Need to check the signs of the second part for a debye medium localized in space  
         fact1(:)=((twp-sgn*BEM_L(:))*eps_0+twp+BEM_L(:))/ &
                  ((twp-sgn*BEM_L(:))*eps_d+twp+BEM_L(:))/tau_deb
-        K_fii(:)=K0(:)*fact1(:)
+        fact2(:)=BEM_K0(:)*fact1(:)
       elseif (Feps.eq."drl") then       
 !       Drude-Lorentz dielectric function
         Kd=zero 
-        K_fii(:)=(twp-sgn*BEM_L(:))*eps_A/(two*twp)  
+        BEM_Kf(:)=(twp-sgn*BEM_L(:))*eps_A/(two*twp)  
 ! SC: the first eigenvector should be 0 for the NP
-        if (Fmdm(2:4).eq.'nan') K_fii(1)=0.d0
+        if (Fmdm(2:4).eq.'nan') BEM_Kf(1)=0.d0
         ! SC: no spurious negative square frequencies
         do i=1,nts_act
-          if(K_fii(i).lt.0.d0) then
-            write(6,*) "WARNING: BEM_W2(",i,") is ", K_fii(i)+eps_w0*eps_w0
+          if(BEM_Kf(i).lt.0.d0) then
+            write(6,*) "WARNING: BEM_W2(",i,") is ", BEM_Kf(i)+eps_w0*eps_w0
             write(6,*) "   I put it to 1e-8"
-            K_fii(i)=1.d-8
+            BEM_Kf(i)=1.d-8
             BEM_L(i)=-twp
           endif
         enddo
         if (eps_w0.eq.zero) eps_w0=1.d-8
-        BEM_W2(:)=K_fii(:)+eps_w0*eps_w0  
-        K0(:)=K_fii(:)/BEM_W2(:)
+        BEM_W2(:)=BEM_Kf(:)+eps_w0*eps_w0  
+        BEM_K0(:)=BEM_Kf(:)/BEM_W2(:)
         BEM_bW(:)=BEM_W2(:)-eps_gm*eps_gm*pt5*pt5
         do i=1,nts_act
           if(BEM_bW(i).lt.0.d0) then
@@ -567,7 +568,7 @@
       if(Fwrite.eq."high") call output_charge_pqr
       ! Do BEM_Q0 and and BEM_Qd 
       do i=1,nts_act
-        scr1(:,i)=BEM_Sm12T(:,i)*K0(i) 
+        scr1(:,i)=BEM_Sm12T(:,i)*BEM_K0(i) 
       enddo
       BEM_Q0=-matmul(scr1,BEM_TSm12) 
       do i=1,nts_act
@@ -582,9 +583,9 @@
       end subroutine
 !
       subroutine init_BEM_diagonal
-      allocate(fact1(nts_act),K_fii(nts_act))
-      allocate(Kd(nts_act),K0(nts_act))
-      allocate(BEM_L(nts_act))
+      allocate(fact1(nts_act),fact2(nts_act))
+      allocate(Kd(nts_act),BEM_K0(nts_act))
+      allocate(BEM_L(nts_act),BEM_Kf(nts_act))
       allocate(BEM_W2(nts_act))
       allocate(BEM_T(nts_act,nts_act))
       allocate(BEM_Sm12(nts_act,nts_act))
@@ -649,7 +650,7 @@
        enddo
        BEM_R=matmul(scr1,TSp12)
        do i=1,nts_act
-         scr1(:,i)=BEM_Sm12T(:,i)*K_fii(i) 
+         scr1(:,i)=BEM_Sm12T(:,i)*fact2(i) 
        enddo
        BEM_Qt=-matmul(scr1,BEM_TSm12)
        deallocate(scr1)
@@ -669,7 +670,7 @@
        enddo
        BEM_Qw=matmul(scr1,TSp12)
        do i=1,nts_act
-         scr1(:,i)=BEM_Sm12T(:,i)*K_fii(i) 
+         scr1(:,i)=BEM_Sm12T(:,i)*BEM_Kf(i) 
        enddo
        BEM_Qf=-matmul(scr1,BEM_TSm12)
        deallocate(scr1)
@@ -942,7 +943,7 @@
        write(7,*) "# \omega^2 (drude-lorentz) , \Lambda, K_0, K_d "
        write(7,*) nts_act
        do j=1,nts_act
-         write(7,'(i10, 4D20.12)') j,BEM_W2(j),BEM_L(j),K0(j),Kd(j)
+         write(7,'(i10, 4D20.12)') j,BEM_W2(j),BEM_L(j),BEM_K0(j),Kd(j)
        enddo
        close(7)
        write(6,*) "Written out BEM diagonal matrices in BEM_TSpm12.mat"

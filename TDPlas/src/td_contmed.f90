@@ -25,6 +25,7 @@
 ! Interaction and medium description
       complex(cmp), allocatable :: h_mdm(:,:),h_mdm_0(:,:) !< medium contribution to the hamiltonian (generally complex)
       complex(cmp), allocatable :: c_mdm(:)             !< medium contribution to the state coefficients in the ful propagation
+      real(dbl), allocatable :: h_bop(:,:)              !< medium contribution to the hamiltonian in the BO limit (constant in time)   
       real(dbl), allocatable :: q_mdm(:)                !< medium total charges at current time            
       real(dbl), allocatable :: mu_mdm(:,:)             !< medium total dipole for each spheroid/cavity at current time
       real(dbl) ::  f_mdm(3)                            !< medium total field on the molecule center of charge
@@ -73,6 +74,7 @@
       complex(cmp), allocatable :: cq_scr(:)            !< scratch array for charges                        
       real(dbl), allocatable :: q_scr(:)                !< scratch array for charges                        
       real(dbl), allocatable :: v_scr(:)                !< scratch array for potentials                     
+      real(dbl), allocatable :: pot_rn(:)               !< scratch array for random potential               
       integer(i4b) :: file_med=11                       !< medium output file number 
       save
       private
@@ -88,10 +90,11 @@
 !------------------------------------------------------------------------
 !> Driver medium initialization routine called by WaveT or other programs 
 !------------------------------------------------------------------------
-      subroutine init_mdm(c_tp,f_tp,h_int)   
+      subroutine init_mdm(c_tp,f_tp,h_int,c_int)   
       real(dbl), intent(INOUT) :: f_tp(3)
       complex(cmp), intent(INOUT) :: c_tp(n_ci)
-      real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
+      complex(cmp), intent(INOUT):: h_int(n_ci,n_ci)
+      complex(cmp), intent(INOUT):: c_int(n_ci)
       integer(i4b) :: its,i,j                   
       character(20) :: name_f
 ! OPEN FILES
@@ -99,6 +102,8 @@
       open (file_med,file=name_f,status="unknown")
       write(file_med,*) "# step  time  dipole  field  qtot  qtot0"
       allocate(h_mdm(n_ci,n_ci),h_mdm_0(n_ci,n_ci))
+      allocate(c_mdm(n_ci))
+      c_mdm=zeroc
       h_mdm=zeroc
       h_mdm_0=zeroc
       f_tp2=f_tp
@@ -115,34 +120,50 @@
 !        call init_BEM_Q0
         call init_potentials(c_tp,f_tp)
         call init_charges(c_tp)
-        if (Fint(1:3).eq."ful") allocate(cq_scr(nts_act),q_scr(nts_act),v_scr(nts_act))
+        if (Fint(1:3).eq."ful") then
+          allocate(cq_scr(nts_act),q_scr(nts_act),v_scr(nts_act))
+          twokTm1=1/(two*temp)
+        elseif (Fint(1:3).eq."bop") then
+          allocate(h_bop(n_ci,n_ci))
+          h_bop=zero 
+          if (Fprop(1:3).eq."osc") then 
+            do i=1,nts_act
+              h_bop=h_bop+BEM_K0(i)*matmul(ovts(i,:,:),ovts(i,:,:))
+            enddo
+          else
+            stop
+          endif 
+       endif
 ! SC: predifine the factors used in the VV propagator, used for
 ! Drude-Lorentz
       endif
       if(Feps.eq."drl") call init_vv_propagator
-      if (Fmdm(1:3).ne.'vac') call correct_hamiltonian
+! SP: corrected the following, if I'm here Fmdm(1:3) is for sure .ne. "vac"
+      !if (Fmdm(1:3).ne.'vac') call correct_hamiltonian
+      call correct_hamiltonian
 ! SC set the initial values of the solvent component of the 
 ! neq free energies
       g_neq1=zero
       g_neq2=zero
-      twokTm1=1/(two*temp)
       return
       end subroutine
 !     
 !------------------------------------------------------------------------
 !> Driver medium propagation routine called by WaveT or other programs 
 !------------------------------------------------------------------------
-      subroutine prop_mdm(i,c_tp,f_tp,h_int)   
+      subroutine prop_mdm(i,c_tp,f_tp,h_int,c_int)   
       real(dbl), intent(INOUT) :: f_tp(3)
-      complex(cmp), intent(IN) :: c_tp(n_ci)
-      real(dbl), intent(INOUT):: h_int(n_ci,n_ci)
+      complex(cmp), intent(INOUT) :: c_tp(n_ci)
+      complex(cmp), intent(INOUT):: h_int(n_ci,n_ci)
+      complex(cmp), intent(INOUT):: c_int(n_ci)
       integer(i4b), intent(IN) :: i                    
       integer(i4b) :: its,k,j                    
       ! Propagate medium only every n_q timesteps  
       !  otherwise, just resum the interaction hamiltonian and exit
        if(mod(i,n_q).ne.0) then
          ! SP 230916: added to perform tests on the local field
-         h_int(:,:)=h_int(:,:)+h_mdm(:,:)
+         h_int=h_int+h_mdm
+         c_int=c_int+c_mdm
          return
        endif
        t=(i-1)*dt
@@ -160,34 +181,37 @@
        ! Charges propagation: 
          ! Calculate external potential on tesserae for local field       
          if(Floc.eq."loc") call do_pot_from_field(f_tp,potf_tp)
-         ! Calculate the molecule potential on tesserae
-! SP 26/06/17: changed to use general MathTools  
-         if(Fint(5:7).eq.'ons') then
-           call do_dip_from_coeff(c_tp,dip,n_ci)
-           call do_pot_from_dip(dip,pot_tp)
-         else 
-           call do_pot_from_coeff(c_tp,pot_tp)
+         if(Fint(1:3).eq."scf") then
+           ! Calculate the molecule potential on tesserae
+           if(Fint(5:7).eq.'ons') then
+             call do_dip_from_coeff(c_tp,dip,n_ci)
+             call do_pot_from_dip(dip,pot_tp)
+           else 
+             call do_pot_from_coeff(c_tp,pot_tp)
+           endif
          endif
          call prop_chr
-         ! Calculate medium's dipole from charges 
-         qtot=zero
-         mu_mdm=zero
-         ! SP 26/06/17: MathUtils, do_dip_from_charges updates the value in mu_mdm
-         call do_dip_from_charges(qr_t,mu_mdm(:,1),qtot)        
-         if((Ftest(2:3).eq."-l").or.(Fdeb.eq."off")) mu_mdm=zero
-         if(Floc.eq."loc") call do_dip_from_charges(qx_t,mu_mdm(:,1),qtot)
-         ! Calculate Reaction Field from charges
-         if (Fint(5:7).eq.'ons') dfr_t=-fr_t
-         call do_field_from_charges(qr_t,fr_t)
-         if (Fint(5:7).eq.'ons') dfr_t=dfr_t+fr_t
-         ! Calculate Local Field from external charges
-         if(Floc.eq."loc") call do_field_from_charges(qx_t,fx_t)
-       ! SC calculate free energy:
-         if (Fint(5:7).eq.'ons') then 
-! SP 10/07/17: commented the following, with Fint(5:7)=ons do_gneq should be changed
-           !call do_gneq(c_tp,mut,dfr_t,fr_t,fr_0,mat_fd,3,-1)
-         else
-           call do_gneq(c_tp,vts,dqr_t,qr_t,q0,BEM_Qd,nts_act,1)
+         if(Fint(1:3).eq."scf") then
+           ! Calculate medium's dipole from charges 
+           qtot=zero
+           mu_mdm=zero
+           ! SP 26/06/17: MathUtils, do_dip_from_charges updates the value in mu_mdm
+           call do_dip_from_charges(qr_t,mu_mdm(:,1),qtot)        
+           if((Ftest(2:3).eq."-l").or.(Fdeb.eq."off")) mu_mdm=zero
+           if(Floc.eq."loc") call do_dip_from_charges(qx_t,mu_mdm(:,1),qtot)
+           ! Calculate Reaction Field from charges
+           if (Fint(5:7).eq.'ons') dfr_t=-fr_t
+           call do_field_from_charges(qr_t,fr_t)
+           if (Fint(5:7).eq.'ons') dfr_t=dfr_t+fr_t
+           ! Calculate Local Field from external charges
+           if(Floc.eq."loc") call do_field_from_charges(qx_t,fx_t)
+           ! SC calculate free energy:
+           if (Fint(5:7).eq.'ons') then 
+             ! SP 10/07/17: commented the following, with Fint(5:7)=ons do_gneq should be changed
+             !call do_gneq(c_tp,mut,dfr_t,fr_t,fr_0,mat_fd,3,-1)
+           else
+             call do_gneq(c_tp,vts,dqr_t,qr_t,q0,BEM_Qd,nts_act,1)
+           endif
          endif
        endif
        ! Build the interaction Hamiltonian Reaction/Local
@@ -203,7 +227,8 @@
        ! SP 230916: added to perform tests on the local/reaction field
        if(Ftest(2:2).eq."-") call do_ref(c_tp)
        ! Update the interaction Hamiltonian 
-       h_int(:,:)=h_int(:,:)+h_mdm(:,:)
+       h_int=h_int+h_mdm
+       c_int=c_int+c_mdm
        ! SP 24/02/16  Write output
       if (mod(i,n_out).eq.0.or.i.eq.1) call out_mdm(i)
       return
@@ -214,6 +239,7 @@
 !------------------------------------------------------------------------
       subroutine finalize_mdm   
        deallocate(h_mdm,h_mdm_0)
+       if (allocated(h_bop)) deallocate(h_bop)
        call finalize_prop
        if (Fprop(1:3).eq."chr") then
          call deallocate_BEM_public    
@@ -286,11 +312,9 @@
                h_mdm(j,i)=h_mdm(i,j)
              enddo
            enddo
-         else
-           write(*,*) "wrong interaction type "
-           stop
          endif
        elseif(Fint(1:3).eq."ful") then
+         c_mdm=zeroc
          q_scr(:)=(qn_t(:)*eps_gm*pt5+dqn_t(:)/dt)/ &
                   (dtanh(BEM_bW(:)*twokTm1)*BEM_bW(:))
          do j=1,n_ci   
@@ -299,12 +323,26 @@
            do i=1,j       
              if(Fprop(1:3).eq."chr") v_scr(:)=vts(:,i,j)
              if(Fprop(1:3).eq."osc") v_scr(:)=ovts(:,i,j)
-             h_mdm(i,j)=-h_mdm_0(i,j)+ &
-               exp(-ui*e_ci(j)*t)*dot_product(cqr_t(:,j),v_scr(:))+&
-               exp(-ui*e_ci(j)*t)*dot_product(cq_scr(:),v_scr(:))+  &
-               dot_product(qn_t(:),v_scr(:))+                    &
-               dot_product(q_scr(:),v_scr(:))    
-             if(Floc.eq."loc") h_mdm(i,j)=h_mdm(i,j)+dot_product(qx_t(:),vts(:,i,j))
+             h_mdm(i,j)=-h_mdm_0(i,j)-ui*dot_product(q_scr,v_scr)+ &
+                                          dot_product(qn_t,v_scr)    
+             if(Floc.eq."loc") h_mdm(i,j)=h_mdm(i,j)+ &
+                                  dot_product(qx_t(:),v_scr(:))
+             h_mdm(j,i)=h_mdm(i,j)
+           enddo
+           do i=1,n_ci    
+             if(Fprop(1:3).eq."chr") v_scr(:)=vts(:,i,j)
+             if(Fprop(1:3).eq."osc") v_scr(:)=ovts(:,i,j)
+             c_mdm(i)=c_mdm(i)                                     &
+               -ui*exp(-ui*e_ci(j)*t)*dot_product(cq_scr,v_scr)+   &
+                exp(-ui*e_ci(j)*t)*dot_product(cqr_t(:,j),v_scr(:))
+           enddo
+         enddo
+       elseif(Fint(1:3).eq."bop") then
+         do j=1,n_ci   
+           do i=1,j       
+             h_mdm(i,j)=-h_mdm_0(i,j)+h_bop(i,j)
+             if(Floc.eq."loc") h_mdm(i,j)=h_mdm(i,j)+ &
+                                  dot_product(qx_t(:),vts(:,i,j))
              h_mdm(j,i)=h_mdm(i,j)
            enddo
          enddo
@@ -359,6 +397,8 @@
          allocate(pot_tp(nts_act))
        else                 
          allocate(cpot_tp(nts_act,n_ci),cpot_0(nts_act,n_ci))
+         allocate(pot_rn(nts_act))
+         pot_rn=zero
        endif      
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
        if (Fdeb.eq.'vmu') call do_vts_from_dip
@@ -440,6 +480,9 @@
          allocate(cqr_t(nts_act,n_ci))
          allocate(cqr_tp(nts_act,n_ci))
          allocate(dcqr_t(nts_act,n_ci))
+         allocate(qn_t(nts_act))
+         allocate(qn_tp(nts_act))
+         allocate(dqn_t(nts_act))
        endif
        if (.not.allocated(q0)) allocate (q0(nts_act))
        ! init the state and the RF before propagation
@@ -510,11 +553,14 @@
            enddo
           case ('sce')
            do i=1,n_ci
-           cqr_tp(:,i)=matmul(BEM_Q0,cpot_tp(:,i))
+             cqr_tp(:,i)=matmul(BEM_Q0,cpot_tp(:,i))
            enddo
          end select
          cqr_t=cqr_tp
          dcqr_t=zeroc  
+         qn_t=zero
+         qn_tp=zero
+         dqn_t=zero
        endif 
        if(Floc.eq."loc") then
          allocate(qx_t(nts_act))
@@ -530,14 +576,19 @@
            allocate(dqr_tp(nts_act))
            allocate(fqr_tp(nts_act))
            allocate(fqr_t(nts_act))
-           dqr_tp(:)=zero
+           dqr_tp=zero
            fqr_tp=zero
          else
            allocate(dcqr_tp(nts_act,n_ci))
            allocate(fcqr_tp(nts_act,n_ci))
            allocate(fcqr_t(nts_act,n_ci))
+           allocate(dqn_tp(nts_act))
+           allocate(fqn_tp(nts_act))
+           allocate(fqn_t(nts_act))
            dcqr_tp=zeroc
            fcqr_tp=zeroc
+           dqn_tp=zero
+           fqn_tp=zero
          endif
          if(Floc.eq."loc") then
            allocate(dqx_tp(nts_act))
@@ -757,7 +808,9 @@
       if(allocated(pot_tp2)) deallocate (pot_tp2)
       if(allocated(potf_tp)) deallocate (potf_tp)
       if(allocated(potf_tp2)) deallocate (potf_tp2)
+      if(allocated(v_scr)) deallocate (v_scr)
       ! Interaction
+      if(allocated(c_mdm)) deallocate(c_mdm)
       if(allocated(q_mdm)) deallocate(q_mdm)
       if(allocated(mu_mdm)) deallocate(mu_mdm)
       ! Dipole
@@ -811,27 +864,39 @@
        ! Propagate
        if(Ftest.eq."s-r") pot_tp=vts(:,1,1) !Only for debug purposes
        if(Feps.eq."deb") then
-         if(Fprop.eq."chr-ief") then
-           call prop_ief_deb
-         elseif(Fprop.eq."chr-ied") then
-           taum1=(eps_0+one)/(eps_d+one)/tau_deb 
-           call prop_ied_deb
-         elseif(Fprop.eq."chr-ons") then
-           call prop_ons_deb 
-         else
-           write(*,*) "not implemented yet"
-           stop
+         if(Fint(1:3).eq."scf") then
+           if(Fprop.eq."chr-ief") then
+             call prop_ief_deb
+           elseif(Fprop.eq."chr-ied") then
+             taum1=(eps_0+one)/(eps_d+one)/tau_deb 
+             call prop_ied_deb
+           elseif(Fprop.eq."chr-ons") then
+             call prop_ons_deb 
+           else
+             write(*,*) "not implemented yet"
+             stop
+           endif
+           ! SP 22/02/16 dqr_t calculated for g_neq
+           dqr_t=qr_t-qr_tp
          endif
-       ! SP 22/02/16 dqr_t calculated for g_neq
-         dqr_t=qr_t-qr_tp
        elseif(Feps.eq."drl") then
-         if(Fprop.eq."chr-ief") then
-           call prop_vv_ief_drl 
-         elseif(Fprop.eq."chr-ons") then
-           call prop_ons_drl ! uses vv
-         else
-           write(*,*) "Wrong propagation method"
-           stop
+         if(Fint(1:3).eq."scf") then
+           if(Fprop.eq."chr-ief") then
+             call prop_vv_ief_drl 
+           elseif(Fprop.eq."chr-ons") then
+             call prop_ons_drl ! uses vv
+           else
+             write(*,*) "Wrong propagation method"
+             stop
+           endif
+         elseif(Fint(1:3).eq."ful") then
+           if(Fprop(1:3).eq."chr") then
+             call prop_vv_ful_chr_ief_drl    !dissipation
+             call prop_vv_ful_chrn_ief_drl   !fluctuation
+           elseif(Fprop(1:3).eq."osc") then 
+             call prop_vv_ful_osc_ief_drl    !dissipation 
+             call prop_vv_ful_oscn_ief_drl   !fluctuation
+           endif
          endif
        endif
        if(Fdeb.eq."equ") qr_t=matmul(BEM_Q0,pot_tp)
@@ -963,7 +1028,7 @@
       endif
       return
       end subroutine
-!     
+!!     
 !------------------------------------------------------------------------
 !> Drude-Lorentz propagation Fprop=chr-ief velocity-verlet algorithm 
 !------------------------------------------------------------------------
@@ -997,6 +1062,66 @@
        fqx_tp=fqx_t
        dqx_tp=dqx_t
       endif
+      return
+      end subroutine
+!     
+!------------------------------------------------------------------------
+!> Drude-Lorentz full propagation complex oscillators  
+!------------------------------------------------------------------------
+      subroutine prop_vv_ful_osc_ief_drl
+      ! Charge propagation with drude/lorentz and IEF equations 
+      integer(i4b) :: i  
+      cqr_t=cqr_tp+f1*dcqr_tp+f2*fcqr_tp
+      do i=1,n_ci
+        fcqr_t(:,i)=-BEM_W2(:)*cqr_t(:,i)+BEM_Kf(:)*cpot_tp(:,i)
+      enddo
+      dcqr_t=f3*dcqr_tp+f4*(fcqr_t+fcqr_tp)-f5*fcqr_tp
+      fcqr_tp=fcqr_t
+      dcqr_tp=dcqr_t
+      return
+      end subroutine
+!     
+!------------------------------------------------------------------------
+!> Drude-Lorentz full propagation complex charges  
+!------------------------------------------------------------------------
+      subroutine prop_vv_ful_chr_ief_drl
+      ! Charge propagation with drude/lorentz and IEF equations 
+      integer(i4b) :: i  
+      cqr_t=cqr_tp+f1*dcqr_tp+f2*fcqr_tp
+      do i=1,n_ci
+        fcqr_t(:,i)=-matmul(BEM_Qw,cqr_t(:,i))+matmul(BEM_Qf,cpot_tp(:,i))
+      enddo
+      dcqr_t=f3*dcqr_tp+f4*(fcqr_t+fcqr_tp)-f5*fcqr_tp
+      fcqr_tp=fcqr_t
+      dcqr_tp=dcqr_t
+      return
+      end subroutine
+!     
+!------------------------------------------------------------------------
+!> Drude-Lorentz full propagation random oscillators  
+!------------------------------------------------------------------------
+      subroutine prop_vv_ful_oscn_ief_drl
+      ! Charge propagation with drude/lorentz and IEF equations 
+      integer(i4b) :: i  
+      qn_t=qn_tp+f1*dqn_tp+f2*fqn_tp
+      fqn_t=-BEM_W2*qn_t+BEM_Kf*pot_rn
+      dqn_t=f3*dqn_tp+f4*(fqn_t+fqn_tp)-f5*fqn_tp
+      fqn_tp=fqn_t
+      dqn_tp=dqn_t
+      return
+      end subroutine
+!     
+!------------------------------------------------------------------------
+!> Drude-Lorentz full propagation random charges  
+!------------------------------------------------------------------------
+      subroutine prop_vv_ful_chrn_ief_drl
+      ! Charge propagation with drude/lorentz and IEF equations 
+      integer(i4b) :: i  
+      qn_t=qn_tp+f1*dqn_tp+f2*fqn_tp
+      fqn_t=-matmul(BEM_Qw,qn_t)+matmul(BEM_Qf,pot_rn)
+      dqn_t=f3*dqn_tp+f4*(fqn_t+fqn_tp)-f5*fqn_tp
+      fqn_tp=fqn_t
+      dqn_tp=dqn_t
       return
       end subroutine
 !     

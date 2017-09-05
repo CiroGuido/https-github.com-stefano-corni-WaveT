@@ -74,7 +74,8 @@
       complex(cmp), allocatable :: cq_scr(:)            !< scratch array for charges                        
       real(dbl), allocatable :: q_scr(:)                !< scratch array for charges                        
       real(dbl), allocatable :: v_scr(:)                !< scratch array for potentials                     
-      real(dbl), allocatable :: pot_rn(:)               !< scratch array for random potential               
+      real(dbl), allocatable :: pot_rn(:)               !< array for random potential               
+      real(dbl), allocatable ::   a_rn(:)               !< array for constants multiplying the random potential               
       integer(i4b) :: file_med=11                       !< medium output file number 
       save
       private
@@ -118,11 +119,11 @@
 ! SC 03/05/2016: create a new BEM_Q0=BEM_Qw^-1*BEM_Qf that should avoid
 !                spurious charge dynamics for stationary states
 !        call init_BEM_Q0
+        if (Fint(1:3).eq."ful") twokTm1=1/(two*temp)
         call init_potentials(c_tp,f_tp)
         call init_charges(c_tp)
         if (Fint(1:3).eq."ful") then
           allocate(cq_scr(nts_act),q_scr(nts_act),v_scr(nts_act))
-          twokTm1=1/(two*temp)
         elseif (Fint(1:3).eq."bop") then
           allocate(h_bop(n_ci,n_ci))
           h_bop=zero 
@@ -131,6 +132,7 @@
               h_bop=h_bop+BEM_K0(i)*matmul(ovts(i,:,:),ovts(i,:,:))
             enddo
           else
+            write(*,*) "still not implemented"
             stop
           endif 
        endif
@@ -397,8 +399,9 @@
          allocate(pot_tp(nts_act))
        else                 
          allocate(cpot_tp(nts_act,n_ci),cpot_0(nts_act,n_ci))
-         allocate(pot_rn(nts_act))
+         allocate(pot_rn(nts_act),a_rn(nts_act))
          pot_rn=zero
+         a_rn=pt5*BEM_bW*BEM_Kf*eps_gm*pt5*dtanh(BEM_bW(:)*twokTm1)
        endif      
 ! SC 08/04/2016: a routine to test by calculating the potentials from the dipoles
        if (Fdeb.eq.'vmu') call do_vts_from_dip

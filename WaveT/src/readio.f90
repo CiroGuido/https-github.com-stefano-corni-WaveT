@@ -45,10 +45,12 @@
       character(flg) :: Ffld !< Field type 
       character(flg) :: Fmdm !< Flag for medium type, this will be defined in readio_medium after separation
       character(flg) :: Frad !< Flag for radiative damping 
+      character(flg) :: Fres !< Flag for restart
 !      character(flg) :: Fpulse !< Flag for pulse             
 ! Flags read from input file
       character(flg) :: medium,radiative,dissipative,pulse
       character(flg) :: dis_prop
+      character(flg) :: restart
       integer(i4b) :: iseed  !seed for random number generator
       integer(i4b) :: nexc !number of excited states
       integer(i4b) :: i,nspectra
@@ -66,7 +68,7 @@
       
       private
       public read_input,n_ci,n_ci_read,n_step,dt,           &
-             Ffld,t_mid,sigma,omega,fmax,                   & 
+             Ffld,t_mid,sigma,omega,fmax,restart,           & 
              Fmdm,mol_cc,tau,start,c_i,e_ci,mut,            &
              Frad,n_out,iseed,n_f,dir_ft,                   &
 ! SP 17/07/17: Changed to char flags
@@ -86,7 +88,7 @@
        !character(5) :: dis_prop 
      
        !Molecular parameters 
-       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium
+       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium,restart
        !External field paramaters
        namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
                         pulse,omega1,sigma1,tdelay,pshift
@@ -412,6 +414,8 @@
        n_f=1
        ! Vacuum calculation
        medium='vac'
+       ! Restart
+       restart='n'
 
        return
 
@@ -547,6 +551,14 @@
           write(*,*) "No external medium, vacuum calculation"
           Fmdm='vac'
        end select
+       select case (restart)
+        case ('n', 'N')
+          write(*,*) 'No restart'
+          Fres='Nore'
+        case ('y', 'Y')
+          write(*,*) 'Restart from a previous calculation'
+          Fres='Yesr'
+       end select 
        write(*,*) ''
 
        return

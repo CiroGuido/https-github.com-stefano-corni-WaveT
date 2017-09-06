@@ -39,21 +39,25 @@
       end subroutine get_energies
       !
       ! init medium
-      subroutine init_medium(c,f,h,cm)     
+      subroutine init_medium(c,f,h,cm,c_int)     
         implicit none
-        complex(cmp), intent(inout) :: c(:),cm(:),h(:,:)
+        !complex(cmp), intent(inout) :: c(:),cm(:),h(:,:),c_int(:)
+        complex(cmp), intent(inout) :: c(:),cm(:),c_int(:)
+        real(dbl), intent(inout) :: h(:,:)
         real(dbl), intent(inout) :: f(3)
-        call init_mdm(c,f,h)
+        call init_mdm(c,f,h,c_int)
         return
       end subroutine init_medium
       !
       ! propagate medium
-      subroutine prop_medium(i,c,f,h,cm)     
+      subroutine prop_medium(i,c,f,h,cm,c_int)     
         implicit none
-        complex(cmp), intent(inout) :: c(:),cm(:),h(:,:)
+        !complex(cmp), intent(inout) :: c(:),cm(:),h(:,:),c_int(:)
+        complex(cmp), intent(inout) :: c(:),cm(:),c_int(:)
+        real(dbl), intent(inout) :: h(:,:)
         real(dbl), intent(inout) :: f(3)
         integer(i4b), intent(inout) :: i
-        call prop_mdm(i,c,f,h)
+        call prop_mdm(i,c,f,h,c_int)
         return
       end subroutine prop_medium
       !

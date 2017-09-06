@@ -14,7 +14,7 @@
 !    int_rad_int is the integral of the classical radiated power at current step
       real(dbl) :: mu_a(3),int_rad,int_rad_int
       integer(i4b) :: file_c=10,file_e=8,file_mu=9,file_p=15 
-      integer(i4b) :: file_dm=12, file_dp=13, file_d=14
+      integer(i4b) :: file_dm=12, file_dp=13, file_d=14, file_cr=16
       save
       private
       public create_field, prop
@@ -33,37 +33,63 @@
 
        implicit none
        integer(i4b)                :: i,j,k,istop,ijump=0
-       complex(cmp), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       complex(cmp), allocatable   :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       complex(cmp), allocatable   :: c_r(:)
        real(dbl),     allocatable  :: h_int(:,:), h_dis(:,:)
        real(dbl),     allocatable  :: pjump(:) 
        real(dbl)                   :: f_prev(3),f_prev2(3)
        real(dbl)                   :: mu_prev(3),mu_prev2(3),mu_prev3(3),&
                                     mu_prev4(3), mu_prev5(3)
-       real(dbl)                   :: eps  
+       real(dbl)                   :: eps, rstep, rtime  
        real(dbl),     allocatable  :: w(:), w_prev(:)
        character(20)             :: name_f
        logical                   :: first=.true. 
 
 ! OPEN FILES
-       write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
-       open (file_c,file=name_f,status="unknown")
-       write(name_f,'(a4,i0,a4)') "e_t_",n_f,".dat"
-       open (file_e,file=name_f,status="unknown")
-       write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
-       open (file_mu,file=name_f,status="unknown")
-       write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
-       open (file_p,file=name_f,status="unknown")
-       write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
-       open (file_dm,file=name_f,status="unknown")
-       write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
-       open (file_dp,file=name_f,status="unknown") 
-       write(name_f,'(a4,i0,a4)') "d_t_",n_f,".dat"
-       open (file_d,file=name_f,status="unknown")
+  
+! Start from scratch
+       if (Fres(1:3).eq.'Nore') then 
+          write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
+          open (file_c,file=name_f,status="unknown")
+          write(name_f,'(a4,i0,a4)') "e_t_",n_f,".dat"
+          open (file_e,file=name_f,status="unknown")
+          write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
+          open (file_mu,file=name_f,status="unknown")
+          write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
+          open (file_p,file=name_f,status="unknown")
+          write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
+          open (file_dm,file=name_f,status="unknown")
+          write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
+          open (file_dp,file=name_f,status="unknown") 
+          write(name_f,'(a4,i0,a4)') "d_t_",n_f,".dat"
+          open (file_d,file=name_f,status="unknown")
+          write(name_f,'(a5,i0,a4)') "cr_t_",n_f,".dat"
+          open (file_cr,file=name_f,status="unknown")
+! Restart calculation
+      elseif (Fres(1:3).eq.'Yesr') then  
+          write(name_f,'(a4,i0,a4)') "c_t_",n_f,".dat"
+          open(file_c,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a4,i0,a4)') "e_t_",n_f,".dat"
+          open(file_e,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a5,i0,a4)') "mu_t_",n_f,".dat"
+          open(file_mu,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a4,i0,a4)') "p_t_",n_f,".dat"
+          open(file_p,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a5,i0,a4)') "dm_t_",n_f,".dat"
+          open(file_dm,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a5,i0,a4)') "dp_t_",n_f,".dat"
+          open(file_dp,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a4,i0,a4)') "d_t_",n_f,".dat"
+          open(file_d,file=name_f,status="old",position="append",action="write")
+          write(name_f,'(a5,i0,a4)') "cr_t_",n_f,".dat"
+          open (file_cr,file=name_f,status="old")
+      endif
 ! ALLOCATING
        allocate (c(n_ci))
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
+       if (Fres(1:3).eq.'Yesr') allocate (c_r(n_ci))
 ! SP 17/07/17: new flags
        !if (dis) then
        if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
@@ -79,25 +105,51 @@
           endif
        endif
 
+! Start from scratch  
+       if (Fres(1:3).eq.'Nore')
 ! STEP ZERO: build interaction matrices to do a first evolution
-       c_prev2=c_i
-       c_prev=c_i
-       c=c_i
+          c_prev2=c_i
+          c_prev=c_i
+          c=c_i
 ! SP: 17/07/17: changed the following f_prev2 <= f_prev
-       !f_prev2=f(:,2)
-       f_prev2=f(:,1)
-       f_prev=f(:,1)
-       h_int=zero  
-       mu_prev=0.d0
-       mu_prev2=0.d0
-       mu_prev3=0.d0
-       mu_prev4=0.d0
-       mu_prev5=0.d0
-       int_rad_int=0.d0
-       !if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
-       if(Frad.eq."arl".or.Fdis.ne."nodis") & 
+          !f_prev2=f(:,2)
+          f_prev2=f(:,1)
+          f_prev=f(:,1)
+          h_int=zero  
+          mu_prev=0.d0
+          mu_prev2=0.d0
+          mu_prev3=0.d0
+          mu_prev4=0.d0
+          mu_prev5=0.d0
+          int_rad_int=0.d0
+          !if(rad.eq."arl".or.dis.or.ernd) call seed_random_number_sc(iseed)
+          if(Frad.eq."arl".or.Fdis.ne."nodis") & 
                                call seed_random_number_sc(iseed)
-       call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+          call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+! Restart calculation
+       elseif (Fres(1:3).eq.'Yesr') then
+          read(file_cr,*) rstep, rtime, c_r(:)
+          write(*,*) ''
+          write(*,*) 'Propagation restarted from step', rstep
+          c_prev2=c_r
+          c_prev=c_r
+          c=c_r
+          f_prev2=f(:,rstep)
+          f_prev=f(:,rstep)
+          h_int=zero
+          mu_prev=0.d0
+          mu_prev2=0.d0
+          mu_prev3=0.d0
+          mu_prev4=0.d0
+          mu_prev5=0.d0
+          int_rad_int=0.d0
+          !if(rad.eq."arl".or.dis.or.ernd) call
+          !seed_random_number_sc(iseed)
+          if(Frad.eq."arl".or.Fdis.ne."nodis") &
+                               call seed_random_number_sc(iseed)
+          call do_mu(c_r,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
+       endif
+
        i=1
        if (Fmdm(1:3).ne."vac") then
            call init_medium(c_prev,f_prev,h_int)
@@ -107,7 +159,7 @@
 
 ! SP 16/07/17: added call to output at step 0 to have full output in outfiles
        call out_header
-       call output(1,c,f_prev,h_int)
+       call output(1,c,c_prev,f_prev,h_int)
 
 ! EC 20/12/16
 ! Dissipation according to the Markovian SSE (eq 25 J. Phys: Condens.
@@ -159,12 +211,15 @@
        call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
 ! SP 16/07/17: heder called at step 1                                        
        !call out_header
-       if (mod(2,n_out).eq.0) call output(2,c,f_prev,h_int)
+       if (mod(2,n_out).eq.0) call output(2,c,c_prev,f_prev,h_int)
 !
 !
 ! PROPAGATION CYCLE: starts the propagation at timestep 3
 ! Markovian dissipation (quantum jump) -> dis.and.qjump
 !       if (dis.and.qjump) then
+
+       if (Fres(1:3).eq.'Yesr') i=3+rstep 
+
        if (Fdis(5:9).eq."qjump") then
           do i=3,n_step
             f_prev2=f(:,i-2)
@@ -200,7 +255,7 @@
                 c_prev=c
             endif
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+            if (mod(i,n_out).eq.0)  call output(i,c,c_prev,f_prev,h_int)
           enddo
 ! Markovian dissipation (Euler-Maruyama) -> dis.and.not.qjump
 !       elseif (dis.and..not.qjump) then
@@ -230,7 +285,7 @@
             !c=c/sqrt(dot_product(c,c))
             c_prev=c
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+            if (mod(i,n_out).eq.0)  call output(i,c,c_prev,f_prev,h_int)
           enddo
        elseif (Fdis.eq."nodis".or.Fdis.eq."ernd") then
 ! No dissipation in the propagation -> .not.dis
@@ -253,12 +308,12 @@
             c_prev2=c_prev
             c_prev=c
             call do_mu(c,mu_prev,mu_prev2,mu_prev3,mu_prev4,mu_prev5)
-            if (mod(i,n_out).eq.0)  call output(i,c,f_prev,h_int)
+            if (mod(i,n_out).eq.0) call output(i,c,f_prev,h_int)
           enddo
        endif 
 
 ! DEALLOCATION AND CLOSING
-       deallocate (c,c_prev,c_prev2,h_int)
+       deallocate (c,c_prev,c_prev2,h_int,c_r)
 !       if (dis) then
        if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
           call deallocate_dis()
@@ -437,10 +492,10 @@
       return
       end subroutine do_mu
 
-      subroutine output(i,c,f_prev,h_int)     
+      subroutine output(i,c,c_prev,f_prev,h_int)     
        implicit none
        integer(i4b), intent(IN) :: i
-       complex(cmp), intent(IN) :: c(n_ci)
+       complex(cmp), intent(IN) :: c(n_ci), c_prev(n_ci)
        real(dbl), intent(IN) :: h_int(n_ci,n_ci)
        real(dbl), intent(IN) :: f_prev(3)
        real(dbl) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
@@ -471,6 +526,9 @@
         enddo
         write (file_c,fmt_ci) i,t,ctmp(:)
         write (file_p,fmt_ci) i,t,atan2(aimag(c),real(c))
+        rewind(file_cr)
+        write (file_cr,fmt_ci) i,t,c_prev(:)
+        write (file_cr,fmt_ci) i,t,c(:) 
 ! SP 10/07/17: commented the following, strange error 
         call wrt_decoherence(i,t,file_dm,file_dp,file_d,fmt_ci1,fmt_ci2,c,n_ci)
         write (file_mu,'(i8,f14.4,3e22.10)') i,t,mu_a(:)

@@ -3,7 +3,7 @@
       implicit none
       save
 !
-      integer(i4b) :: n_f,n_ci,n_ci_read,n_step,n_out 
+      integer(i4b) :: n_f,n_ci,n_ci_read,n_step,n_out,nvib 
       !integer(i4b) :: imar !imar=0 Markvian, imar=1, nonMarkovian
       integer(i4b) :: i_sp=0,i_nr=0,i_de=0 !counters for quantum jump occurrences
       integer(i4b) :: nrnd !the time step for Euler-Maruyama is dt/nrnd
@@ -46,6 +46,7 @@
       character(flg) :: Fmdm !< Flag for medium type, this will be defined in readio_medium after separation
       character(flg) :: Frad !< Flag for radiative damping 
       character(flg) :: Fres !< Flag for restart
+      character(flg) :: Fvib !< Flag for including vibrational levels 
 !      character(flg) :: Fpulse !< Flag for pulse             
 ! Flags read from input file
       character(flg) :: medium,radiative,dissipative,pulse
@@ -76,7 +77,8 @@
              deallocate_dis,i_sp,i_nr,i_de,nrnd,sp_fact,    &
 !             nr_typ,idep,imar,de_gam1,krnd,ernd       
              de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,          &
-             npulse,omega1,sigma1,tdelay,pshift 
+             npulse,omega1,sigma1,tdelay,pshift,            &
+             nvib,Fvib 
              
 !
       contains
@@ -88,7 +90,7 @@
        !character(5) :: dis_prop 
      
        !Molecular parameters 
-       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium,restart
+       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium,restart,nvib
        !External field paramaters
        namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
                         pulse,omega1,sigma1,tdelay,pshift
@@ -416,6 +418,8 @@
        medium='vac'
        ! Restart
        restart='n'
+       ! Vibrational levels
+       nvib=0
 
        return
 
@@ -446,7 +450,7 @@
        omega=0.d0
        ! Stochastic field
        radiative='non'
-       ! Seed for radiative and/or dissipation
+       ! ieed for radiative and/or dissipation
        iseed=12345678
        ! Amplitude of the external field
        fmax=0.d0
@@ -558,7 +562,12 @@
         case ('y', 'Y')
           write(*,*) 'Restart from a previous calculation'
           Fres='Yesr'
-       end select 
+       end select
+       if (nvib.gt.0) then 
+          write(*,*) nvib, 'vibrational states added to each ci state' 
+       else
+          write(*,*) 'Pure electronic states'
+       endif 
        write(*,*) ''
 
        return

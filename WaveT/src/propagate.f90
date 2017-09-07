@@ -674,4 +674,97 @@
 
       end subroutine wrt_decoherence
 
+      subroutine compute_fc_fact(v,ve,w,we,x,d,n)
+!------------------------------------------------------------------------
+! @brief Compute Franck-Condon factors between the vibrational 
+! eigenstates (harmonic oscillator) of any electronic ground-excited
+! pair 
+! Formula from J. Mol. Spectroscopy, vol. 232, 102 (2005)
+! 
+! @date Created   : E. Coccia 7 Sep 2017
+! Modified  :
+!------------------------------------------------------------------------
+
+        implicit none
+
+        integer(i4b),  intent(in)  :: v,ve,n
+        real(dbl),     intent(in)  :: w,we,x,d
+        real(dbl),     intent(out) :: fc,mn
+        integer(i4b)               :: k,ke,kk,nf,k2 
+        real(dbl),                 :: s,a,b,be,ik,r
+        real(dbl),                 :: n,fact,t1,t2,ikk
+
+! Harmonic oscillator eigenfunction for the electronic ground state
+! |v> = Nv*Hv(sqrt(alpha)x)*exp(-1/2*alpha*x^2)
+! Nv = sqrt(sqrt(alpha)/(2^v*v!*sqrt(pi)))
+! alpha = omega/hbar
+! x -> normal coordinate
+! Hv -> Hermite polynomial for v
+
+! Harmonic oscillator eigenfunction for the electronic excited state
+! |v'> = Nv'*Hv'(sqrt(alpha')x')*exp(-1/2*alpha'*x'^2)
+! Nv' = sqrt(sqrt(alpha')/(2^v'*v'!*sqrt(pi)))
+! alpha' = omega'/hbar
+! x'= x+d -> normal coordinate
+! Hv' -> Hermite polynomial for v'
+
+! s = alpha*alpha'*d^2/(alpha+alpha')
+! a = 2*sqrt(alpha*alpha')/(alpha+alpha')
+! b = -alpha'*sqrt(alpha)*d/(alpha+alpha')
+! b'= alpha*sqrt(alpha')*d/(alpha+alpha')
+! kk = (k+k')/2
+! I(kk) = 0 if k+k' is odd
+! I(kk) = (2*kk-1)!!/(alpha+alpha')^kk
+
+! <v|v'> = sqrt(A*exp(-S)/(2^(v+v')*v!*v'!))*sum_k=0^v * sum_k'^v' *
+! (v)*(v')*Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*I(kk)
+! (k) (k')
+
+! Franck-Condon factor
+! |<v|v'>|^2 = A*exp(-S)/(2^(v+v')*v!*v'!)*sum_k=0^v * sum_k'^v' *
+! (v)*(v')*Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*I(kk)
+! (k) (k')
+
+        nf = A*exp(-s)/(2**(v+ve)*fact(v)*fact(ve))
+        t1 = 2.d0*sqrt(w)
+        t2 = 2.d0*sqrt(we)
+        r  = -we*d/(w+we)
+
+        fc=0.d0
+        mn=0.d0
+        do k=0,v
+           call hermite(v-k,b,hv)
+           do ke=0,ve
+              call hermite(ve-ke,hve)
+              if (mod(k+ke,2).ne.0) then
+                 ik=0.d0
+              else
+                 ik = (k+ke-1)/(w+we)**(0.5d0*(k+ke))
+              endif
+              fc = fc + hv*hve*t1**k*t2**ke*ik
+              do k2=0,n
+                 if (mod(k+ke+k2,2).ne.0) then
+                     ikk=0.d0
+                 else
+                     ikk = (k+ke+k2-1)/(w+we)**(0.5d0(k+ke+k2))
+                 endif
+                 mn = mn + hv*hve*t1**k*t2**ke*r**(n-k2)*ikk
+              enddo
+           enddo
+        enddo
+
+        fc = nf*fc**2
+
+! <v|x^n|v'> = sqrt(A*exp(-S)/(2^(v+v')*v!*v'!))*sum_k=0^v * sum_k'^v' *
+! sum_k''=0^n*
+! (v)*(v')*(n)  *Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*r^(n-k'')*I(kk)
+! (k) (k') (k'')
+! r = - alpha'*d/(alpha+alpha')
+
+        mn = sqrt(nf)*mn
+
+        return
+        
+      end subroutine compute_fc_fact
+
       end module

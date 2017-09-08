@@ -21,6 +21,7 @@
       real(dbl), parameter :: twp=two*pi
       real(dbl), parameter :: pt5=0.5d0
       real(dbl), parameter :: three=3.d0
+      real(dbl), parameter :: cm_to_au=1.d0/219474.63 
       integer(i4b), parameter :: one_i=1
       double complex, parameter :: zeroc=(zero,zero)      
       double complex, parameter :: onec=(one,zero)                

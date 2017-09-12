@@ -8,7 +8,7 @@ module vib
       real(dbl), allocatable :: w(:,:),q(:,:)
       real(dbl), allocatable :: e(:),dip(:,:,:)
       real(dbl), allocatable :: ef(:),dipf(:,:,:)
-      logical,               :: coupling
+      logical                :: coupling
 
       public nstates,nvib,nmodes,w,q,e,dip,ef,dipf
        
@@ -16,7 +16,7 @@ module vib
 
       subroutine read_e_dip()
 !------------------------------------------------------------------------
-! @brief Read ci_energy.inp and ci_mut.inp from Gamess 
+! @brief Read ci_energy.inp and ci_mut.inp from Gamess/Gaussian 
 ! 
 ! @date Created   : E. Coccia 8 Sep 2017
 ! Modified  :
@@ -41,7 +41,7 @@ module vib
        open(7,file="ci_mut.inp",status="old")
        allocate (dip(3,nstates,nstates))
        do i=1,nstates
-        if (i.le.n_ci) then
+        if (i.le.nstates) then
          read(7,*)junk,junk,junk,junk,dip(1,1,i),dip(2,1,i),dip(3,1,i)
          dip(:,i,1)=dip(:,1,i)
         else
@@ -51,7 +51,7 @@ module vib
 
        do i=2,nstates
          do j=2,i
-          if (i.le.n_ci.and.j.le.n_ci) then
+          if (i.le.nstates.and.j.le.nstates) then
            read(7,*)junk,junk,junk,junk,dip(1,i,j),dip(2,i,j),dip(3,i,j)
            dip(:,j,i)=dip(:,i,j)
           else
@@ -63,7 +63,7 @@ module vib
 
        return
 
-      end subroutine read_e_mu
+      end subroutine read_e_dip
     
       subroutine read_input_vib()
 !------------------------------------------------------------------------
@@ -72,13 +72,15 @@ module vib
 ! @date Created   : E. Coccia 8 Sep 2017
 ! Modified  :
 !------------------------------------------------------------------------
-  
-        namelist /vibrations/ n_ci,nvib,nmodes,coupling
+ 
+        integer(i4b)             :: idum,i,j,ntot 
+ 
+        namelist /vibrations/ nstates,nvib,nmodes,coupling
 
         coupling=.false.
         nmodes=1
         nvib=10
-        n_ci=1
+        nstates=1
 
         ! Read w and q for any vib level
         ! Excited state N
@@ -92,17 +94,20 @@ module vib
 
         read(*,nml=vibrations)
 
-        allocate(w(n_ci,nmodes),q(n_ci,nmodes))
+        allocate(w(nstates,nmodes),q(nstates,nmodes))
 
-        ntot=(n_ci+1)*nmodes*nvib 
+        ntot=(nstates+1)*nmodes*nvib 
         write(*,*) 'Total number of states', ntot
+        write(*,*) 'Number of electronic states', nstates
+        write(*,*) 'Number of normal modes per electronic state', nmodes
+        write(*,*) 'Number of vibrational states per normal mode', nvib
 
         w(:,:) = 1000.d0
         q(:,:) = 2.d0
 
         open(60,file='vib.dat')
-        do i=1,n_ci
-           read(60) ''
+        do i=1,nstates
+           read(60,*) idum, idum 
            do j=1,nmodes
               read(60,*) w(i,j), q(i,j)
            enddo
@@ -115,9 +120,9 @@ module vib
 
         return
 
-      end subroutine read_input 
+      end subroutine read_input_vib 
 
-      subroutine compute_fc(v,ve,w,we,x,d,n)
+      subroutine compute_fc(v,ve,w,we,d,n,fc,mn)
 !------------------------------------------------------------------------
 ! @brief Compute Franck-Condon factors between the vibrational 
 ! eigenstates (harmonic oscillator) of any electronic ground-excited
@@ -131,11 +136,12 @@ module vib
         implicit none
 
         integer(i4b),  intent(in)  :: v,ve,n
-        real(dbl),     intent(in)  :: w,we,x,d
+        real(dbl),     intent(in)  :: w,we,d
         real(dbl),     intent(out) :: fc,mn
-        integer(i4b)               :: k,ke,kk,nf,k2
-        real(dbl),                 :: s,a,b,be,ik,r
-        real(dbl),                 :: n,fact,t1,t2,ikk
+        integer(i4b)               :: k,ke,kk,k2,vt,vte
+        real(dbl)                  :: s,a,b,be,ik,r,dfact,nf
+        real(dbl)                  :: fact,t1,t2,ikk,bin_coef
+        real(dbl)                  :: hv,hve 
 
 ! Harmonic oscillator eigenfunction for the electronic ground state
 ! |v> = Nv*Hv(sqrt(alpha)x)*exp(-1/2*alpha*x^2)
@@ -168,7 +174,10 @@ module vib
 ! (v)*(v')*Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*I(kk)
 ! (k) (k')
 
-        nf = A*exp(-s)/(2**(v+ve)*fact(v)*fact(ve))
+        vt=vt-1
+        vte=vte-1 
+
+        nf = A*exp(-s)/(2**(vt+vte)*fact(vt)*fact(vte))
         t1 = 2.d0*sqrt(w)
         t2 = 2.d0*sqrt(we)
         r  = -we*d/(w+we)
@@ -191,7 +200,7 @@ module vib
                  if (mod(k+ke+k2,2).ne.0) then
                      ikk=0.d0
                  else
-                     ikk = dfact(k+ke+k2-1)/(w+we)**(0.5d0(k+ke+k2))
+                     ikk = dfact(k+ke+k2-1)/(w+we)**(0.5d0*(k+ke+k2))
                  endif
                  mn = mn + bin_coef(v,k)*bin_coef(ve,ke)*bin_coef(n,k2)*hv*hve*t1**k*t2**ke*r**(n-k2)*ikk
               enddo
@@ -247,19 +256,7 @@ module vib
                                                             
       end subroutine hermite             
 
-      subroutine write_e_dip(i,nvib,w)
-!------------------------------------------------------------------------
-! @brief Print ci_energy.inp and mut.inp 
-! corrected by the vibrational contributions
-! 
-! @date Created   : E. Coccia 8 Sep 2017
-! Modified  :
-!------------------------------------------------------------------------
-
-
-      end subroutine write_e_dip
-
-      subroutine deallocate_vib(i,nvib,w)
+      subroutine deallocate_vib()
 !------------------------------------------------------------------------
 ! @brief Deallocate arrays in module vib 
 ! 
@@ -273,7 +270,7 @@ module vib
 
        return
       
-     end deallocate_vib 
+     end subroutine deallocate_vib 
 
      real(dbl) function fact(n)
 !------------------------------------------------------------------------
@@ -318,7 +315,7 @@ module vib
 
        s=0.d0
 
-       if (mod(n,2).eq.) then
+       if (mod(n,2).eq.0) then
           do k=1,n/2
              s=s*2.d0*k
           enddo
@@ -370,51 +367,119 @@ module vib
 ! Modified  :
 !------------------------------------------------------------------------
 
-        integer(i4b)           :: i,j,k,v,v1
-        real(dbl)              :: d
-        real(dbl), allocatable :: fc_ij(:,:) 
+        integer(i4b)           :: i,j,k,v,v1,kk,kk1,nvibt,n
+        real(dbl)              :: d,fc,mn
 
-        ef dipf
-        allocate(fc_ij(n_ci,n_ci))
 
-        fc_ij(:,:)=0.d0
-        !Vibrational mode
+        kk=0
+        kk1=0
+        ! Only electronic transition i -> j (i>j) are taken into account
+        ! No constraint on v and v1 values 
+        ! Vibrational mode k
         do k=1,nmodes
-           ! Electronic state
-           do i=n_ci,1,-1
-              ! Vibrational state
-              do v=1,nvib
-                 ! Electronic state
-                 do j=i-1,1,-1
-                    d=abs(q(i,k)-q(j,k)
-                    ! Vibrational state
+           ! Electronic state i
+           do i=nstates,1,-1
+              ! Electronic state j
+              do j=i-1,1,-1
+                 d=abs(q(i,k)-q(j,k))
+                 ! Vibrational state v
+                 do v=1,nvib
+                    kk=kk+1
+                    ! Vibrational state v1
                     do v1=1,nvib
-                       call compute_fc(v,v1,w(i,k),we(j,k),d,n)
-                       fc_ij(i,j) = fc_ij(i,j) + fc
+                       kk1=kk1+1
+                       call compute_fc(v,v1,w(i,k),w(j,k),d,n,fc,mn)
+                       dipf(:,kk,kk1)=fc*dip(:,i,j)
                     enddo
                  enddo
               enddo
            enddo 
         enddo  
 
-        !Add FC factors to dipoles
-        do i=1,n_ci
-           do j=1,n_ci
-              dip(:,i,j) = dip(:,i,j)*fc_ij(i,j)
+        ! Add FC factors to dipoles
+        !do i=1,nstates
+        !   do j=1,nstates
+        !      dipf(:,i,j) = dipf(:,i,j)*fc_ij(i,j)
+        !   enddo
+        !enddo
+     
+        ! Add vibrational energies
+        ! Electronic ground state
+        kk=1
+        ! Pure electronic ground state
+        ef(1)=e(1)
+        do k=1,nmodes
+           do v=1,nvib
+              kk=kk+1
+              ef(kk) = w(1,k)*(v-1+0.5d0)    
            enddo
         enddo
-     
-        !Add vibrational energies
-        do i=1,n_ci
+        ! Electronic excited states
+        nvibt=nmodes*nvib
+        do i=2,nstates
+           kk=(nvibt+1)*(i-1)
+           ef(kk+1)=e(i)
            do k=1,nmodes
               do v=1,nvib
-                 
+                 kk=kk+1
+                 ef(kk)=e(i)+ w(i,k)*(v-1+0.5d0)
               enddo
            enddo
         enddo
- 
+
+        ! Print energies and dipoles for WaveT
+        open(70,file='ci_energy_new.inp')
+        open(71,file='ci_mut_new.inp')        
+        kk=0
+        do i=1,nstates
+           do k=1,nmodes
+              do v=1,nvib
+                 kk=kk+1
+                 write(70,*) 'Root', kk, ':', ef(kk)/ev_to_au 
+              enddo
+           enddo
+        enddo
+
+        kk=0
+        kk1=0
+        do k=1,nmodes
+           do i=1,nstates
+              do j=1,nstates
+                 do v=1,nvib
+                    kk=kk+1
+                    do v1=1,nvib
+                       kk1=kk1+1 
+                       write(71,*) 'States', kk, 'and',kk1,dipf(:,kk,kk1)
+                    enddo
+                 enddo
+              enddo
+           enddo
+        enddo 
+
+        close(70)
+        close(71)
+
         return
  
-     end compute_e_dip
+     end subroutine compute_e_dip
+
+     subroutine compute_coupling()  
+!------------------------------------------------------------------------
+! @brief Non adiabtic correction to 
+! nradiative decay and dephasing rates
+! 
+! @date Created   : E. Coccia 12 Sep 2017
+! Modified  :
+!------------------------------------------------------------------------     
+
+       implicit none
+
+
+       write(*,*) 'Not implemented yet'
+       stop
+
+     end subroutine compute_coupling
+     
+
 
 end module vib

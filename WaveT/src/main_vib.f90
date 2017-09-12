@@ -10,6 +10,7 @@ program main_vib
   call read_e_dip()
   ! Compute FC factors
   call compute_e_dip()
+  write(*,*) 'ciao'
   ! Vibronic coupling for nonradiative relaxation
   if (coupling) call compute_coupling()
   ! Deallocate arrays 

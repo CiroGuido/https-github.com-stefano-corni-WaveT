@@ -4,13 +4,13 @@ module vib
       implicit none
       save
 
-      integer(i4b)           :: nstates,nvib,nmodes
+      integer(i4b)           :: nstates,nvib,nmodes,ntot
       real(dbl), allocatable :: w(:,:),q(:,:)
       real(dbl), allocatable :: e(:),dip(:,:,:)
       real(dbl), allocatable :: ef(:),dipf(:,:,:)
       logical                :: coupling
 
-      public nstates,nvib,nmodes,w,q,e,dip,ef,dipf
+      public nstates,nvib,nmodes,w,q,e,dip,ef,dipf,fact,dfact,bin_coef
        
       contains        
 
@@ -73,7 +73,7 @@ module vib
 ! Modified  :
 !------------------------------------------------------------------------
  
-        integer(i4b)             :: idum,i,j,ntot 
+        integer(i4b)             :: idum,i,j 
  
         namelist /vibrations/ nstates,nvib,nmodes,coupling
 
@@ -96,11 +96,23 @@ module vib
 
         allocate(w(nstates,nmodes),q(nstates,nmodes))
 
-        ntot=(nstates+1)*nmodes*nvib 
+        write(*,*) '***************************************'
+        write(*,*) '*                                     *'
+        write(*,*) '*      Add vibrational levels         *' 
+        write(*,*) '*     in harmonic approximation       *'
+        write(*,*) '*      to any normal model of         *'
+        write(*,*) '*     a given electronic state        *'
+        write(*,*) '*                                     *'
+        write(*,*) '***************************************'
+
+
+        ntot=nstates*(nmodes*nvib+1) 
+        write(*,*) ''
         write(*,*) 'Total number of states', ntot
         write(*,*) 'Number of electronic states', nstates
         write(*,*) 'Number of normal modes per electronic state', nmodes
         write(*,*) 'Number of vibrational states per normal mode', nvib
+        write(*,*) ''
 
         w(:,:) = 1000.d0
         q(:,:) = 2.d0
@@ -139,9 +151,10 @@ module vib
         real(dbl),     intent(in)  :: w,we,d
         real(dbl),     intent(out) :: fc,mn
         integer(i4b)               :: k,ke,kk,k2,vt,vte
-        real(dbl)                  :: s,a,b,be,ik,r,dfact,nf
-        real(dbl)                  :: fact,t1,t2,ikk,bin_coef
+        real(dbl)                  :: s,a,b,be,ik,r,nf
+        real(dbl)                  :: t1,t2,ikk
         real(dbl)                  :: hv,hve 
+        !real(dbl)                  :: fact,dfact,bin_coef
 
 ! Harmonic oscillator eigenfunction for the electronic ground state
 ! |v> = Nv*Hv(sqrt(alpha)x)*exp(-1/2*alpha*x^2)
@@ -284,7 +297,7 @@ module vib
        integer(i4b)             :: k 
        real(dbl)                :: s
 
-       s=0.d0
+       s=1.d0
 
        do k=1,n
           s=s*k
@@ -313,17 +326,19 @@ module vib
        integer(i4b)             :: k 
        real(dbl)                :: s
 
-       s=0.d0
+       s=1.d0
 
        if (mod(n,2).eq.0) then
           do k=1,n/2
              s=s*2.d0*k
           enddo
        else
-          do k=1,n+1/2
+          do k=1,(n+1)/2
              s=s*(2.d0*k-1)
           enddo
        endif
+
+       if (n.le.0) s=1.d0
 
        dfact=s
 
@@ -388,13 +403,16 @@ module vib
                     ! Vibrational state v1
                     do v1=1,nvib
                        kk1=kk1+1
+                       write(*,*) kk,kk1,ntot
                        call compute_fc(v,v1,w(i,k),w(j,k),d,n,fc,mn)
                        dipf(:,kk,kk1)=fc*dip(:,i,j)
                     enddo
                  enddo
               enddo
            enddo 
-        enddo  
+        enddo 
+
+        write(*,*) 'QUI?' 
 
         ! Add FC factors to dipoles
         !do i=1,nstates

@@ -1,0 +1,47 @@
+ 
+ *****************************************************
+ *****************************************************
+ **                                                 **
+ **                    WaveT                        **
+ **     Evolution of molecular wavefunctions        **
+ **   under external electromagnetic perturbations  **
+ **                                                 **
+ **                     by                          **
+ **                Stefano Corni                    **
+ **                Silvio Pipolo                    **
+ **               Emanuele Coccia                   **
+ **                 Gabriel Gil                     **
+ **                Jacopo Fregoni                   **
+ **                                                 **
+ *****************************************************
+ *****************************************************
+ 
+ Number to append to dat file           1
+ Number of CIS states to be read           3
+ Number of CIS states to be used           3
+ Molecular center of charge
+   0.0000000000000000        0.0000000000000000        0.0000000000000000     
+ 
+ No external medium, vacuum calculation
+ 
+ Time step (in au), number of steps, stride   5.0000000000000003E-002      100000           2
+ Time shape of the perturbing fieldgau       
+ time at the center of the pulse (au):   2500.0000000000000     
+ Width of the pulse (time au):   707.10678118700002     
+ Frequency (au):  0.24199999999999999     
+ Maximum E field   0.0000000000000000        0.0000000000000000        0.0000000000000000     
+ One pulse
+ 
+ Excitation energies read from input, in Hartree
+           1  0.23918922698903056     
+           2  0.24198240662096934     
+           3  0.24198240662097337     
+
+ Starting point for FT calculation   0.0000000000000000     
+ Artificial damping   2.0000000000000000     
+ Direction along which the field is oriented   0.0000000000000000        1.0000000000000000        0.0000000000000000     
+ 
+ No dissipation
+ 
+Done reading input & setting up the field, took     0.305s
+Done , total elapsed time     2.251s

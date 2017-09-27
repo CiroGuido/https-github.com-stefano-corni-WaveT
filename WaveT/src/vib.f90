@@ -4,14 +4,15 @@ module vib
       implicit none
       save
 
-      integer(i4b)           :: nstates,nvib,nmodes,ntot
-      real(dbl), allocatable :: w(:,:),q(:,:)
-      real(dbl), allocatable :: e(:),dip(:,:,:)
-      real(dbl), allocatable :: ef(:),dipf(:,:,:)
-      logical                :: coupling
+      integer(i4b)              :: nstates,nvib,nmodes,ntot,ncomb,nfc
+      real(dbl),    allocatable :: w(:,:),q(:,:)
+      real(dbl),    allocatable :: e(:),dip(:,:,:)
+      real(dbl),    allocatable :: ef(:),dipf(:,:,:)
+      integer(i4b), allocatable :: iv(:,:)
+      logical                   :: coupling,mix
 
       public nstates,nvib,nmodes,w,q,e,dip,ef,dipf,fact,dfact,bin_coef, &
-             mix,coupling
+             mix,coupling,iv,ncomb,nfc
        
       contains        
 
@@ -76,13 +77,14 @@ module vib
  
         integer(i4b)             :: idum,i,j 
  
-        namelist /vibrations/ nstates,nvib,nmodes,coupling,mix
+        namelist /vibrations/ nstates,nvib,nmodes,coupling,mix,nfc
 
         mix=.false.
         coupling=.false.
         nmodes=1
         nvib=10
         nstates=1
+        nfc=1
 
         ! Read w and q for any vib level
         ! Excited state N
@@ -96,8 +98,12 @@ module vib
 
         read(*,nml=vibrations)
 
-        allocate(w(nstates,nmodes),q(nstates,nmodes))
+        ncomb=nvib**nmodes
 
+        allocate(w(nstates,nmodes),q(nstates,nmodes))
+        allocate(iv(ncomb,nmodes))
+
+        write(*,*)  
         write(*,*) '***************************************'
         write(*,*) '*                                     *'
         write(*,*) '*      Add vibrational levels         *' 
@@ -108,12 +114,17 @@ module vib
         write(*,*) '***************************************'
 
 
-        ntot=nstates*(nmodes*nvib) 
+        ntot=nstates*ncomb
         write(*,*) ''
         write(*,*) 'Total number of states', ntot
         write(*,*) 'Number of electronic states', nstates
         write(*,*) 'Number of normal modes per electronic state', nmodes
         write(*,*) 'Number of vibrational states per normal mode', nvib
+        if (mix) then
+           write(*,*) 'Duschinsky rotation for normal coordinates' 
+        else
+           write(*,*) 'Only displacements between normal coordinates'
+        endif 
         write(*,*) ''
 
         w(:,:) = 1000.d0
@@ -155,8 +166,7 @@ module vib
         integer(i4b)               :: k,ke,kk,k2,vt,vte
         real(dbl)                  :: s,a,b,be,ik,r,nf
         real(dbl)                  :: t1,t2,ikk
-        real(dbl)                  :: hv,hve 
-        !real(dbl)                  :: fact,dfact,bin_coef
+        real(dbl)                  :: hv,hve,ww 
 
 ! Harmonic oscillator eigenfunction for the electronic ground state
 ! |v> = Nv*Hv(sqrt(alpha)x)*exp(-1/2*alpha*x^2)
@@ -189,15 +199,19 @@ module vib
 ! (v)*(v')*Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*I(kk)
 ! (k) (k')
 
-        vt=vt-1
-        vte=vte-1 
+        !vt=vt-1
+        !vte=vte-1 
 
-        nf = A*exp(-s)/(2**(vt+vte)*fact(vt)*fact(vte))
+        ww=1.d0/(w+we) 
+
+        a  = 2.d0*sqrt(w*we)*ww
+        s  = w*we*d**2*w
+        nf = a*exp(-s)/(2**(vt+vte)*fact(vt)*fact(vte))
         t1 = 2.d0*sqrt(w)
         t2 = 2.d0*sqrt(we)
-        r  = -we*d/(w+we)
-        b  = -we*sqrt(w)*d/(w+we)
-        be = w*sqrt(we)*d/(w+we) 
+        r  = -we*d*ww
+        b  = -we*sqrt(w)*d*ww
+        be = w*sqrt(we)*d*ww 
 
         fc=0.d0
         mn=0.d0
@@ -237,30 +251,33 @@ module vib
 
       end subroutine compute_fc
 
-      subroutine hermite(n,x,y)                                   
+      subroutine hermite(nn,x,y)                                   
 !------------------------------------------------------------------------
-!   COMPUTES THE VALUE OF THE HERMITE POLYNOMIAL OF DEGREE N            
+!   @brief Computes the value of the Hermite polynomial of degree nn             
 !   at a given point               
-!   n  = degree of the polynomial                                   
+!   nn = degree of the polynomial                                   
 !   x  = point at which the calculation is done 
-!   y  = value of the polynomial in x                                  
+!   y  = value of the polynomial in x                                
+!
+!   @date Created  :  E. Coccia 8 Sep 2017 
+!   Modified   :
 !------------------------------------------------------------------------
         implicit none                       
          
-        integer(i4b), intent(in)  :: n
+        integer(i4b), intent(in)  :: nn
         real(dbl),    intent(in)  :: x
         real(dbl),    intent(out) :: y
         integer(i4b)              :: k        
         real(dbl)                 :: yp,dk,ym 
                                                         
         y = 1.d0                                                     
-        if (n.eq.0) return                                              
+        if (nn.eq.0) return                                              
                                                                         
         y = 2.d0*x                                                   
-        if (n.eq.1) return                                              
+        if (nn.eq.1) return                                              
                                                                         
         yp=1.d0                                                        
-        do 1 k=2,n                                                        
+        do 1 k=2,nn                                                        
            dk = dble(k-1)                                               
            ym = y                                                        
            y  = 2.d0*x*y-2.d0*dk*yp                                      
@@ -385,66 +402,34 @@ module vib
 ! Modified  :
 !------------------------------------------------------------------------
 
-        integer(i4b)                :: i,j,k,v,v1,kk,kk1,nvibt,n,l
-        integer(i4b), allocatable   :: ii(:,:,:)  
-        real(dbl)                   :: d,fc,mn
+        integer(i4b)                :: i,j,k,v,v1,kk,kk1,ii,jj
 
-         
-        allocate(ii(nstates,nmodes,nvib))
-        kk=0
-        do i=1,nstates
-           do k=1,nmodes
-              do v=1,nvib
-                 kk=kk+1
-                 ii(i,k,v)=kk
-              enddo
-           enddo
-        enddo     
-
-        do j=2,nstates
-           do k=1,nmodes
-              do v=1,nvib
-   
-              enddo
-           enddo
-        enddo  
- 
+        call gen_map(nmodes,nvib,ncomb,iv)
 
         ! Only electronic transition i -> j (i>j) are taken into account
         ! No constraint on v and v1 values 
-        ! Coupling between normal modes allowed
 
+        dipf=0.d0
         ! Neglecting normal mode mixing
         if (.not.mix) then
-           ! Electronic state i
-           do i=nstates,1,-1
-           ! Normal mode for state i 
-              do k=1,nmodes
-           ! Vibrational state v for (i,k)
-                 do v=1,nvib
-           ! Electronic state j
-                    do j=i-1,1,-1
-           ! Vibrational state v1 for (j,k) 
-                       do v1=1,nvib
-                          d=q(i,k)-q(j,k)
-                          kk=ii(i,k,v)
-                          kk1=ii(j,k,v1)
-                          call compute_fc(v,v1,w(i,k),w(j,k),d,n,fc,mn)
-                          fc_sum(i,j) = fc_sum(i,j) + fc
-                          dipf(:,kk,kk1)=fc*dip(:,i,j)
-                       enddo
+           kk=0
+           do i=1,nstates
+              do j=1,ncomb
+                 kk=kk+1 
+                 kk1=0
+                 do ii=1,nstates
+                    do jj=1,ncomb
+                       kk1=kk1+1
+                       call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kk,kk1))                  
                     enddo
                  enddo
-              enddo
-           enddo
+              enddo 
+           enddo 
         ! Duschinsky rotation
         else
-
-
-        endif 
-
-
-        stop 
+           write(*,*) 'Duschinsky rotation not implemented yet'
+           stop
+        endif
 
 ! The updated energy file has the following structure:
 !
@@ -471,37 +456,11 @@ module vib
 
 ! Total numbers of states = nstates*nvib**nmodes
 
-        ! Ground state
         kk=0
-        do k=1,nmodes
-           kk=kk+1
-           ef(1) = ef(1) + w(1,k)*0.5d0
-        enddo 
-
-        do v=1,nvib
-           do k=1,nmodes
-              
-           enddo
-        enddo
-
-        ! Add vibrational energies
-        ! Electronic ground state
-        kk=0
-        do k=1,nmodes
-           do v=1,nvib
+        do i=1,nstates 
+           do j=1,ncomb
               kk=kk+1
-              ef(kk) = ef(kk) + w(1,k)*(v-1+0.5d0)    
-           enddo
-        enddo
-        ! Electronic excited states
-        nvibt=nmodes*nvib
-        do i=2,nstates
-           kk=(nvibt)*(i-1)
-           do k=1,nmodes
-              do v=1,nvib
-                 kk=kk+1
-                 ef(kk)=e(i)+ w(i,k)*(v-1+0.5d0)
-              enddo
+              call add_vibe(e(i),i,nmodes,iv(j,:),ef(kk))
            enddo
         enddo
 
@@ -510,36 +469,28 @@ module vib
         open(71,file='ci_mut_new.inp')        
         kk=0
         do i=1,nstates
-           do k=1,nmodes
-              do v=1,nvib
-                 kk=kk+1
-                 write(70,*) 'Root', kk, ':', ef(kk)/ev_to_au 
+           do j=1,ncomb
+              kk=kk+1
+              if (kk.gt.1) write(70,*) 'Root', kk-1, ':', (ef(kk)-ef(1))/ev_to_au 
+           enddo
+        enddo
+
+        kk=0
+        do i=1,nstates
+           do j=1,ncomb
+              kk=kk+1
+              kk1=0
+              do ii=i,nstates
+                 do jj=1,ncomb 
+                    kk1=kk1+1
+                    write(71,*) 'States', kk, 'and',kk1,dipf(:,kk,kk1)
+                 enddo
               enddo
            enddo
         enddo
 
-        ! Transition dipole moment between different normal modes
-        ! in different electronic states is set to zero
-
-        do k=1,nmodes
-           do i=1,nstates
-              do j=1,nstates
-                 do v=1,nvib
-                    do v1=1,nvib
-                       kk=ii(i,k,v)
-                       kk1=ii(j,k,v1)
-                       write(71,*) 'States', kk, 'and',kk1,dipf(:,kk,kk1)
-                    enddo
-                 enddo
-              enddo
-           enddo
-        enddo 
-
-
         close(70)
         close(71)
-
-        deallocate(ii)
 
         return
  
@@ -562,7 +513,7 @@ module vib
 
      end subroutine compute_coupling
      
-     subroutine gen_map(nmodes,nvib,iv)
+     subroutine gen_map(nmodes,nvib,ntot,iv)
 !------------------------------------------------------------------------
 ! @brief Defining mapping array 
 ! 
@@ -572,9 +523,8 @@ module vib
 
        implicit none
 
-       integer(i4b),   intent(in)               :: nmodes,nvib
-       integer(i4b),   allocatable, intent(out) :: iv(:,:)
-       integer(i4b),   intent(out)              :: ntot
+       integer(i4b),   intent(in)               :: nmodes,nvib,ntot
+       integer(i4b),   intent(out)              :: iv(ntot,nmodes)
        integer(i4b),   allocatable              :: state(:)
        integer(i4b),   allocatable              :: x(:,:)
 
@@ -588,28 +538,26 @@ module vib
       ! let F = indicates which combination number (in B) the current "system" of DO
       ! loops represents (where 1 <= F <= nvib**nmodes)
 
-       ntot=nvib**nmodes
-
        allocate(state(nmodes))
-       allocate(x(nmodes,nvib),iv(ntot,nmodes))
+       allocate(x(nmodes,nvib))
 
        do i=1,nvib
           x(:,i) = i-1
        enddo
 
-       b(:,:)=0
+       iv(:,:)=0
 
        e = 1
        f = 1
 
-       call rec_map(e,state,f,x,b,nmodes,nvib,ntot)
+       call rec_map(e,state,f,x,iv,nmodes,nvib,ntot)
 
-       do i=1,ntot
-          do j=1,nmodes
-             write(*,*) i,j,b(i,j)
-          enddo
-          write(*,*)
-       enddo
+       !do i=1,ntot
+       !   do j=1,nmodes
+       !      write(*,*) i,j,iv(i,j)
+       !   enddo
+       !   write(*,*)
+       !enddo
 
        deallocate(state,x)
 
@@ -655,7 +603,64 @@ module vib
        return
 
      end subroutine rec_map 
- 
 
+     subroutine add_vibe(e,i,nmodes,ii,ef)
+!------------------------------------------------------------------------
+! @brief Adding vibrational levels 
+! 
+! @date Created   : E. Coccia 26 Sep 2017
+! Modified  :
+!------------------------------------------------------------------------
+
+       implicit none 
+
+       real(dbl),    intent(in)  :: e
+       integer(i4b), intent(in)  :: i,nmodes
+       integer(i4b), intent(in)  :: ii(nmodes)
+       real(dbl),    intent(out) :: ef
+
+       integer(i4b)  :: k
+
+       ef=e
+       do k=1,nmodes
+          !write(*,*) e,k,w(i,k)*219474, ii(k), ef 
+          ef = ef + w(i,k)*(ii(k)+0.5d0) 
+       enddo
+
+       return
+
+     end subroutine add_vibe
+
+     subroutine modify_dip(dip,i,j,l,m,nmodes,dipf)
+!------------------------------------------------------------------------
+! @brief Correct dipoles with Franck-Condon factors 
+!                   
+! @date Created   : E. Coccia 27 Sep 2017
+! Modified  :          
+!------------------------------------------------------------------------
+
+       implicit none
+
+       real(dbl),    intent(in)   :: dip(3)
+       integer(i4b), intent(in)   :: i,j,l,m,nmodes
+       real(dbl),    intent(out)  :: dipf(3)
+
+       integer(i4b)               :: v,v1,k
+       real(dbl)                  :: d,fc,mn,tfc
+
+       tfc=1.d0
+       do k=1,nmodes 
+          v=iv(i,k)
+          v1=iv(j,k) 
+          d=q(l,k)-q(m,k)
+          call compute_fc(v,v1,w(l,k),w(m,k),d,nfc,fc,mn)
+          !write(*,*) k,l,k,fc
+          tfc=tfc*fc 
+       enddo
+       dipf(:)=dip(:)*tfc     
+ 
+       return       
+ 
+     end subroutine modify_dip
 
 end module vib

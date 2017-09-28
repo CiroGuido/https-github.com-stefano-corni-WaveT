@@ -163,7 +163,7 @@ module vib
         integer(i4b),  intent(in)  :: v,ve,n
         real(dbl),     intent(in)  :: w,we,d
         real(dbl),     intent(out) :: fc,mn
-        integer(i4b)               :: k,ke,kk,k2,vt,vte
+        integer(i4b)               :: k,ke,kk,k2
         real(dbl)                  :: s,a,b,be,ik,r,nf
         real(dbl)                  :: t1,t2,ikk
         real(dbl)                  :: hv,hve,ww 
@@ -199,14 +199,11 @@ module vib
 ! (v)*(v')*Hv-k(b)*Hv'-k'(b')*(2*sqrt(alpha))^k*(2*sqrt(alpha'))^k'*I(kk)
 ! (k) (k')
 
-        !vt=vt-1
-        !vte=vte-1 
-
         ww=1.d0/(w+we) 
 
         a  = 2.d0*sqrt(w*we)*ww
-        s  = w*we*d**2*w
-        nf = a*exp(-s)/(2**(vt+vte)*fact(vt)*fact(vte))
+        s  = w*we*d**2*ww
+        nf = a*exp(-s)/(2**(v+ve)*fact(v)*fact(ve))
         t1 = 2.d0*sqrt(w)
         t2 = 2.d0*sqrt(we)
         r  = -we*d*ww
@@ -654,7 +651,7 @@ module vib
           v1=iv(j,k) 
           d=q(l,k)-q(m,k)
           call compute_fc(v,v1,w(l,k),w(m,k),d,nfc,fc,mn)
-          !write(*,*) k,l,k,fc
+          write(*,*) v,v1,q(l,k),q(m,k),d,w(l,k),w(m,k),nfc,fc,mn
           tfc=tfc*fc 
        enddo
        dipf(:)=dip(:)*tfc     

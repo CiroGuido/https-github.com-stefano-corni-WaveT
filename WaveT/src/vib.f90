@@ -43,23 +43,15 @@ module vib
        open(7,file="ci_mut.inp",status="old")
        allocate (dip(3,nstates,nstates))
        do i=1,nstates
-        if (i.le.nstates) then
-         read(7,*)junk,junk,junk,junk,dip(1,1,i),dip(2,1,i),dip(3,1,i)
-         dip(:,i,1)=dip(:,1,i)
-        else
-         read(7,*)
-        endif
+          read(7,*)junk,junk,junk,junk,dip(1,1,i),dip(2,1,i),dip(3,1,i)
+          dip(:,i,1)=dip(:,1,i)
        enddo
 
        do i=2,nstates
-         do j=2,i
-          if (i.le.nstates.and.j.le.nstates) then
-           read(7,*)junk,junk,junk,junk,dip(1,i,j),dip(2,i,j),dip(3,i,j)
-           dip(:,j,i)=dip(:,i,j)
-          else
-           read(7,*)
-          endif
-         enddo
+          do j=2,i
+             read(7,*)junk,junk,junk,junk,dip(1,i,j),dip(2,i,j),dip(3,i,j)
+             dip(:,j,i)=dip(:,i,j)
+          enddo
        enddo
        close(7)
 
@@ -472,17 +464,13 @@ module vib
            enddo
         enddo
 
-        kk=0
-        do i=1,nstates
-           do j=1,ncomb
-              kk=kk+1
-              kk1=0
-              do ii=i,nstates
-                 do jj=1,ncomb 
-                    kk1=kk1+1
-                    write(71,*) 'States', kk, 'and',kk1,dipf(:,kk,kk1)
-                 enddo
-              enddo
+        do i=1,ntot
+           write(71,*) 'States', 0, 'and',i-1,dipf(:,1,i)      
+        enddo
+
+        do i=2,ntot
+           do j=2,i
+              write(71,*) 'States', j-1, 'and',i-1,dipf(:,i,j)
            enddo
         enddo
 
@@ -549,13 +537,6 @@ module vib
 
        call rec_map(e,state,f,x,iv,nmodes,nvib,ntot)
 
-       !do i=1,ntot
-       !   do j=1,nmodes
-       !      write(*,*) i,j,iv(i,j)
-       !   enddo
-       !   write(*,*)
-       !enddo
-
        deallocate(state,x)
 
        return 
@@ -603,7 +584,7 @@ module vib
 
      subroutine add_vibe(e,i,nmodes,ii,ef)
 !------------------------------------------------------------------------
-! @brief Adding vibrational levels 
+! @brief Adding vibrational energies 
 ! 
 ! @date Created   : E. Coccia 26 Sep 2017
 ! Modified  :
@@ -620,7 +601,6 @@ module vib
 
        ef=e
        do k=1,nmodes
-          !write(*,*) e,k,w(i,k)*219474, ii(k), ef 
           ef = ef + w(i,k)*(ii(k)+0.5d0) 
        enddo
 
@@ -651,7 +631,6 @@ module vib
           v1=iv(j,k) 
           d=q(l,k)-q(m,k)
           call compute_fc(v,v1,w(l,k),w(m,k),d,nfc,fc,mn)
-          write(*,*) v,v1,q(l,k),q(m,k),d,w(l,k),w(m,k),nfc,fc,mn
           tfc=tfc*fc 
        enddo
        dipf(:)=dip(:)*tfc     

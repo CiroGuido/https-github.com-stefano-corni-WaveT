@@ -1,0 +1,98 @@
+GFORTRAN module version '0' created from ../../TDPlas/src//td_contmed.f90 on Mon Oct  2 15:23:32 2017
+MD5:4c4db018767e1dafd36773fe0396d836 -- If you edit this, you'll get what you deserve.
+
+(() () () () () ()
+() () () () () () () () () () () () () () () () () () () () ())
+
+()
+
+()
+
+()
+
+()
+
+(2 'finalize_mdm' 'td_contmed' 'finalize_mdm' 1 ((PROCEDURE
+UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0
+UNKNOWN ()) 0 0 () () 0 () () () 0 0)
+3 'get_gneq' 'td_contmed' 'get_gneq' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 4 0 (5 6
+7 8) () 0 () () () 0 0)
+9 'get_mdm_dip' 'td_contmed' 'get_mdm_dip' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 10 0 (
+11) () 0 () () () 0 0)
+12 'get_ons' 'td_contmed' 'get_ons' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 13 0 (
+14) () 0 () () () 0 0)
+15 'init_mdm' 'td_contmed' 'init_mdm' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 16 0 (
+17 18 19) () 0 () () () 0 0)
+20 'prop_mdm' 'td_contmed' 'prop_mdm' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 21 0 (
+22 23 24 25) () 0 () () () 0 0)
+26 'qtot' 'td_contmed' 'qtot' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN EXPLICIT-SAVE) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+27 'ref' 'td_contmed' 'ref' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN EXPLICIT-SAVE) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+28 'set_charges' 'td_contmed' 'set_charges' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 29 0 (
+30) () 0 () () () 0 0)
+17 'c_tp' '' 'c_tp' 16 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (COMPLEX 8 0 0 COMPLEX ()) 0 0 () (1 EXPLICIT (
+CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0
+INTEGER ()) 0 31 ())) 0 () () () 0 0)
+18 'f_tp' '' 'f_tp' 16 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (1 EXPLICIT (CONSTANT (
+INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0
+'3')) 0 () () () 0 0)
+19 'h_int' '' 'h_int' 16 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (2 EXPLICIT (CONSTANT (
+INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 INTEGER ()) 0
+31 ()) (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4
+0 0 INTEGER ()) 0 31 ())) 0 () () () 0 0)
+22 'i' '' 'i' 21 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN DUMMY) (
+INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+23 'c_tp' '' 'c_tp' 21 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (COMPLEX 8 0 0 COMPLEX ()) 0 0 () (1 EXPLICIT (
+CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0
+INTEGER ()) 0 31 ())) 0 () () () 0 0)
+24 'f_tp' '' 'f_tp' 21 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (1 EXPLICIT (CONSTANT (
+INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0
+'3')) 0 () () () 0 0)
+25 'h_int' '' 'h_int' 21 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (2 EXPLICIT (CONSTANT (
+INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 INTEGER ()) 0
+31 ()) (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4
+0 0 INTEGER ()) 0 31 ())) 0 () () () 0 0)
+5 'e_vac_t' '' 'e_vac_t' 4 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DUMMY) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+6 'g_eqr_t' '' 'g_eqr_t' 4 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DUMMY) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+7 'g_neqr_t' '' 'g_neqr_t' 4 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN
+UNKNOWN DUMMY) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+8 'g_neq2_t' '' 'g_neq2_t' 4 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN
+UNKNOWN DUMMY) (REAL 8 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+11 'mdm_dip' '' 'mdm_dip' 10 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN
+DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (1 EXPLICIT (CONSTANT (
+INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0
+'3')) 0 () () () 0 0)
+30 'q' '' 'q' 29 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN DIMENSION
+DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (1 EXPLICIT (CONSTANT (INTEGER 4 0 0
+INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 INTEGER ()) 0 32 ())) 0 () ()
+() 0 0)
+14 'f_med' '' 'f_med' 13 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+UNKNOWN DIMENSION DUMMY) (REAL 8 0 0 REAL ()) 0 0 () (1 EXPLICIT (
+CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0
+INTEGER ()) 0 '3')) 0 () () () 0 0)
+32 'nts_act' 'pedra_friends' 'nts_act' 1 ((VARIABLE UNKNOWN-INTENT
+UNKNOWN-PROC UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
+0 () () () 0 0)
+31 'n_ci' 'global_tdplas' 'n_ci' 1 ((VARIABLE UNKNOWN-INTENT
+UNKNOWN-PROC UNKNOWN UNKNOWN) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 ()
+() () 0 0)
+)
+
+('finalize_mdm' 0 2 'get_gneq' 0 3 'get_mdm_dip' 0 9 'get_ons' 0 12
+'init_mdm' 0 15 'prop_mdm' 0 20 'qtot' 0 26 'ref' 0 27 'set_charges' 0
+28)

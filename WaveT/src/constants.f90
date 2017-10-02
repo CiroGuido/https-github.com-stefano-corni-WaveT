@@ -6,7 +6,6 @@
       INTEGER, PARAMETER :: cmp = dbl
       INTEGER, PARAMETER :: flg = 10 
 !
-      !LIGHT SPEED IN AU TO BE REVISED
       ! constants, conversion factors, and number literals
       real(8), parameter :: pi=3.141592653589793D+00
       real(8), parameter :: ev_to_au=0.0367493

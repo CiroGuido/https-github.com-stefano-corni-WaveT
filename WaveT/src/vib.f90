@@ -397,6 +397,7 @@ module vib
 !------------------------------------------------------------------------
 
         integer(i4b)                :: i,j,k,v,v1,kk,kk1,ii,jj
+        integer(i4b)                :: imap(ntot)
 
         call gen_map(nmodes,nvib,ncomb,iv)
 
@@ -426,31 +427,6 @@ module vib
            stop
         endif
 
-! The updated energy file has the following structure:
-!
-! Ground state
-!
-! E_0 + w_1/2 + w_2/2 + ... + w_k/2  k=1,...,nmodes
-!
-! nvib**nmodes combinations for the ground state
-! E_0 + w_1/2 + w_2*(1+1/2) + ... w_k/2 
-!
-! ...
-!
-! E_1 + w_1/2 + w_2/2 + ... + w_k/2
-! E_1 + w_1/2 + w_2*(1+1/2) + ... w_k/2 
-!
-! ...
-!
-! ...
-!
-! E_(nstates-1) + w_1/2 + w_2/2 + ... + w_k/2
-! E_(nstates-1) + w_1/2 + w_2*(1+1/2) + ... w_k/2 
-!
-! ...
-
-! Total numbers of states = nstates*nvib**nmodes
-
         kk=0
         do i=1,nstates 
            do j=1,ncomb
@@ -462,28 +438,44 @@ module vib
         ! Print energies and dipoles for WaveT
         open(70,file='ci_energy_new.inp')
         open(71,file='ci_mut_new.inp')        
+        open(72,file='e_map.dat')
         kk=0
         do i=1,nstates
            do j=1,ncomb
               kk=kk+1
-              if (kk.gt.1) write(70,*) 'Root', kk-1, ':', (ef(kk)-ef(1))/ev_to_au 
+              if (kk.gt.1) ef(kk)=(ef(kk)-ef(1))/ev_to_au 
            enddo
+        enddo
+        ! Sort energies in ascending order
+        call sort(ef,ntot,imap)
+
+        kk=0
+        do i=1,nstates
+           do j=1,ncomb
+              kk=kk+1
+              write(72,*) 'Electronic state:', i, 'and vib level', j, 'for state', imap(kk)
+           enddo
+        enddo 
+
+        do i=1,ntot
+           write(70,*) 'Root', i-1, ':', ef(i) 
         enddo
 
         do i=1,ntot
-           write(71,*) 'States', 0, 'and',i-1,dipf(:,1,i)      
+           write(71,*) 'States', 0, 'and',i-1,dipf(:,1,imap(i))      
         enddo
 
         kk=0
         do i=2,ntot
            do j=2,i
               kk=kk+1
-              write(71,*) 'States', j-1, 'and',i-1,dipf(:,i,j)
+              write(71,*) 'States', j-1, 'and',i-1,dipf(:,imap(i),imap(j))
            enddo
         enddo
 
         close(70)
         close(71)
+        close(72)
 
         return
  
@@ -647,7 +639,7 @@ module vib
  
      end subroutine modify_dip
 
-     subroutine sort(x,ns)
+     subroutine sort(x,ns,imap)
 !------------------------------------------------------------------------
 ! @brief Array x sorted into ascending order.
 !                   
@@ -655,13 +647,19 @@ module vib
 ! Modified  :          
 !------------------------------------------------------------------------ 
        implicit none
-       integer(i4b), dimension(1:), intent(inout) :: x
+       real(dbl),    intent(inout)                :: x(ns)
        integer(i4b), intent(in)                   :: ns
+       integer(i4b), intent(inout)                :: imap(ns)
        integer(i4b)                               :: i, pos
 
+       do i=1,ns
+          imap(i)=i
+       enddo
+
        do i=1,ns-1
-          pos = find_min(x,i,ns)
+          pos = find_min(x,i,ns,ns)
           call  swap(x(i),x(pos))
+          call iswap(imap(i),imap(pos))
        enddo
 
        return
@@ -669,7 +667,7 @@ module vib
      end subroutine sort
 
 
-     integer(i4b) function  find_min(x,start,end)
+     integer(i4b) function  find_min(x,start,end,ns)
 !------------------------------------------------------------------------
 ! @brief Finds the minimum position between start and end. 
 !                   
@@ -677,15 +675,16 @@ module vib
 ! Modified  :          
 !------------------------------------------------------------------------
        implicit none 
-       integer(i4b), dimension(1:), intent(in) :: x
-       integer(i4b), intent(in)                :: start, end
-       integer(i4b)                            :: imin, loc, i 
+       real(dbl),    intent(in)                :: x(ns)
+       integer(i4b), intent(in)                :: start, end, ns
+       integer(i4b)                            :: loc, i 
+       real(dbl)                               :: mini
 
-       imin  = x(start)             
+       mini  = x(start)             
        loc = start                 
        do i = start+1, end            
-          if (x(i) < imin) then       
-             imin  = x(i)            
+          if (x(i).lt.mini) then       
+             mini  = x(i)            
              loc = i                
           endif 
        enddo
@@ -705,6 +704,25 @@ module vib
 ! Modified  :          
 !------------------------------------------------------------------------ 
        implicit none 
+       real(dbl), intent(inout) :: a, b
+       real(dbl)                :: tmp
+
+       tmp = a
+       a = b
+       b = tmp
+
+       return
+
+     end subroutine swap
+
+     subroutine iswap(a,b)
+!------------------------------------------------------------------------
+! @brief swaps the values of a and b arguments. 
+!                   
+! @date Created   : E. Coccia 3 Oct 2017
+! Modified  :          
+!------------------------------------------------------------------------ 
+       implicit none
        integer(i4b), intent(inout) :: a, b
        integer(i4b)                :: tmp
 
@@ -714,6 +732,7 @@ module vib
 
        return
 
-     end subroutine swap
+     end subroutine iswap
+
 
 end module vib

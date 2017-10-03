@@ -1,5 +1,5 @@
-GFORTRAN module version '0' created from readio.f90 on Mon Oct  2 15:23:33 2017
-MD5:3f2cb07b904914019d9e3325fa30812c -- If you edit this, you'll get what you deserve.
+GFORTRAN module version '0' created from readio.f90 on Tue Oct  3 11:50:38 2017
+MD5:0584345f4d9e82a79c69a63cec30b233 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () ()
 () () () () () () () ())
@@ -58,109 +58,115 @@ UNKNOWN EXPLICIT-SAVE) (CHARACTER 1 0 0 CHARACTER ((CONSTANT (INTEGER 4
 16 'frad' 'readio' 'frad' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (CHARACTER 1 0 0 CHARACTER ((CONSTANT (INTEGER 4
 0 0 INTEGER ()) 0 '10'))) 0 0 () () 0 () () () 0 0)
-17 'i_de' 'readio' 'i_de' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+17 'full' 'readio' 'full' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (CHARACTER 1 0 0 CHARACTER ((
+CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '10'))) 0 0 () () 0 () () () 0 0)
+18 'i_de' 'readio' 'i_de' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
 0)
-18 'i_nr' 'readio' 'i_nr' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+19 'i_nr' 'readio' 'i_nr' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
 0)
-19 'i_sp' 'readio' 'i_sp' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+20 'i_sp' 'readio' 'i_sp' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
 0)
-20 'iseed' 'readio' 'iseed' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+21 'iseed' 'readio' 'iseed' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-21 'krnd' 'readio' 'krnd' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+22 'krnd' 'readio' 'krnd' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-22 'mol_cc' 'readio' 'mol_cc' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+23 'mol_cc' 'readio' 'mol_cc' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE DIMENSION IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 ()
 (1 EXPLICIT (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (
 INTEGER 4 0 0 INTEGER ()) 0 '3')) 0 () () () 0 0)
-23 'mut' 'readio' 'mut' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+24 'mut' 'readio' 'mut' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0 REAL ()) 0 0 () (3
 DEFERRED () () () () () ()) 0 () () () 0 0)
-24 'n_ci' 'readio' 'n_ci' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+25 'n_ci' 'readio' 'n_ci' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-25 'n_ci_read' 'readio' 'n_ci_read' 1 ((VARIABLE UNKNOWN-INTENT
+26 'n_ci_read' 'readio' 'n_ci_read' 1 ((VARIABLE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ())
 0 0 () () 0 () () () 0 0)
-26 'n_f' 'readio' 'n_f' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+27 'n_f' 'readio' 'n_f' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () ()
 () 0 0)
-27 'n_out' 'readio' 'n_out' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+28 'n_out' 'readio' 'n_out' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-28 'n_step' 'readio' 'n_step' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+29 'n_step' 'readio' 'n_step' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-29 'nexc' 'readio' 'nexc' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+30 'nexc' 'readio' 'nexc' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
 0)
-30 'npulse' 'readio' 'npulse' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+31 'npulse' 'readio' 'npulse' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
 0)
-31 'nr_gam' 'readio' 'nr_gam' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+32 'nr_gam' 'readio' 'nr_gam' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0 REAL ()) 0 0 ()
 (1 DEFERRED () ()) 0 () () () 0 0)
-32 'nrnd' 'readio' 'nrnd' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+33 'nrel' 'readio' 'nrel' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN EXPLICIT-SAVE) (INTEGER 4 0 0 INTEGER ()) 0 0 () () 0 () () () 0
+0)
+34 'nrnd' 'readio' 'nrnd' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-33 'omega' 'readio' 'omega' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+35 'omega' 'readio' 'omega' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-34 'omega1' 'readio' 'omega1' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+36 'omega1' 'readio' 'omega1' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-35 'pshift' 'readio' 'pshift' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+37 'pshift' 'readio' 'pshift' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-36 'read_input' 'readio' 'read_input' 1 ((PROCEDURE UNKNOWN-INTENT
+38 'read_input' 'readio' 'read_input' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN SUBROUTINE) (UNKNOWN 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
-37 'restart' 'readio' 'restart' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+39 'restart' 'readio' 'restart' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (CHARACTER 1 0 0 CHARACTER ((
 CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '10'))) 0 0 () () 0 () () () 0 0)
-38 'sigma' 'readio' 'sigma' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+40 'sigma' 'readio' 'sigma' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-39 'sigma1' 'readio' 'sigma1' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+41 'sigma1' 'readio' 'sigma1' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-40 'sp_fact' 'readio' 'sp_fact' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+42 'sp_fact' 'readio' 'sp_fact' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0 REAL ()) 0 0 ()
 (1 DEFERRED () ()) 0 () () () 0 0)
-41 'sp_gam' 'readio' 'sp_gam' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+43 'sp_gam' 'readio' 'sp_gam' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0 REAL ()) 0 0 ()
 (1 DEFERRED () ()) 0 () () () 0 0)
-42 'start' 'readio' 'start' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+44 'start' 'readio' 'start' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-43 't_mid' 'readio' 't_mid' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+45 't_mid' 'readio' 't_mid' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-44 'tau' 'readio' 'tau' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+46 'tau' 'readio' 'tau' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 EXPLICIT-SAVE DIMENSION IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () (1
 EXPLICIT (CONSTANT (INTEGER 4 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER
 4 0 0 INTEGER ()) 0 '2')) 0 () () () 0 0)
-45 'tdelay' 'readio' 'tdelay' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+47 'tdelay' 'readio' 'tdelay' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (REAL 8 0 0 REAL ()) 0 0 () () 0 () ()
 () 0 0)
-46 'tdis' 'readio' 'tdis' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+48 'tdis' 'readio' 'tdis' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN EXPLICIT-SAVE IN_NAMELIST) (INTEGER 4 0 0 INTEGER ()) 0 0 () ()
 0 () () () 0 0)
-47 'tmom2_0i' 'readio' 'tmom2_0i' 1 ((VARIABLE UNKNOWN-INTENT
-UNKNOWN-PROC UNKNOWN EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0
-REAL ()) 0 0 () (1 DEFERRED () ()) 0 () () () 0 0)
+49 'tmom2' 'readio' 'tmom2' 1 ((VARIABLE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN EXPLICIT-SAVE ALLOCATABLE DIMENSION) (REAL 8 0 0 REAL ()) 0 0 ()
+(1 DEFERRED () ()) 0 () () () 0 0)
 )
 
 ('c_i' 0 2 'de_gam' 0 3 'de_gam1' 0 4 'deallocate_dis' 0 5 'delta' 0 6
 'dir_ft' 0 7 'dt' 0 8 'e_ci' 0 9 'fdis' 0 10 'fdis_deph' 0 11 'fdis_rel'
-0 12 'ffld' 0 13 'fmax' 0 14 'fmdm' 0 15 'frad' 0 16 'i_de' 0 17 'i_nr'
-0 18 'i_sp' 0 19 'iseed' 0 20 'krnd' 0 21 'mol_cc' 0 22 'mut' 0 23 'n_ci'
-0 24 'n_ci_read' 0 25 'n_f' 0 26 'n_out' 0 27 'n_step' 0 28 'nexc' 0 29
-'npulse' 0 30 'nr_gam' 0 31 'nrnd' 0 32 'omega' 0 33 'omega1' 0 34
-'pshift' 0 35 'read_input' 0 36 'restart' 0 37 'sigma' 0 38 'sigma1' 0
-39 'sp_fact' 0 40 'sp_gam' 0 41 'start' 0 42 't_mid' 0 43 'tau' 0 44
-'tdelay' 0 45 'tdis' 0 46 'tmom2_0i' 0 47)
+0 12 'ffld' 0 13 'fmax' 0 14 'fmdm' 0 15 'frad' 0 16 'full' 0 17 'i_de'
+0 18 'i_nr' 0 19 'i_sp' 0 20 'iseed' 0 21 'krnd' 0 22 'mol_cc' 0 23 'mut'
+0 24 'n_ci' 0 25 'n_ci_read' 0 26 'n_f' 0 27 'n_out' 0 28 'n_step' 0 29
+'nexc' 0 30 'npulse' 0 31 'nr_gam' 0 32 'nrel' 0 33 'nrnd' 0 34 'omega'
+0 35 'omega1' 0 36 'pshift' 0 37 'read_input' 0 38 'restart' 0 39 'sigma'
+0 40 'sigma1' 0 41 'sp_fact' 0 42 'sp_gam' 0 43 'start' 0 44 't_mid' 0
+45 'tau' 0 46 'tdelay' 0 47 'tdis' 0 48 'tmom2' 0 49)

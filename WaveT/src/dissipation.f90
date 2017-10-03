@@ -42,12 +42,12 @@ module dissipation
    do i=2, nci
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
-      h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2_0i(i-1)
+      h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2(i-1)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
 !      if (nr_typ.eq.0) then
       if (Fdis_rel.eq."dip") then
-         rate = nr_gam(i-1)*tmom2_0i(i-1)
+         rate = nr_gam(i-1)*tmom2(i-1)
 !      elseif (nr_typ.eq.1) then
       elseif (Fdis_rel.eq."mat") then
          rate = nr_gam(i-1)
@@ -133,7 +133,7 @@ module dissipation
 
    do i=1,nexc
       tmp=abs(c(i+1))
-      weight=tmom2_0i(i)*tmp**2
+      weight=tmom2(i)*tmp**2
       dsp = dsp + sp_gam(i)*weight
 !      if (nr_typ.eq.0) then
       if (Fdis_rel.eq."dip") then
@@ -245,8 +245,8 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
-      ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2_0i(istate))
+      creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
+      ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
       c(1)  = cmplx(creal,ireal) 
       c(2:nci) = zeroc
       c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
@@ -272,8 +272,8 @@ module dissipation
       enddo
 !      if (nr_typ.eq.0) then
       if (Fdis_rel.eq."dip") then
-         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
-         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2_0i(istate))
+         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
+         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
 !      elseif (nr_typ.eq.1) then
       elseif (Fdis_rel.eq."mat") then
          creal = real(c_prev(istate+1))*sqrt(nr_gam(istate))
@@ -366,12 +366,12 @@ module dissipation
       rtmp=0.d0 
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
-      rtmp = rtmp + sqrt(sp_gam(i-1)*tmom2_0i(i-1))*wrnd(i)
+      rtmp = rtmp + sqrt(sp_gam(i-1)*tmom2(i-1))*wrnd(i)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
 !      if (nr_typ.eq.0) then
       if (Fdis_rel.eq."dip") then
-         rate = sqrt(nr_gam(i-1)*tmom2_0i(i-1))
+         rate = sqrt(nr_gam(i-1)*tmom2(i-1))
 !      elseif (nr_typ.eq.1) then
       elseif (Fdis_rel.eq."mat") then
          rate = sqrt(nr_gam(i-1))

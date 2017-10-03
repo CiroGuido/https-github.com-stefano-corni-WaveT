@@ -32,38 +32,89 @@ module dissipation
    implicit none
    integer, intent(in)    :: nci
    real(dbl), intent(inout) :: h_dis(nci,nci)    
-   integer                :: i,j
+   integer                :: i,j,k
    real(dbl)                :: rate, sde
 
 !   if (idep.eq.1) sde = sum(de_gam1)
    if (Fdis_deph.eq."i-0") sde = sum(de_gam1)
 
+
+   if (Fful.eq.'Yesf') then
 ! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
-   do i=2, nci
+
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
-      h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2(i-1)
+      do i=2, nci
+         h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2(i-1)
+      enddo
+      k=nci-1
+      do i=2,nci
+         do j=i+1,nci
+            k=k+1
+            h_dis(i,i) = h_dis(i,i) + sp_gam(k)*tmom2(k)
+         enddo 
+      enddo 
+
+! Relaxation via nonradiative processes (nr)
+! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
+      do i=2,nci
+!      if (nr_typ.eq.0) then
+         if (Fdis_rel.eq."dip") then
+            rate = nr_gam(i-1)*tmom2(i-1)
+!      elseif (nr_typ.eq.1) then
+         elseif (Fdis_rel.eq."mat") then
+            rate = nr_gam(i-1)
+         endif
+         h_dis(i,i) = h_dis(i,i) + rate
+      enddo
+      k=nci-1
+      do i=2,nci
+         do j=i+1,nci
+            k=k+1
+            h_dis(i,i) = h_dis(i,i) + rate
+         enddo
+      enddo
+
+! Pure dephasing (de)
+! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
+      do i=2,nci
+!      if (idep.eq.0) then
+         if (Fdis_deph.eq."exp") then
+            h_dis(i,i) = h_dis(i,i) + de_gam(i)
+! S_alpha = sqrt(de_gam_alpha) * (|Phi_alpha> <Phi_alpha| - |Phi_0> <Phi_0|)
+!      elseif (idep.eq.1) then
+         elseif (Fdis_deph.eq."i-0") then
+            h_dis(i,i) = h_dis(i,i) + sde
+         endif
+      enddo
+   elseif (Fful.eq.'Nonf') then
+! Matrix elements of S^+_alpha S_alpha in the system eigenstates basis
+      do i=2, nci
+! Relaxation via spontaneous emission (sp)
+! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
+         h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2(i-1)
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha|
 !      if (nr_typ.eq.0) then
-      if (Fdis_rel.eq."dip") then
-         rate = nr_gam(i-1)*tmom2(i-1)
+         if (Fdis_rel.eq."dip") then
+            rate = nr_gam(i-1)*tmom2(i-1)
 !      elseif (nr_typ.eq.1) then
-      elseif (Fdis_rel.eq."mat") then
-         rate = nr_gam(i-1)
-      endif
-      h_dis(i,i) = h_dis(i,i) + rate 
+         elseif (Fdis_rel.eq."mat") then
+            rate = nr_gam(i-1)
+         endif
+         h_dis(i,i) = h_dis(i,i) + rate 
 ! Pure dephasing (de)
 ! S_alpha = sqrt(de_gam_alpha) |Phi_alpha> <Phi_alpha|
 !      if (idep.eq.0) then
-      if (Fdis_deph.eq."exp") then
-         h_dis(i,i) = h_dis(i,i) + de_gam(i)
+         if (Fdis_deph.eq."exp") then
+            h_dis(i,i) = h_dis(i,i) + de_gam(i)
 ! S_alpha = sqrt(de_gam_alpha) * (|Phi_alpha> <Phi_alpha| - |Phi_0> <Phi_0|)
 !      elseif (idep.eq.1) then
-      elseif (Fdis_deph.eq."i-0") then
-         h_dis(i,i) = h_dis(i,i) + sde
-      endif
-   enddo
+         elseif (Fdis_deph.eq."i-0") then
+            h_dis(i,i) = h_dis(i,i) + sde
+         endif
+      enddo
+   endif
 
 !   if (idep.eq.0) then
    if (Fdis_deph.eq."exp") then
@@ -121,77 +172,176 @@ module dissipation
    implicit none
    complex(cmp), intent(in)   :: c(nci)
    integer,     intent(in)   :: nci
-   real(dbl),     intent(inout):: pjump(3*nexc+1)
-   integer                   :: i
+   real(dbl),     intent(inout):: pjump(2*nf+nexc+1)
+   integer                   :: i,j,k
    real(dbl)                   :: weight, tmp, sumc
 
    dsp=0.d0
    dnr=0.d0
    dde=0.d0
 
-   pjump(3*nexc+1)=0.d0
+   pjump(2*nf+nexc+1)=0.d0
 
-   do i=1,nexc
-      tmp=abs(c(i+1))
-      weight=tmom2(i)*tmp**2
-      dsp = dsp + sp_gam(i)*weight
-!      if (nr_typ.eq.0) then
-      if (Fdis_rel.eq."dip") then
-         dnr = dnr + nr_gam(i)*weight
-!      elseif (nr_typ.eq.1) then
-      elseif (Fdis_rel.eq."mat") then
-         dnr = dnr + nr_gam(i)*tmp**2
-      endif   
-      pjump(i) = sp_gam(i)*weight
-!      if (nr_typ.eq.0) then
-      if (Fdis_rel.eq."dip") then
-         pjump(i+nexc) = nr_gam(i)*weight
-!      elseif (nr_typ.eq.1) then
-      elseif (Fdis_rel.eq."mat") then
-         pjump(i+nexc) = nr_gam(i)*tmp**2
-      endif
-   enddo
-
-!   if (idep.eq.0) then
-   if (Fdis_deph.eq."exp") then
-      pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
-      dde = dde + pjump(1+2*nexc)
+   if (Fful.eq.'Yesf') then
       do i=1,nexc
          tmp=abs(c(i+1))
-         pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
-         dde = dde + pjump(i+1+2*nexc)
+         weight=tmom2(i)*tmp**2
+         dsp = dsp + sp_gam(i)*weight
+         pjump(i) = sp_gam(i)*weight
       enddo
-!   elseif (idep.eq.1) then
-   elseif (Fdis_deph.eq."i-0") then
-      sumc=0.d0 
-      do i=1,nexc+1
-         tmp=abs(c(i))**2
-         sumc=sumc+tmp
+      k=nexc
+      do i=nexc,2,-1
+         do j=i-1,2,-1
+            k=k+1
+            tmp=abs(c(i+1))
+            weight=tmom2(k)*tmp**2
+            dsp = dsp + sp_gam(k)*weight
+            pjump(k) = sp_gam(k)*weight
+         enddo
       enddo
-      do i=1,nexc+1
-         pjump(i+2*nexc) = de_gam1(i)*sumc
-         dde = dde + pjump(i+2*nexc)
-      enddo
-   endif
-   dsp = dsp*dt
-   dnr = dnr*dt
-   dde = dde*dt
-   dtot = dsp + dnr + dde
 
-   if (dsp.ne.0.d0) then
-      pjump(1:nexc)=pjump(1:nexc)*dt/dsp
-   else
-      pjump(1:nexc)=0.d0
-   endif
-   if (dnr.ne.0.d0) then
-      pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
-   else
-      pjump(nexc+1:2*nexc)=0.d0
-   endif 
-   if (dde.ne.0.d0) then 
-      pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
-   else
-      pjump(2*nexc+1:3*nexc+1)=0.d0
+      do i=1,nexc
+!      if (nr_typ.eq.0) then
+         if (Fdis_rel.eq."dip") then
+            dnr = dnr + nr_gam(i)*weight
+!      elseif (nr_typ.eq.1) then
+         elseif (Fdis_rel.eq."mat") then
+            dnr = dnr + nr_gam(i)*tmp**2
+         endif
+
+!      if (nr_typ.eq.0) then
+         if (Fdis_rel.eq."dip") then
+            pjump(i+nf) = nr_gam(i)*weight
+!      elseif (nr_typ.eq.1) then
+         elseif (Fdis_rel.eq."mat") then
+            pjump(i+nf) = nr_gam(i)*tmp**2
+         endif
+      enddo
+      k=nf+nexc
+      do i=nexc,2,-1
+         do j=i-1,2,-1
+            k=k+1
+            if (Fdis_rel.eq."dip") then
+               dnr = dnr + nr_gam(k)*weight
+!      elseif (nr_typ.eq.1) then
+            elseif (Fdis_rel.eq."mat") then
+               dnr = dnr + nr_gam(k)*tmp**2
+            endif
+
+!      if (nr_typ.eq.0) then
+           if (Fdis_rel.eq."dip") then
+              pjump(k+nf) = nr_gam(k)*weight
+!      elseif (nr_typ.eq.1) then
+           elseif (Fdis_rel.eq."mat") then
+              pjump(k+nf) = nr_gam(k)*tmp**2
+           endif
+         enddo
+      enddo
+
+!   if (idep.eq.0) then
+      if (Fdis_deph.eq."exp") then
+         pjump(1+2*nf) = de_gam(1)*abs(c(1))**2
+         dde = dde + pjump(1+2*nf)
+         do i=1,nexc
+            tmp=abs(c(i+1))
+            pjump(i+1+2*nf) = de_gam(i+1)*tmp**2
+            dde = dde + pjump(i+1+2*nf)
+         enddo
+!   elseif (idep.eq.1) then
+      elseif (Fdis_deph.eq."i-0") then
+         sumc=0.d0
+         do i=1,nexc+1
+            tmp=abs(c(i))**2
+            sumc=sumc+tmp
+         enddo
+         do i=1,nexc+1
+            pjump(i+2*nf) = de_gam1(i)*sumc
+            dde = dde + pjump(i+2*nf)
+         enddo
+      endif
+      dsp = dsp*dt
+      dnr = dnr*dt
+      dde = dde*dt
+      dtot = dsp + dnr + dde
+
+      if (dsp.ne.0.d0) then
+         pjump(1:nf)=pjump(1:nf)*dt/dsp
+      else
+         pjump(1:nf)=0.d0
+      endif
+      if (dnr.ne.0.d0) then
+         pjump(nf+1:2*nf)=pjump(nf+1:2*nexc)*dt/dnr
+      else
+         pjump(nf+1:2*nf)=0.d0
+      endif
+      if (dde.ne.0.d0) then
+         pjump(2*nf+1:2*nf+nexc+1)=pjump(2*nf+1:2*nf+nexc+1)*dt/dde
+      else
+         pjump(2*nf+1:2*nf+nexc+1)=0.d0
+      endif
+   elseif (Fful.eq.'Nonf') then
+      do i=1,nexc
+         tmp=abs(c(i+1))
+         weight=tmom2(i)*tmp**2
+         dsp = dsp + sp_gam(i)*weight
+!      if (nr_typ.eq.0) then
+         if (Fdis_rel.eq."dip") then
+            dnr = dnr + nr_gam(i)*weight
+!      elseif (nr_typ.eq.1) then
+         elseif (Fdis_rel.eq."mat") then
+            dnr = dnr + nr_gam(i)*tmp**2
+         endif   
+         pjump(i) = sp_gam(i)*weight
+!      if (nr_typ.eq.0) then
+         if (Fdis_rel.eq."dip") then
+            pjump(i+nexc) = nr_gam(i)*weight
+!      elseif (nr_typ.eq.1) then
+         elseif (Fdis_rel.eq."mat") then
+            pjump(i+nexc) = nr_gam(i)*tmp**2
+         endif
+      enddo
+
+!   if (idep.eq.0) then
+      if (Fdis_deph.eq."exp") then
+         pjump(1+2*nexc) = de_gam(1)*abs(c(1))**2 
+         dde = dde + pjump(1+2*nexc)
+         do i=1,nexc
+            tmp=abs(c(i+1))
+            pjump(i+1+2*nexc) = de_gam(i+1)*tmp**2
+            dde = dde + pjump(i+1+2*nexc)
+         enddo
+!   elseif (idep.eq.1) then
+      elseif (Fdis_deph.eq."i-0") then
+         sumc=0.d0 
+         do i=1,nexc+1
+            tmp=abs(c(i))**2
+            sumc=sumc+tmp
+         enddo
+         do i=1,nexc+1
+            pjump(i+2*nexc) = de_gam1(i)*sumc
+            dde = dde + pjump(i+2*nexc)
+         enddo
+      endif
+      dsp = dsp*dt
+      dnr = dnr*dt
+      dde = dde*dt
+      dtot = dsp + dnr + dde
+
+      if (dsp.ne.0.d0) then
+         pjump(1:nexc)=pjump(1:nexc)*dt/dsp
+      else
+         pjump(1:nexc)=0.d0
+      endif
+      if (dnr.ne.0.d0) then
+         pjump(nexc+1:2*nexc)=pjump(nexc+1:2*nexc)*dt/dnr
+      else
+         pjump(nexc+1:2*nexc)=0.d0
+      endif 
+      if (dde.ne.0.d0) then 
+         pjump(2*nexc+1:3*nexc+1)=pjump(2*nexc+1:3*nexc+1)*dt/dde
+      else
+         pjump(2*nexc+1:3*nexc+1)=0.d0
+      endif
    endif
 
    return
@@ -212,7 +362,7 @@ module dissipation
    complex(cmp), intent(inout)   :: c(nci)
    complex(cmp), intent(in)      :: c_prev(nci)
    integer(4),  intent(in)      :: nci
-   real(dbl),     intent(in)      :: pjump(3*nexc+1)
+   real(dbl),     intent(in)      :: pjump(2*nf+nexc+1)
    integer(4)                   :: i,istate
    real(dbl)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
    real(dbl)                      :: left, right 
@@ -230,14 +380,14 @@ module dissipation
 
 ! Select the relaxation channel
 ! j = n + FLOOR((m+1-n)*rnd), rnd [0,1) -> [n,m] 
-! In our case [1,nexc]
+! In our case [1,nf]
 
 ! Spontaneous occurring 
    if (eta.ge.0.and.eta.lt.tmp1) then
       call random_number(eta1)
       left=0.d0
       right=pjump(1)
-      do i=1,nexc
+      do i=1,nf
          if (eta1.ge.left.and.eta1.lt.right) then
             istate=i
             exit
@@ -255,16 +405,15 @@ module dissipation
       !Update charges to those in equilibrium with the ground state
       if (Fmdm_relax.eq."rel") then
          call set_q0charges
-         !qr_t(:)=q0(:)
       endif
 ! Nonradiative occurring
    elseif (eta.ge.tmp1.and.eta.lt.tmp2) then
       call random_number(eta1)
       left=0.d0
-      right=pjump(nexc+1)
-      do i=nexc+1,2*nexc
+      right=pjump(nf+1)
+      do i=nf+1,2*nf
          if (eta1.ge.left.and.eta1.lt.right) then
-            istate=i-nexc 
+            istate=i-nf 
             exit
             endif
          left  = right
@@ -281,19 +430,19 @@ module dissipation
       endif
       c(1)  = cmplx(creal,ireal)
       c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate+nexc)*dnr/dt) 
+      c(1)=c(1)/sqrt(pjump(istate+nf)*dnr/dt) 
       i_nr = i_nr +1
       write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)
       left=0.d0
-      right=pjump(2*nexc+1)
+      right=pjump(2*nf+1)
 !      if (idep.eq.0) then
       if (Fdis_deph.eq."exp") then
-         do i=2*nexc+1,3*nexc+1
+         do i=2*nf+1,2*nf+nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
-               istate=i-2*nexc
+               istate=i-2*nf
                exit  
             endif
             left  = right 
@@ -303,12 +452,12 @@ module dissipation
          c(istate)=c_prev(istate)*cph*sqrt(de_gam(istate))
          if (istate.ne.1) c(1:istate-1) = zeroc 
          c(istate+1:nci) = zeroc 
-         c(istate)=c(istate)/sqrt(pjump(istate+2*nexc)*dde/dt)
+         c(istate)=c(istate)/sqrt(pjump(istate+2*nf)*dde/dt)
 !      elseif (idep.eq.1) then
       elseif (Fdis_deph.eq."i-0") then
-         do i=2*nexc+1,3*nexc+1
+         do i=2*nf+1,2*nf+nexc+1
             if (eta1.ge.left.and.eta1.lt.right) then
-               istate=i-2*nexc
+               istate=i-2*nf
                exit
             endif
             left  = right
@@ -321,7 +470,7 @@ module dissipation
          !c(1) =  - c_prev(1)*sqrt(de_gam(istate))
          !c(2:istate) = zeroc
          !c(istate+2:nci) = zeroc
-         c=c/sqrt(pjump(istate+2*nexc)*dde/dt)
+         c=c/sqrt(pjump(istate+2*nf)*dde/dt)
       endif
       i_de = i_de + 1
       write(*,*) 'Jump due to pure dephasing, channel n.:', istate 

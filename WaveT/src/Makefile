@@ -17,13 +17,13 @@ LDLAGS=
 FFLAGS= $(FFLAGS_GF_DEB)
 #LIBS = -L/usr/lib -llapack  -lblas 
 #LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
-#LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
-LIBS = -L/usr/lib -llapack  -lblas -lfftw3
+LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
+#LIBS = -L/usr/lib -llapack  -lblas -lfftw3
 #LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group#
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
 #LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
-INC = -I/usr/include/ 
-#INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
+#INC = -I/usr/include/ 
+INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 BINPATH=../bin
 TDPLAS=../../TDPlas/src/

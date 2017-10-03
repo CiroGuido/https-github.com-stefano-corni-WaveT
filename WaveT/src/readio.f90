@@ -77,11 +77,11 @@
              Fmdm,mol_cc,tau,start,c_i,e_ci,mut,            &
              Frad,n_out,iseed,n_f,dir_ft,full,              &
 ! SP 17/07/17: Changed to char flags
-             tdis,nr_gam,de_gam,sp_gam,tmom2,nexc,delta, &
+             tdis,nr_gam,de_gam,sp_gam,tmom2,nexc,delta,    &
              deallocate_dis,i_sp,i_nr,i_de,nrnd,sp_fact,    &
 !             nr_typ,idep,imar,de_gam1,krnd,ernd       
-             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,          &
-             npulse,omega1,sigma1,tdelay,pshift,nrel            
+             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,nf,       &
+             npulse,omega1,sigma1,tdelay,pshift,nrel,Fful            
              
 !
       contains
@@ -272,8 +272,8 @@
        enddo
        if (Fful.eq.'Yesf') then 
           k=nexc
-          do i=1,nexc
-             do j=i+1,nexc
+          do i=nexc,1,-1
+             do j=i-1,1,-1
                 k=k+1
                 tomega(k) = abs(e_ci(i+1) - e_ci(j+1))
              enddo
@@ -310,8 +310,8 @@
        enddo
        if (Fful.eq.'Yesf') then 
           k=nexc
-          do i=1,nexc
-             do j=i+1,nexc 
+          do i=nexc,1,-1
+             do j=i-1,1,-1 
                 k=k+1
                 tmom2(k) = mut(1,i+1,j+1)**2 + mut(2,i+1,j+1)**2 + mut(3,i+1,j+1)**2
              enddo
@@ -332,7 +332,7 @@
             tmom2(i) = tmom2(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
          enddo
 
-         write(*,*)"Contribution to the transition dipole <0|mu|i> ", &
+         write(*,*)"Contribution to the transition dipole <i|mu|j> ", &
                    "from NP"
 
 104      if (ierr4.ne.0) then

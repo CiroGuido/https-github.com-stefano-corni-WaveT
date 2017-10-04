@@ -201,40 +201,33 @@ module dissipation
       enddo
 
       do i=1,nexc
+         tmp=abs(c(i+1))
 !      if (nr_typ.eq.0) then
          if (Fdis_rel.eq."dip") then
+            weight=tmom2(i)*tmp**2
             dnr = dnr + nr_gam(i)*weight
-!      elseif (nr_typ.eq.1) then
-         elseif (Fdis_rel.eq."mat") then
-            dnr = dnr + nr_gam(i)*tmp**2
-         endif
-
-!      if (nr_typ.eq.0) then
-         if (Fdis_rel.eq."dip") then
             pjump(i+nf) = nr_gam(i)*weight
 !      elseif (nr_typ.eq.1) then
          elseif (Fdis_rel.eq."mat") then
+            dnr = dnr + nr_gam(i)*tmp**2
             pjump(i+nf) = nr_gam(i)*tmp**2
          endif
+         write(*,*) Fful,i, nr_gam(i)  
       enddo
       k=nf+nexc
       do i=nexc,2,-1
+         tmp=abs(c(i+1))
          do j=i-1,2,-1
             k=k+1
             if (Fdis_rel.eq."dip") then
+               weight=tmom2(k)*tmp**2
                dnr = dnr + nr_gam(k)*weight
+               pjump(k+nf) = nr_gam(k)*weight
 !      elseif (nr_typ.eq.1) then
             elseif (Fdis_rel.eq."mat") then
                dnr = dnr + nr_gam(k)*tmp**2
+               pjump(k+nf) = nr_gam(k)*tmp**2
             endif
-
-!      if (nr_typ.eq.0) then
-           if (Fdis_rel.eq."dip") then
-              pjump(k+nf) = nr_gam(k)*weight
-!      elseif (nr_typ.eq.1) then
-           elseif (Fdis_rel.eq."mat") then
-              pjump(k+nf) = nr_gam(k)*tmp**2
-           endif
          enddo
       enddo
 
@@ -290,7 +283,8 @@ module dissipation
 !      elseif (nr_typ.eq.1) then
          elseif (Fdis_rel.eq."mat") then
             dnr = dnr + nr_gam(i)*tmp**2
-         endif   
+         endif
+         write(*,*) Fful,i, nr_gam(i)   
          pjump(i) = sp_gam(i)*weight
 !      if (nr_typ.eq.0) then
          if (Fdis_rel.eq."dip") then

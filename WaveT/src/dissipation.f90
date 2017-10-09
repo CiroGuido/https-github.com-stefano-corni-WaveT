@@ -53,7 +53,7 @@ module dissipation
             k=k+1
             rate = sp_gam(k)*tmom2(k)
             h_dis(i,i) = h_dis(i,i) + rate 
-            h_dis(i,i) = h_dis(i,i) - rate 
+            h_dis(j,j) = h_dis(j,j) - rate 
          enddo 
       enddo 
  
@@ -222,7 +222,7 @@ module dissipation
             pjump(i+nf) = nr_gam(i)*tmp**2
          endif
       enddo
-      k=nf+nexc
+      k=nexc
       do i=nexc,1,-1
          tmp=abs(c(i+1))
          do j=i-1,1,-1
@@ -260,6 +260,7 @@ module dissipation
             dde = dde + pjump(i+2*nf)
          enddo
       endif
+
       dsp = dsp*dt
       dnr = dnr*dt
       dde = dde*dt
@@ -271,7 +272,7 @@ module dissipation
          pjump(1:nf)=0.d0
       endif
       if (dnr.ne.0.d0) then
-         pjump(nf+1:2*nf)=pjump(nf+1:2*nexc)*dt/dnr
+         pjump(nf+1:2*nf)=pjump(nf+1:2*nf)*dt/dnr
       else
          pjump(nf+1:2*nf)=0.d0
       endif

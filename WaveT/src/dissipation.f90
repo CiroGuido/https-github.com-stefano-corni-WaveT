@@ -48,13 +48,15 @@ module dissipation
          h_dis(i,i) = h_dis(i,i) + sp_gam(i-1)*tmom2(i-1)
       enddo
       k=nci-1
-      do i=2,nci
-         do j=i+1,nci
+      do i=nci,2,-1
+         do j=i-1,2,-1
             k=k+1
-            h_dis(i,i) = h_dis(i,i) + sp_gam(k)*tmom2(k)
+            rate = sp_gam(k)*tmom2(k)
+            h_dis(i,i) = h_dis(i,i) + rate 
+            h_dis(i,i) = h_dis(i,i) - rate 
          enddo 
       enddo 
-
+ 
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
       do i=2,nci
@@ -68,10 +70,17 @@ module dissipation
          h_dis(i,i) = h_dis(i,i) + rate
       enddo
       k=nci-1
-      do i=2,nci
-         do j=i+1,nci
+      do i=nci,2,-1
+         do j=i-1,2,-1
             k=k+1
+            if (Fdis_rel.eq."dip") then
+               rate = nr_gam(k)*tmom2(k)
+!      elseif (nr_typ.eq.1) then
+            elseif (Fdis_rel.eq."mat") then
+               rate = nr_gam(k)
+            endif
             h_dis(i,i) = h_dis(i,i) + rate
+            h_dis(j,j) = h_dis(j,j) - rate
          enddo
       enddo
 
@@ -190,10 +199,10 @@ module dissipation
          pjump(i) = sp_gam(i)*weight
       enddo
       k=nexc
-      do i=nexc,2,-1
-         do j=i-1,2,-1
+      do i=nexc,1,-1
+         tmp=abs(c(i+1))
+         do j=i-1,1,-1
             k=k+1
-            tmp=abs(c(i+1))
             weight=tmom2(k)*tmp**2
             dsp = dsp + sp_gam(k)*weight
             pjump(k) = sp_gam(k)*weight
@@ -212,12 +221,11 @@ module dissipation
             dnr = dnr + nr_gam(i)*tmp**2
             pjump(i+nf) = nr_gam(i)*tmp**2
          endif
-         write(*,*) Fful,i, nr_gam(i)  
       enddo
       k=nf+nexc
-      do i=nexc,2,-1
+      do i=nexc,1,-1
          tmp=abs(c(i+1))
-         do j=i-1,2,-1
+         do j=i-1,1,-1
             k=k+1
             if (Fdis_rel.eq."dip") then
                weight=tmom2(k)*tmp**2
@@ -284,7 +292,6 @@ module dissipation
          elseif (Fdis_rel.eq."mat") then
             dnr = dnr + nr_gam(i)*tmp**2
          endif
-         write(*,*) Fful,i, nr_gam(i)   
          pjump(i) = sp_gam(i)*weight
 !      if (nr_typ.eq.0) then
          if (Fdis_rel.eq."dip") then

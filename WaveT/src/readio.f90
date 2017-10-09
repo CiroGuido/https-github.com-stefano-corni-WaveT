@@ -279,6 +279,7 @@
              enddo
           enddo
        endif
+
 ! Read dephasing terms
        do i=1,nexc
           read(9,*) idum, de_gam(i)

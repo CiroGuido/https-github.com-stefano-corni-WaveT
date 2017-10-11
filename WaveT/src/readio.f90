@@ -15,6 +15,7 @@
       character(flg) :: Fdis_deph !< Flag for dephasing operator: exp(i delta_i)|i><i| "exp" or |i><i|-|0><0| "i-0"
 ! SP270917: added for merging to newer master
       integer(i4b) :: npulse !number of pulses
+      integer(i4b), allocatable :: irel(:,:) !mapping for intermediate relaxations  
       real(dbl), allocatable :: mut_np2(:,:) !squared dipole from NP
       real(dbl) :: tdelay, pshift  ! time delay and phase shift with two pulses
       real(dbl) :: omega1, sigma1  ! for the second pulse
@@ -80,7 +81,7 @@
              tdis,nr_gam,de_gam,sp_gam,tmom2,nexc,delta,    &
              deallocate_dis,i_sp,i_nr,i_de,nrnd,sp_fact,    &
 !             nr_typ,idep,imar,de_gam1,krnd,ernd       
-             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,nf,       &
+             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,nf,irel,  &
              npulse,omega1,sigma1,tdelay,pshift,nrel,Fful            
              
 !
@@ -238,6 +239,8 @@
        nexc = n_ci - 1
        if (Fful.eq.'Yesf') then
           nrel = nexc*(nexc-1)/2
+          allocate(irel(nrel,2))
+          call map_nrel(nexc,nrel,irel)
        elseif (Fful.eq.'Nonf') then
           nrel = 0 
        endif
@@ -392,6 +395,34 @@
 
       end subroutine read_dis_params
 
+      subroutine map_nrel(nexc,nrel,irel)
+!------------------------------------------------------------------------
+! @brief Map state pairs for intermediate relaxations 
+!
+! @date Created   : E. Coccia 10 Oct 2017
+! Modified  :
+!------------------------------------------------------------------------
+     
+       implicit none
+
+       integer(i4b)                  :: i,j,k,kk
+       integer(i4b),  intent(in)     :: nrel,nexc
+       integer(i4b),  intent(inout)  :: irel(nrel,2)
+
+       irel=0
+       kk=0
+       do j=nexc,1,-1
+          do k=j-1,1,-1
+             kk=kk+1
+             irel(kk,1)=j
+             irel(kk,2)=k
+          enddo
+       enddo 
+
+       return
+
+      end subroutine map_nrel
+
       subroutine deallocate_dis()
 !------------------------------------------------------------------------
 ! @brief Deallocate arrays for the dissipation 
@@ -409,6 +440,7 @@
        deallocate(tomega)
        if (idep.eq.0) deallocate(delta)
        if (Fdis.ne."nodis".and.Fmdm.eq.'nan') deallocate(mut_np2)
+       if (Fful.eq.'Yesf') deallocate(irel)
 
        return
 

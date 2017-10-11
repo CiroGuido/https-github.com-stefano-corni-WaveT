@@ -53,7 +53,7 @@ module dissipation
             k=k+1
             rate = sp_gam(k)*tmom2(k)
             h_dis(i,i) = h_dis(i,i) + rate 
-            h_dis(j,j) = h_dis(j,j) - rate 
+            !h_dis(j,j) = h_dis(j,j) - rate 
          enddo 
       enddo 
  
@@ -80,7 +80,7 @@ module dissipation
                rate = nr_gam(k)
             endif
             h_dis(i,i) = h_dis(i,i) + rate
-            h_dis(j,j) = h_dis(j,j) - rate
+            !h_dis(j,j) = h_dis(j,j) - rate
          enddo
       enddo
 
@@ -363,11 +363,11 @@ module dissipation
    implicit none
    complex(cmp), intent(inout)   :: c(nci)
    complex(cmp), intent(in)      :: c_prev(nci)
-   integer(4),  intent(in)      :: nci
-   real(dbl),     intent(in)      :: pjump(2*nf+nexc+1)
-   integer(4)                   :: i,istate
-   real(dbl)                      :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
-   real(dbl)                      :: left, right 
+   integer(i4b), intent(in)      :: nci
+   real(dbl),     intent(in)     :: pjump(2*nf+nexc+1)
+   integer(i4b)                  :: i,istate,ig,ie
+   real(dbl)                     :: eta, eta1, tmp1, tmp2, tmp3, modc, creal, ireal
+   real(dbl)                     :: left, right 
    complex(cmp)                  :: cph 
 
 ! (0)|------dsp/dtot-----|---dnr/dtot---|--dde/dtot--|(1) 
@@ -397,13 +397,23 @@ module dissipation
          left  = right
          right = left + pjump(i+1)
       enddo
-      creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
-      ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
-      c(1)  = cmplx(creal,ireal) 
-      c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
+
+      call set_pair(istate,ig,ie) 
+
+      creal = real(c_prev(ie))*sqrt(sp_gam(istate)*tmom2(istate))
+      ireal = aimag(c_prev(ie))*sqrt(sp_gam(istate)*tmom2(istate))
+      c(ig)  = cmplx(creal,ireal) 
+      c(1:ig-1) = zeroc
+      c(ig+1:nci) = zeroc
+      c(ig)=c(ig)/sqrt(pjump(istate)*dsp/dt)
+
+      !creal = real(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
+      !ireal = aimag(c_prev(istate+1))*sqrt(sp_gam(istate)*tmom2(istate))
+      !c(1)  = cmplx(creal,ireal) 
+      !c(2:nci) = zeroc
+      !c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1
-      write(*,*) 'Jump due to spontaneous emission, channel n.:', istate 
+      write(*,*) 'Jump due to spontaneous emission, channel n.:', istate, 'between', ie, 'and', ig 
       !Update charges to those in equilibrium with the ground state
       if (Fmdm_relax.eq."rel") then
          call set_q0charges
@@ -417,24 +427,42 @@ module dissipation
          if (eta1.ge.left.and.eta1.lt.right) then
             istate=i-nf 
             exit
-            endif
+         endif
          left  = right
          right = left + pjump(i+1)
       enddo
-!      if (nr_typ.eq.0) then
+ 
+      call set_pair(istate,ig,ie)
+
+      ! if (nr_typ.eq.0) then
       if (Fdis_rel.eq."dip") then
-         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
-         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
+         creal = real(c_prev(ie))*sqrt(nr_gam(istate)*tmom2(istate))
+         ireal = aimag(c_prev(ie))*sqrt(nr_gam(istate)*tmom2(istate))
 !      elseif (nr_typ.eq.1) then
       elseif (Fdis_rel.eq."mat") then
-         creal = real(c_prev(istate+1))*sqrt(nr_gam(istate))
-         ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate))
+         creal = real(c_prev(ie))*sqrt(nr_gam(istate))
+         ireal = aimag(c_prev(ie))*sqrt(nr_gam(istate))
       endif
-      c(1)  = cmplx(creal,ireal)
-      c(2:nci) = zeroc
-      c(1)=c(1)/sqrt(pjump(istate+nf)*dnr/dt) 
+      c(ig)  = cmplx(creal,ireal)
+      c(ig+1:nci) = zeroc
+      c(1:ig-1) = zeroc
+      c(ig)=c(ig)/sqrt(pjump(istate+nf)*dnr/dt) 
+
+!      if (nr_typ.eq.0) then
+      !if (Fdis_rel.eq."dip") then
+      !   creal = real(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
+      !   ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate)*tmom2(istate))
+!      elseif (nr_typ.eq.1) then
+      !elseif (Fdis_rel.eq."mat") then
+      !   creal = real(c_prev(istate+1))*sqrt(nr_gam(istate))
+      !   ireal = aimag(c_prev(istate+1))*sqrt(nr_gam(istate))
+      !endif
+      !c(1)  = cmplx(creal,ireal)
+      !c(2:nci) = zeroc
+      !c(1)=c(1)/sqrt(pjump(istate+nf)*dnr/dt) 
+
       i_nr = i_nr +1
-      write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate
+      write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate, 'between', ie, 'and', ig
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)
@@ -481,6 +509,31 @@ module dissipation
    return
 
   end subroutine quan_jump
+
+  subroutine set_pair(istate,ig,ie)
+!------------------------------------------------------------------------
+! @brief Set paits for intermedate relaxations 
+!
+! @date Created   : E. Coccia 10 Oct 2017
+! Modified  :
+!------------------------------------------------------------------------
+    
+   implicit none
+   integer(i4b),  intent(in)    :: istate
+   integer(i4b),  intent(inout) :: ig, ie
+
+   if (istate.le.nexc) then
+      ie=istate+1
+      ig=1
+   elseif (istate.gt.nexc) then
+      ie=irel(istate-nexc,1)+1
+      ig=irel(istate-nexc,2)+1
+   endif
+
+   return
+
+  end subroutine set_pair
+
 
   subroutine add_h_rnd(h_rnd,nci,w,w_prev)
 !------------------------------------------------------------------------

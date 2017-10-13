@@ -4,7 +4,8 @@ module vib
       implicit none
       save
 
-      integer(i4b)              :: nstates,nvib,nmodes,ntot,ncomb,nfc
+      integer(i4b)              :: nstates,nvib,nmodes,ntot,ncomb,nfc,nbin
+      real(dbl)                 :: sigma,emin,emax
       real(dbl),    allocatable :: w(:,:),q(:,:)
       real(dbl),    allocatable :: e(:),dip(:,:,:)
       real(dbl),    allocatable :: ef(:),dipf(:,:,:)
@@ -12,7 +13,7 @@ module vib
       logical                   :: coupling,mix
 
       public nstates,nvib,nmodes,w,q,e,dip,ef,dipf,fact,dfact,bin_coef, &
-             mix,coupling,iv,ncomb,nfc
+             mix,coupling,iv,ncomb,nfc,sigma,nbin
        
       contains        
 
@@ -71,7 +72,7 @@ module vib
  
         integer(i4b)             :: idum,i,j 
  
-        namelist /vibrations/ nstates,nvib,nmodes,coupling,mix,nfc
+        namelist /vibrations/nstates,nvib,nmodes,coupling,mix,nfc,sigma,nbin,emin,emax
 
         mix=.false.
         coupling=.false.
@@ -79,6 +80,10 @@ module vib
         nvib=10
         nstates=1
         nfc=1
+        sigma=3.d0
+        nbin=10000
+        emin=0.d0
+        emax=15.d0 !eV
 
         ! Read w and q for any vib level
         ! Excited state N
@@ -443,7 +448,7 @@ module vib
         do i=1,nstates
            do j=1,ncomb
               kk=kk+1
-              if (kk.gt.1) ef(kk)=(ef(kk)-ef(1))/ev_to_au 
+              if (kk.gt.1) ef(kk)=ef(kk)-ef(1)
            enddo
         enddo
         ! Sort energies in ascending order
@@ -458,7 +463,7 @@ module vib
         enddo 
 
         do i=1,ntot
-           write(70,*) 'Root', i-1, ':', ef(i) 
+           write(70,*) 'Root', i-1, ':', ef(i)/ev_to_au 
         enddo
 
         do i=1,ntot
@@ -734,5 +739,87 @@ module vib
 
      end subroutine iswap
 
+     subroutine vib_spectra()
+!------------------------------------------------------------------------
+! @brief Compute the vibronic spectrum 
+!                   
+! @date Created   : E. Coccia 12 Oct 2017
+! Modified  :          
+!------------------------------------------------------------------------ 
+
+       implicit none
+
+       integer(i4b)              :: i,j,k,ne,nf,nrel,ie
+       integer(i4b), allocatable :: imap(:)
+       real(dbl)                 :: dip2,de,e,ebin(nbin),ebins(nbin),esigma
+       real(dbl),    allocatable :: tomega(:),tdip(:,:),tmp(:,:)
+
+       open(80,file='vib_spectrum.dat')
+
+       ne=nstates-1
+       nrel = ne*(ne-1)/2
+       nf=ne+nrel
+       
+       allocate(imap(nf),tomega(nf),tdip(3,nf),tmp(3,nf))
+ 
+       do i=1,ne
+          tomega(i) = ef(i+1)
+       enddo
+       k=ne
+       do i=ne,1,-1
+          do j=i-1,1,-1
+             k=k+1
+             tomega(k) = abs(ef(i+1) - ef(j+1))
+          enddo
+       enddo
+
+       call sort (tomega,nf,imap)
+
+       k=0
+       tdip(:,:) = 0.d0
+       do i=1,nstates
+          do j=i+1,nstates
+             k=k+1
+             tmp(:,k) = dipf(:,i,j)
+          enddo
+       enddo
+
+       do i=1,nf
+          tdip(:,i) = tmp(:,imap(i)) 
+       enddo 
+
+       de=(emax-emin)/real(nbin)
+
+       ebin=0.d0
+       do i=1,nf
+          dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2
+          ie = (tomega(i)/ev_to_au)/de + 1
+          if (ie.le.nbin.and.ie.ge.1) then
+             ebin(ie) = ebin(ie) + 2.d0/3.d0*tomega(i)*dip2
+          endif 
+       enddo 
+
+       ebins=0.d0
+       do i=1,nbin
+          e =  emin + de*(i-0.5d0)
+          e=e*ev_to_au
+          esigma=sigma*e
+          do j=1,nbin
+             ebins(i) = ebins(i) + ebin(j)*exp(-((j-i)*e)**2/esigma**2)
+          enddo
+       enddo
+
+       do i=1,nbin
+          e = emin + de*(i-0.5d0) 
+          write(80,*) e, ebins(i),ebin(i) 
+       enddo
+   
+       deallocate(imap,tomega,tdip,tmp)
+ 
+       close(80)
+
+       return
+
+     end subroutine vib_spectra
 
 end module vib

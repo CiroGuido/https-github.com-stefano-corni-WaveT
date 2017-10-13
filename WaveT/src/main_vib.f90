@@ -12,6 +12,8 @@ program main_vib
   call compute_e_dip()
   ! Vibronic coupling for nonradiative relaxation
   if (coupling) call compute_coupling()
+  ! Compute spectrum
+  call vib_spectra()
   ! Deallocate arrays 
   call deallocate_vib()
  

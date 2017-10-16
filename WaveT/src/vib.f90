@@ -72,7 +72,7 @@ module vib
  
         integer(i4b)             :: idum,i,j 
  
-        namelist /vibrations/nstates,nvib,nmodes,coupling,mix,nfc,sigma,nbin,emin,emax
+        namelist /vibrations/nstates,nvib,nmodes,coupling,mix,nfc,sigma,nbin,emax
 
         mix=.false.
         coupling=.false.
@@ -107,7 +107,7 @@ module vib
         write(*,*) '*                                     *'
         write(*,*) '*      Add vibrational levels         *' 
         write(*,*) '*     in harmonic approximation       *'
-        write(*,*) '*      to any normal model of         *'
+        write(*,*) '*      to any normal mode of          *'
         write(*,*) '*     a given electronic state        *'
         write(*,*) '*                                     *'      
         write(*,*) '*                by                   *'
@@ -235,7 +235,7 @@ module vib
            enddo
         enddo
 
-        fc = nf*fc**2
+        fc = sqrt(nf)*fc
 
 ! <v|x^n|v'> = sqrt(A*exp(-S)/(2^(v+v')*v!*v'!))*sum_k=0^v * sum_k'^v' *
 ! sum_k''=0^n*
@@ -420,8 +420,12 @@ module vib
                  do ii=1,nstates
                     do jj=1,ncomb
                        kk1=kk1+1
-                       call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kk,kk1))                  
-                       !write(*,*) kk,kk1,dipf(1,kk,kk1), dip(1,i,ii)
+                       if (i.ne.ii) then 
+                          call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kk,kk1)) 
+                       else
+                           dipf(:,kk,kk1) = dip(:,i,ii)
+                       !write(*,*) 'test',kk,kk1!,dipf(1,kk,kk1), dip(1,i,ii)
+                       endif
                     enddo
                  enddo
               enddo 
@@ -639,6 +643,7 @@ module vib
           tfc=tfc*fc 
        enddo
        dipf(:)=dip(:)*tfc     
+       !write(*,*) l,m,i,j,tfc,dipf(:)
  
        return       
  
@@ -751,7 +756,7 @@ module vib
 
        integer(i4b)              :: i,j,k,ne,nf,nrel,ie
        integer(i4b), allocatable :: imap(:)
-       real(dbl)                 :: dip2,de,e,ebin(nbin),ebins(nbin),esigma
+       real(dbl)                 :: dip2,de,ee,ebin(nbin),ebins(nbin),esigma,trk
        real(dbl),    allocatable :: tomega(:),tdip(:,:),tmp(:,:)
 
        open(80,file='vib_spectrum.dat')
@@ -764,18 +769,21 @@ module vib
  
        do i=1,ne
           tomega(i) = ef(i+1)
+          write(*,*) 'energy', i, tomega(i)
        enddo
        k=ne
        do i=ne,1,-1
           do j=i-1,1,-1
              k=k+1
              tomega(k) = abs(ef(i+1) - ef(j+1))
+             write(*,*) 'energy',i,j,tomega(k)
           enddo
        enddo
 
        call sort (tomega,nf,imap)
 
        k=0
+       tmp(:,:)  = 0.d0
        tdip(:,:) = 0.d0
        do i=1,nstates
           do j=i+1,nstates
@@ -786,6 +794,8 @@ module vib
 
        do i=1,nf
           tdip(:,i) = tmp(:,imap(i)) 
+          dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2 
+          write(13,*) i, tomega(i)/ev_to_au, 2.d0/3.d0*tomega(i)*dip2 
        enddo 
 
        de=(emax-emin)/real(nbin)
@@ -793,27 +803,27 @@ module vib
        ebin=0.d0
        do i=1,nf
           dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2
-          ie = (tomega(i)/ev_to_au)/de + 1
+          ie = (tomega(i)/ev_to_au)/de + 1 
           if (ie.le.nbin.and.ie.ge.1) then
              ebin(ie) = ebin(ie) + 2.d0/3.d0*tomega(i)*dip2
-          endif 
+          endif
        enddo 
 
        ebins=0.d0
        do i=1,nbin
-          e =  emin + de*(i-0.5d0)
-          e=e*ev_to_au
-          esigma=sigma*e
+          ee =  emin + de*(i-0.5d0)
+          ee=ee*ev_to_au
+          esigma=sigma*ee
           do j=1,nbin
-             ebins(i) = ebins(i) + ebin(j)*exp(-((j-i)*e)**2/esigma**2)
+             ebins(i) = ebins(i) + ebin(j)*exp(-((j-i)*ee)**2/esigma**2)
           enddo
        enddo
 
        do i=1,nbin
-          e = emin + de*(i-0.5d0) 
-          write(80,*) e, ebins(i),ebin(i) 
+          ee = emin + de*(i-0.5d0) 
+          write(80,*) ee, ebins(i),ebin(i) 
        enddo
-   
+ 
        deallocate(imap,tomega,tdip,tmp)
  
        close(80)

@@ -16,6 +16,10 @@ program main_vib
   call vib_spectra()
   ! Deallocate arrays 
   call deallocate_vib()
+
+  write(*,*)
+  write(*,*) 'Vibrational calculation terminated'
+  write(*,*)
  
   stop
 

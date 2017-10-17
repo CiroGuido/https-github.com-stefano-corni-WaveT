@@ -33,7 +33,11 @@ OBJ_SPECTRA= constants.o pedra_friends.o global_wavet.o global_tdplas.o readio.o
 
 # rules
 
-all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x
+all: $(BINPATH) $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x
+
+$(BINPATH):
+	mkdir $(BINPATH)
+	
 
 $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA) $(LIBS) $(LIBSF)

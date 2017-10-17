@@ -770,41 +770,56 @@ module vib
        ne=ntot-1
        nrel = ne*(ne-1)/2
        nf=ne+nrel
-
-
-       write(*,*) 'CIAO', ntot, ne,nrel, nf
        
        allocate(imap(nf),tomega(nf),tdip(3,nf),tmp(3,nf))
  
        do i=1,ne
           tomega(i) = ef(i+1)
-          write(*,*) 'energy', i, tomega(i)
+          write(*,*) 'energy', 0, i, tomega(i)
        enddo
        k=ne
        do i=ne,1,-1
           do j=i-1,1,-1
              k=k+1
              tomega(k) = abs(ef(i+1) - ef(j+1))
-             write(*,*) 'energy',i,j,tomega(k)
+             write(*,*) 'energy', i,j,tomega(k)
           enddo
        enddo
 
        call sort (tomega,nf,imap)
 
+       do i=1,nf
+          write(*,*) 'imap',i, imap(i)
+       enddo
+
        k=0
        tmp(:,:)  = 0.d0
        tdip(:,:) = 0.d0
-       do i=1,ntot
-          do j=i+1,ntot
+
+       do i=1,ne
+          tmp(:,i) = dipf(:,1,i+1)
+          write(*,*) 'prima',i,tmp(:,i)
+       enddo
+       k=ne
+       do i=ne,1,-1
+          do j=i-1,1,-1
              k=k+1
-             tmp(:,k) = dipf(:,i,j)
+             tmp(:,k) = dipf(:,i+1,j+1) 
+             write(*,*) 'prima',k,tmp(:,k)
           enddo
        enddo
 
-       write(*,*) 'NF', nf
+       !do i=1,ntot
+       !   do j=i+1,ntot
+       !      k=k+1
+       !      tmp(:,k) = dipf(:,i,j)
+       !      write(*,*) 'prima',k,tmp(:,k)
+       !   enddo
+       !enddo
 
        do i=1,nf
           tdip(:,i) = tmp(:,imap(i)) 
+          write(*,*) 'dopo', i,tdip(:,i)
           dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2 
           write(13,*) i, tomega(i)/ev_to_au, 2.d0/3.d0*tomega(i)*dip2 
        enddo 

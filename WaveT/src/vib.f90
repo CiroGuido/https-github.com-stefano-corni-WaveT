@@ -128,6 +128,12 @@ module vib
            write(*,*) 'Only displacements between normal coordinates'
         endif 
         write(*,*) ''
+        write(*,*) 'Vibronic spectrum:'
+        write(*,*) '   Energy range (eV):', emin, emax
+        write(*,*) '   Number of bins', nbin
+        write(*,*) '   Gaussian sigma', sigma
+        write(*,*) ''
+
 
         w(:,:) = 1000.d0
         q(:,:) = 2.d0
@@ -761,9 +767,12 @@ module vib
 
        open(80,file='vib_spectrum.dat')
 
-       ne=nstates-1
+       ne=ntot-1
        nrel = ne*(ne-1)/2
        nf=ne+nrel
+
+
+       write(*,*) 'CIAO', ntot, ne,nrel, nf
        
        allocate(imap(nf),tomega(nf),tdip(3,nf),tmp(3,nf))
  
@@ -785,12 +794,14 @@ module vib
        k=0
        tmp(:,:)  = 0.d0
        tdip(:,:) = 0.d0
-       do i=1,nstates
-          do j=i+1,nstates
+       do i=1,ntot
+          do j=i+1,ntot
              k=k+1
              tmp(:,k) = dipf(:,i,j)
           enddo
        enddo
+
+       write(*,*) 'NF', nf
 
        do i=1,nf
           tdip(:,i) = tmp(:,imap(i)) 

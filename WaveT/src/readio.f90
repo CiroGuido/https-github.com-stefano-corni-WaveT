@@ -94,9 +94,10 @@
        !character(5) :: dis_prop 
      
        !Molecular parameters 
-       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium,restart,full
+       namelist /general/n_ci_read,n_ci,mol_cc,n_f,medium,restart,full,& 
+                         dt,n_step,n_out
        !External field paramaters
-       namelist /field/ dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
+       namelist /field/ Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
                         pulse,omega1,sigma1,tdelay,pshift
        !Namelist spectra
        namelist /spectra/ start,tau,dir_ft

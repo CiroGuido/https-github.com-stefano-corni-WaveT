@@ -5,6 +5,7 @@
       INTEGER, PARAMETER :: i4b = selected_int_kind(9)
       INTEGER, PARAMETER :: cmp = dbl
       INTEGER, PARAMETER :: flg = 10 
+      INTEGER, PARAMETER :: nvibmax = 15
 !
       ! constants, conversion factors, and number literals
       real(dbl), parameter :: pi=3.141592653589793D+00

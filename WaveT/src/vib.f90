@@ -97,6 +97,10 @@ module vib
 
         read(*,nml=vibrations)
 
+        if (nvib.gt.nvibmax) then
+           nvib=nvibmax 
+        endif 
+
         ncomb=nvib**nmodes
 
         allocate(w(nstates,nmodes),q(nstates,nmodes))
@@ -133,7 +137,8 @@ module vib
         write(*,*) '   Number of bins', nbin
         write(*,*) '   Gaussian sigma', sigma
         write(*,*) ''
-
+        write(*,*) 'Maximum number of vibrational states:', nvibmax
+        write(*,*) ''
 
         w(:,:) = 1000.d0
         q(:,:) = 2.d0
@@ -408,7 +413,7 @@ module vib
 !------------------------------------------------------------------------
 
         integer(i4b)                :: i,j,k,v,v1,kk,kk1,ii,jj
-        integer(i4b)                :: imap(ntot)
+        integer(i4b)                :: imap(ntot),kmap(nstates,ncomb)
 
         call gen_map(nmodes,nvib,ncomb,iv)
 
@@ -421,17 +426,18 @@ module vib
            kk=0
            do i=1,nstates
               do j=1,ncomb
-                 kk=kk+1 
-                 kk1=0
-                 do ii=1,nstates
+                 kk=kk+1
+                 kmap(i,j)=kk 
+              enddo
+           enddo
+           kk=0 
+           do i=1,nstates
+              do j=1,ncomb
+                 do ii=i,nstates
                     do jj=1,ncomb
-                       kk1=kk1+1
-                       if (i.ne.ii) then 
-                          call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kk,kk1)) 
-                       else
-                           dipf(:,kk,kk1) = dip(:,i,ii)
-                       !write(*,*) 'test',kk,kk1!,dipf(1,kk,kk1), dip(1,i,ii)
-                       endif
+                       kk=kk+1
+                       call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kmap(i,j),kmap(ii,jj)))
+                       dipf(:,kmap(ii,jj),kmap(i,j)) = dipf(:,kmap(i,j),kmap(ii,jj)) 
                     enddo
                  enddo
               enddo 
@@ -458,9 +464,10 @@ module vib
         do i=1,nstates
            do j=1,ncomb
               kk=kk+1
-              if (kk.gt.1) ef(kk)=ef(kk)-ef(1)
+              ef(kk)=ef(kk)-ef(1)
            enddo
         enddo
+        
         ! Sort energies in ascending order
         call sort(ef,ntot,imap)
 
@@ -472,7 +479,7 @@ module vib
            enddo
         enddo 
 
-        do i=1,ntot
+        do i=2,ntot
            write(70,*) 'Root', i-1, ':', ef(i)/ev_to_au 
         enddo
 
@@ -649,7 +656,6 @@ module vib
           tfc=tfc*fc 
        enddo
        dipf(:)=dip(:)*tfc     
-       !write(*,*) l,m,i,j,tfc,dipf(:)
  
        return       
  
@@ -766,6 +772,7 @@ module vib
        real(dbl),    allocatable :: tomega(:),tdip(:,:),tmp(:,:)
 
        open(80,file='vib_spectrum.dat')
+       open(81,file='raw_vib_spectrum.dat')
 
        ne=ntot-1
        nrel = ne*(ne-1)/2
@@ -775,22 +782,16 @@ module vib
  
        do i=1,ne
           tomega(i) = ef(i+1)
-          write(*,*) 'energy', 0, i, tomega(i)
        enddo
        k=ne
        do i=ne,1,-1
           do j=i-1,1,-1
              k=k+1
              tomega(k) = abs(ef(i+1) - ef(j+1))
-             write(*,*) 'energy', i,j,tomega(k)
           enddo
        enddo
 
        call sort (tomega,nf,imap)
-
-       do i=1,nf
-          write(*,*) 'imap',i, imap(i)
-       enddo
 
        k=0
        tmp(:,:)  = 0.d0
@@ -798,30 +799,18 @@ module vib
 
        do i=1,ne
           tmp(:,i) = dipf(:,1,i+1)
-          write(*,*) 'prima',i,tmp(:,i)
        enddo
        k=ne
        do i=ne,1,-1
           do j=i-1,1,-1
              k=k+1
              tmp(:,k) = dipf(:,i+1,j+1) 
-             write(*,*) 'prima',k,tmp(:,k)
           enddo
        enddo
 
-       !do i=1,ntot
-       !   do j=i+1,ntot
-       !      k=k+1
-       !      tmp(:,k) = dipf(:,i,j)
-       !      write(*,*) 'prima',k,tmp(:,k)
-       !   enddo
-       !enddo
-
        do i=1,nf
           tdip(:,i) = tmp(:,imap(i)) 
-          write(*,*) 'dopo', i,tdip(:,i)
           dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2 
-          write(13,*) i, tomega(i)/ev_to_au, 2.d0/3.d0*tomega(i)*dip2 
        enddo 
 
        de=(emax-emin)/real(nbin)
@@ -849,10 +838,16 @@ module vib
           ee = emin + de*(i-0.5d0) 
           write(80,*) ee, ebins(i),ebin(i) 
        enddo
+
+       do i=1,nf
+          dip2 = tdip(1,i)**2 + tdip(2,i)**2 + tdip(3,i)**2
+          write(81,*) tomega(i)/ev_to_au,2.d0/3.d0*tomega(i)*dip2 
+       enddo
  
        deallocate(imap,tomega,tdip,tmp)
  
        close(80)
+       close(81)
 
        return
 

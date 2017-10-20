@@ -37,7 +37,6 @@ module vib
        do i=2,nstates
          read(7,*) junk,junk,junk,e(i)
          e(i)=e(i)*ev_to_au
-         write(6,*) i-1,e(i)
        enddo
        write (6,*)
        close(7)
@@ -85,7 +84,8 @@ module vib
         emin=0.d0
         emax=15.d0 !eV
 
-        ! Read w and q for any vib level
+        ! Read w and q for any vib level (vib.dat file)
+        ! Frequency in cm-1, normal coordinates in bohr
         ! Excited state N
         ! w q for mode 1
         ! w q for mode 2
@@ -417,9 +417,6 @@ module vib
 
         call gen_map(nmodes,nvib,ncomb,iv)
 
-        ! Only electronic transition i -> j (i>j) are taken into account
-        ! No constraint on v and v1 values 
-
         dipf=0.d0
         ! Neglecting normal mode mixing
         if (.not.mix) then
@@ -430,12 +427,10 @@ module vib
                  kmap(i,j)=kk 
               enddo
            enddo
-           kk=0 
            do i=1,nstates
               do j=1,ncomb
                  do ii=i,nstates
                     do jj=1,ncomb
-                       kk=kk+1
                        call modify_dip(dip(:,i,ii),j,jj,i,ii,nmodes,dipf(:,kmap(i,j),kmap(ii,jj)))
                        dipf(:,kmap(ii,jj),kmap(i,j)) = dipf(:,kmap(i,j),kmap(ii,jj)) 
                     enddo
@@ -825,10 +820,11 @@ module vib
        enddo 
 
        ebins=0.d0
+       esigma=sigma*(emax-emin)*0.25d0
        do i=1,nbin
           ee =  emin + de*(i-0.5d0)
           ee=ee*ev_to_au
-          esigma=sigma*ee
+          !esigma=sigma*ee
           do j=1,nbin
              ebins(i) = ebins(i) + ebin(j)*exp(-((j-i)*ee)**2/esigma**2)
           enddo

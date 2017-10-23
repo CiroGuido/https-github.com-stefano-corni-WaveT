@@ -1,5 +1,5 @@
-FC = gfortran
-#FC = ifort
+#FC = gfortran
+FC = ifort
 FFLAGS_XEON= -O3 -ftz -align -arch pn4 -tune pn4 -xN -tpp7
 FFLAGS_PAR= -parallel -par_threshold75 -par_report3
 FFLAGS_HYD= -O3 -ftz -align -xHost
@@ -17,13 +17,13 @@ LDLAGS=
 FFLAGS= $(FFLAGS_GF_DEB)
 #LIBS = -L/usr/lib -llapack  -lblas 
 #LIBS =  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread
-#LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
-LIBS = -L/usr/lib -llapack  -lblas -lfftw3
+LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
+#LIBS = -L/usr/lib -llapack  -lblas -lfftw3
 #LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group#
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
 #LIBSF = -lm -L/usr/lib/x86_64-linux-gnu -lfftw3
-INC = -I/usr/include/ 
-#INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
+#INC = -I/usr/include/ 
+INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 BINPATH=../bin
 WAVET=../../WaveT/src/
@@ -34,9 +34,6 @@ OBJ_FREQ= constants.o global_tdplas.o pedra_friends.o readio_medium.o MathTools.
 # rules
 
 all: $(BINPATH)  $(BINPATH)/freq_bem.x $(BINPATH)/tdplas.x
-
-$(BINPATH):
-	mkdir $(BINPATH)
 
 $(BINPATH)/tdplas.x: $(OBJ_TDPLAS) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS) $(LIBS) $(LIBSF)

@@ -70,7 +70,7 @@
           allocate (h_dis(n_ci,n_ci))
           !if (qjump) then
           if (Fdis(5:9).eq."qjump") then
-             allocate (pjump(3*nexc+1))
+             allocate (pjump(2*nf+nexc+1))
           !elseif (dis.and..not.qjump) then 
           else
              allocate (h_rnd(n_ci,n_ci))

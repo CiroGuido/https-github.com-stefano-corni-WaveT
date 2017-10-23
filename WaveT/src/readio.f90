@@ -15,6 +15,7 @@
       character(flg) :: Fdis_deph !< Flag for dephasing operator: exp(i delta_i)|i><i| "exp" or |i><i|-|0><0| "i-0"
 ! SP270917: added for merging to newer master
       integer(i4b) :: npulse !number of pulses
+      integer(i4b), allocatable :: irel(:,:) !mapping for intermediate relaxations  
       real(dbl), allocatable :: mut_np2(:,:) !squared dipole from NP
       real(dbl) :: tdelay, pshift  ! time delay and phase shift with two pulses
       real(dbl) :: omega1, sigma1  ! for the second pulse
@@ -24,9 +25,10 @@
       real(dbl), allocatable :: nr_gam(:), de_gam(:) !decay rates for nonradiative and dephasing events
       real(dbl), allocatable :: sp_gam(:) !decay rate for spontaneous emission  
       real(dbl), allocatable :: sp_fact(:) !multiplicative factor for the decay rate for spontaneous emission
-      real(dbl), allocatable :: tmom2_0i(:) !square transition moments i->0
+      real(dbl), allocatable :: tmom2(:) !square transition moments i->0
       real(dbl), allocatable :: delta(:) !phases randomly added during the propagation 
       real(dbl), allocatable :: de_gam1(:) !combined decay rates for idep=1
+      real(dbl), allocatable :: tomega(:)  !generalized transition frequencies 
       real(dbl) :: dt,tau(2),start, krnd
 ! SP 17/07/17: Changed to char flags
       !logical :: dis !turns on the dissipation
@@ -45,12 +47,18 @@
       character(flg) :: Ffld !< Field type 
       character(flg) :: Fmdm !< Flag for medium type, this will be defined in readio_medium after separation
       character(flg) :: Frad !< Flag for radiative damping 
+      character(flg) :: Fres !< Flag for restart
+      character(flg) :: Fful !< Flag for relaxation matrix
 !      character(flg) :: Fpulse !< Flag for pulse             
 ! Flags read from input file
       character(flg) :: medium,radiative,dissipative,pulse
       character(flg) :: dis_prop
-      integer(i4b) :: iseed  !seed for random number generator
-      integer(i4b) :: nexc !number of excited states
+      character(flg) :: restart 
+      character(flg) :: full ! full or only |e> -> |0> relaxation
+      integer(i4b) :: iseed  ! seed for random number generator
+      integer(i4b) :: nexc   ! number of excited states
+      integer(i4b) :: nrel   ! number of relaxation channels
+      integer(i4b) :: nf     ! number of relaxation channels (including |e> -> |0> terms) 
       integer(i4b) :: i,nspectra
 ! kind of surrounding medium and shape of the impulse
 !     Fmdm=sol: solvent
@@ -66,15 +74,15 @@
       
       private
       public read_input,n_ci,n_ci_read,n_step,dt,           &
-             Ffld,t_mid,sigma,omega,fmax,                   & 
+             Ffld,t_mid,sigma,omega,fmax,restart,           & 
              Fmdm,mol_cc,tau,start,c_i,e_ci,mut,            &
-             Frad,n_out,iseed,n_f,dir_ft,                   &
+             Frad,n_out,iseed,n_f,dir_ft,full,              &
 ! SP 17/07/17: Changed to char flags
-             tdis,nr_gam,de_gam,sp_gam,tmom2_0i,nexc,delta, &
+             tdis,nr_gam,de_gam,sp_gam,tmom2,nexc,delta,    &
              deallocate_dis,i_sp,i_nr,i_de,nrnd,sp_fact,    &
 !             nr_typ,idep,imar,de_gam1,krnd,ernd       
-             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,          &
-             npulse,omega1,sigma1,tdelay,pshift 
+             de_gam1,krnd,Fdis,Fdis_deph,Fdis_rel,nf,irel,  &
+             npulse,omega1,sigma1,tdelay,pshift,nrel,Fful            
              
 !
       contains
@@ -86,7 +94,8 @@
        !character(5) :: dis_prop 
      
        !Molecular parameters 
-       namelist /general/ n_ci_read,n_ci,mol_cc,n_f,medium,dt,n_step,n_out
+       namelist /general/n_ci_read,n_ci,mol_cc,n_f,medium,restart,full,& 
+                         dt,n_step,n_out
        !External field paramaters
        namelist /field/ Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
                         pulse,omega1,sigma1,tdelay,pshift
@@ -217,7 +226,7 @@
 !------------------------------------------------------------------------
      
        implicit none
-        integer   :: i, idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
+        integer   :: i, j,k,idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
         real(dbl)  :: term   
         real(dbl)  :: rdum
         real(dbl)   :: rx,ry,rz
@@ -229,6 +238,14 @@
        open(11,file='sp_rate.inp',status="old",iostat=ierr3,err=103)
 
        nexc = n_ci - 1
+       if (Fful.eq.'Yesf') then
+          nrel = nexc*(nexc-1)/2
+          allocate(irel(nrel,2))
+          call map_nrel(nexc,nrel,irel)
+       elseif (Fful.eq.'Nonf') then
+          nrel = 0 
+       endif
+       nf=nexc+nrel 
 
        if (idep.ne.0.and.idep.ne.1) then
           write(*,*) 'Invalid value for idep, must be 0 or 1'
@@ -240,7 +257,7 @@
           stop
        endif 
 
-       allocate(nr_gam(nexc))
+       allocate(nr_gam(nf))
        if (idep.eq.0) then
           allocate(de_gam(nexc+1))
           allocate(delta(nexc+1))
@@ -248,17 +265,36 @@
           allocate(de_gam(nexc))
           allocate(de_gam1(nexc+1))
        endif
-       allocate(sp_gam(nexc))
-       allocate(tmom2_0i(nexc))
-       allocate(sp_fact(nexc))
+       allocate(sp_gam(nf))
+       allocate(tmom2(nf))
+       allocate(sp_fact(nf))
+       allocate(tomega(nf))
 
-! Read nonradiative and dephasing terms
+! Transition frequencies
        do i=1,nexc
-          read(8,*) idum, nr_gam(i)
+          tomega(i) = e_ci(i+1)
+       enddo
+       if (Fful.eq.'Yesf') then 
+          k=nexc
+          do i=nexc,1,-1
+             do j=i-1,1,-1
+                k=k+1
+                tomega(k) = abs(e_ci(i+1) - e_ci(j+1))
+             enddo
+          enddo
+       endif
+
+! Read dephasing terms
+       do i=1,nexc
           read(9,*) idum, de_gam(i)
-          read(11,*) idum, sp_fact(i)
        enddo
        if (idep.eq.0) read(9,*) idum, de_gam(nexc+1)
+! Read relaxation terms
+       do i=1,nf
+          read(8,*) idum, nr_gam(i)
+          read(11,*) idum, sp_fact(i)
+       enddo
+
 ! The sigma_z operator for dephasing has an extra factor 2
 ! If idep.eq.1 S_alpha = \sum_beta M(alpha, beta) |beta><beta|
 ! if alpha.eq. beta then M(alpha,beta) = -1
@@ -268,30 +304,40 @@
           call define_gamma(de_gam,de_gam1,n_ci)
        endif
 ! Define spontaneous emission terms 
-       term=4.d0/(3.d0*slight**3)
-       do i=1,nexc
-          sp_gam(i) = sp_fact(i)*term*e_ci(i+1)**3
+       term=4.d0/(3.d0*c**3)
+       do i=1,nf
+          sp_gam(i) = sp_fact(i)*term*tomega(i)**3
        enddo
 
-! Define tmom2_0i =  <i|x|0>**2 + <i|y|0>**2 + <i|z|0>**2  
-       do i=1,nexc 
-          tmom2_0i(i) = mut(1,1,i+1)**2 + mut(2,1,i+1)**2 + mut(3,1,i+1)**2
+! Define tmom2 =  <i|x|j>**2 + <i|y|j>**2 + <i|z|j>**2  
+       do i=1,nexc
+          tmom2(i) = mut(1,1,i+1)**2 + mut(2,1,i+1)**2 + mut(3,1,i+1)**2
        enddo
+       if (Fful.eq.'Yesf') then 
+          k=nexc
+          do i=nexc,1,-1
+             do j=i-1,1,-1 
+                k=k+1
+                tmom2(k) = mut(1,i+1,j+1)**2 + mut(2,i+1,j+1)**2 + mut(3,i+1,j+1)**2
+             enddo
+          enddo
+       endif
+
        if (Fmdm.eq.'nan') then
           open(7,file="ci_mut_np.inp",status="old",iostat=ierr4,err=104)
-          allocate(mut_np2(nexc,3))
-          do i=1,nexc
+          allocate(mut_np2(nf,3))
+          do i=1,nf
              read(7,*) rdum, rx, ry, rz, ix, iy, iz, rdum
              mut_np2(i,1) = rx**2 + ix**2
              mut_np2(i,2) = ry**2 + iy**2
              mut_np2(i,3) = rz**2 + iz**2
           enddo
          close(7)
-         do i=1,nexc
-            tmom2_0i(i) = tmom2_0i(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
+         do i=1,nf
+            tmom2(i) = tmom2(i) + mut_np2(i,1) + mut_np2(i,2) + mut_np2(i,3)
          enddo
 
-         write(*,*)"Contribution to the transition dipole <0|mu|i> ", &
+         write(*,*)"Contribution to the transition dipole <i|mu|j> ", &
                    "from NP"
 
 104      if (ierr4.ne.0) then
@@ -350,6 +396,34 @@
 
       end subroutine read_dis_params
 
+      subroutine map_nrel(nexc,nrel,irel)
+!------------------------------------------------------------------------
+! @brief Map state pairs for intermediate relaxations 
+!
+! @date Created   : E. Coccia 10 Oct 2017
+! Modified  :
+!------------------------------------------------------------------------
+     
+       implicit none
+
+       integer(i4b)                  :: i,j,k,kk
+       integer(i4b),  intent(in)     :: nrel,nexc
+       integer(i4b),  intent(inout)  :: irel(nrel,2)
+
+       irel=0
+       kk=0
+       do j=nexc,1,-1
+          do k=j-1,1,-1
+             kk=kk+1
+             irel(kk,1)=j
+             irel(kk,2)=k
+          enddo
+       enddo 
+
+       return
+
+      end subroutine map_nrel
+
       subroutine deallocate_dis()
 !------------------------------------------------------------------------
 ! @brief Deallocate arrays for the dissipation 
@@ -363,9 +437,11 @@
        if (idep.eq.1) deallocate(de_gam1)
        deallocate(sp_gam)
        deallocate(sp_fact)
-       deallocate(tmom2_0i)
+       deallocate(tmom2)
+       deallocate(tomega)
        if (idep.eq.0) deallocate(delta)
        if (Fdis.ne."nodis".and.Fmdm.eq.'nan') deallocate(mut_np2)
+       if (Fful.eq.'Yesf') deallocate(irel)
 
        return
 
@@ -412,6 +488,10 @@
        n_f=1
        ! Vacuum calculation
        medium='vac'
+       ! Restart
+       restart='n'
+       ! Full or only |e> -> |0> relaxation
+       full='n'
 
        return
 
@@ -442,7 +522,7 @@
        omega=0.d0
        ! Stochastic field
        radiative='non'
-       ! Seed for radiative and/or dissipation
+       ! ieed for radiative and/or dissipation
        iseed=12345678
        ! Amplitude of the external field
        fmax=0.d0
@@ -546,6 +626,22 @@
         case default
           write(*,*) "No external medium, vacuum calculation"
           Fmdm='vac'
+       end select
+       select case (restart)
+        case ('n', 'N')
+          write(*,*) 'No restart'
+          Fres='Nonr'
+        case ('y', 'Y')
+          write(*,*) 'Restart from a previous calculation'
+          Fres='Yesr'
+       end select
+       select case (full)
+        case ('n', 'N') 
+          write(*,*) 'Only |k> -> |0> relaxation'
+          Fful='Nonf'
+        case ('y', 'Y')
+          write(*,*) 'Full relaxation'
+          Fful='Yesf'
        end select
        write(*,*) ''
 

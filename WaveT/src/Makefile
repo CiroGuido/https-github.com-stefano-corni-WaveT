@@ -43,10 +43,12 @@ TDPLAS=../../TDPlas/src/
 
 OBJ= constants.o global_wavet.o global_tdplas.o random.o readio.o readio_medium.o MathTools.o BEM_medium.o QM_coupling.o scf.o td_contmed.o spectra.o dissipation.o propagate.o main.o pedra_friends.o  
 OBJ_SPECTRA= constants.o pedra_friends.o global_wavet.o global_tdplas.o readio.o readio_medium.o MathTools.o BEM_medium.o QM_coupling.o scf.o td_contmed.o spectra.o main_spectra.o 
+OBJ_VIB= constants.o readio.o vib.o main_vib.o
+
 
 # rules
 
-all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x
+all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x $(BINPATH)/make_vib.x
 
 $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA) $(LIBS) $(LIBSF)
@@ -54,6 +56,8 @@ $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA)
 $(BINPATH)/WaveT.x: $(OBJ) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIBS) $(LIBSF)
 
+$(BINPATH)/make_vib.x: $(OBJ_VIB)
+	$(FC) $(FFLAGS) -o $@ $(OBJ_VIB)
 clean:
 	rm -f *.o *.mod *.il $(BINPATH)/*.x
 
@@ -81,9 +85,14 @@ dissipation.o: dissipation.f90
 propagate.o: propagate.f90
 	$(FC) $(FFLAGS) -c $< -o $@
 
+vib.o: vib.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+main_vib.o: main_vib.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
 main.o: main.f90
 	$(FC) $(FFLAGS) $(INC) -c $< -o $@
-
 
 MathTools.o: $(TDPLAS)/MathTools.f90
 	$(FC) $(FFLAGS) -c $< -o $@
@@ -125,6 +134,10 @@ main_spectra.o: readio.o readio_medium.o spectra.o
 dissipation.o: global_wavet.o readio.o random.o
 
 propagate.o: global_wavet.o random.o readio.o spectra.o readio_medium.o pedra_friends.o td_contmed.o
+
+vib.o: readio.o
+
+main_vib.o: readio.o vib.o
 
 main.o: readio.o spectra.o dissipation.o propagate.o readio_medium.o QM_coupling.o  
 

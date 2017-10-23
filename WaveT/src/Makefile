@@ -50,6 +50,9 @@ OBJ_VIB= constants.o readio.o vib.o main_vib.o
 
 all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x $(BINPATH)/make_vib.x
 
+$(BINPATH):
+	mkdir $(BINPATH)
+	
 $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA) $(LIBS) $(LIBSF)
 

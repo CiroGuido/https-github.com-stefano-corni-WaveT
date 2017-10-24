@@ -583,7 +583,7 @@
           write(*,*) "Medium polarization described by apparent charges"
           Fmdm_pol='chr'
         case ('dip','Dip','DIP')
-          write(*,*) "Quantum Solvent as external medium"
+          write(*,*) "Medium polarization described by -mu*F term"
           Fmdm_pol='dip'
         case default
           write(*,*) "Error: Choose a medium type"
@@ -715,7 +715,7 @@
           write(6,*) "Surface read from file cavity.inp"
          case ('gms','GMS','Gms')
           Fsurf='gms'
-          write(6,*) "Surface read from file cavity.inp"
+          write(6,*) "Surface read from file surface_msh.inp"
          case ('bui','Bui','BUI')
           Fsurf='bui'
           write(6,*) "Building surface from spheres."

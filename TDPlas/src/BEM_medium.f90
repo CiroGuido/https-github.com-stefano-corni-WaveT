@@ -35,7 +35,7 @@
       real(dbl) :: sgn                                   !< discriminates between BEM equations for solvent and nanoparticle
       complex(cmp) :: eps,eps_f                          !< drl complex eps(\omega) and (eps(\omega)-1)/(eps(\omega)+2) 
       real(dbl), allocatable :: lambda(:,:)              !< depolarizing factors (3,nsph)       
-      complex(cmp), allocatable :: q_omega(:),mu_omega(:) !< Medium charges and dipole in frequency domain
+      complex(cmp), allocatable :: q_omega(:) !< Medium charges in frequency domain
       complex(cmp), allocatable :: Kdiag_omega(:)         !< Diagonal K matrix in frequency domain
       real(dbl), allocatable :: scrd3(:) ! Scratch vector dim=3
       save
@@ -119,6 +119,7 @@
        real(dbl), intent(in):: omega_list(:)
        integer(i4b), intent(in):: n_omega
        real(dbl), allocatable :: pot(:)
+       complex(cmp) :: mu_omega(3)
        integer(i4b):: i
        ! Cavity read/write and S D matrices 
        call init_BEM
@@ -134,13 +135,14 @@
        call do_pot_from_field(fmax,pot)
        allocate(Kdiag_omega(nts_act))
        allocate(q_omega(nts_act))
-       allocate(mu_omega(3))
-       open(7,file="spectrum.dat",status="unknown")
+       open(7,file="dipole_freq.dat",status="unknown")
+       write (7,*)"freq re(mux) re(muy) re(muz) im(mux) im(muy) im(muz)"
        do i=1,n_omega
-        call do_charge_freq(omega_list(i),pot)
+        call do_charge_freq(omega_list(i),pot,mu_omega)
+        write (7,'(7e15.6)') omega_list(i),real(mu_omega(:)),aimag(mu_omega(:))
        enddo
        close(7)
-       deallocate(pot,q_omega,mu_omega,Kdiag_omega)
+       deallocate(pot,q_omega,Kdiag_omega)
        !Deallocate private arrays              
        call finalize_BEM
       return
@@ -587,9 +589,10 @@
 !------------------------------------------------------------------------
 !> Calculate charges in the frequency domain
 !------------------------------------------------------------------------
-      subroutine do_charge_freq(omega_a,pot)
+      subroutine do_charge_freq(omega_a,pot,mu_omega)
       real(dbl), intent(in):: omega_a
       real(dbl), intent(in) :: pot(:)
+      complex(cmp), intent(out) :: mu_omega(3)
       real(dbl) :: a,b               
       integer(4) :: its
 ! SP 16/07/17: avoiding allocations loops
@@ -621,7 +624,6 @@
        mu_omega(2)=mu_omega(2)+q_omega(its)*(cts_act(its)%y)
        mu_omega(3)=mu_omega(3)+q_omega(its)*(cts_act(its)%z)
       enddo
-      write (7,'(7e15.6)') omega_a,real(mu_omega(:)),aimag(mu_omega(:))
       return
       end subroutine
 !

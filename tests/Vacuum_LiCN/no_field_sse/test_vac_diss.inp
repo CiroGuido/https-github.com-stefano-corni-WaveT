@@ -1,22 +1,23 @@
 
-&general n_ci=3,n_ci_read=3
+&general n_ci=10,n_ci_read=10
 mol_cc=
 0.0
 0.0
 0.0
 n_f=1 
 medium='vac'
+dt=0.05
+n_step=10000
+n_out=1
 / 
 
-&field dt=0.05,n_step=100000,n_out=2,Ffld='gau',omega=0.2420,sigma=707.106781187,
+&field Ffld='gau',omega=0.2420,sigma=707.106781187,
        t_mid=2500,radiative='non',iseed=123456789
 fmax=
 0.00
 0.00
 0.00 
 /
-
-&external_medium medium='vac' /
 
 &spectra start=0, 
 

@@ -4,12 +4,12 @@ n_ci_read=15
 mol_cc= 0. 0. 0. 
 medium='nan'
 n_f=1
-/ 
-
-&field 
 dt=0.20
 n_step=200  
 n_out=2
+/ 
+
+&field 
 Ffld='gau'
 omega=0.262961
 sigma=2.,

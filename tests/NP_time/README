@@ -1,1 +1,2 @@
-just a run with kick pulse and nanoparticle
+a run with kick pulse and a nanoparticle, to obtain its absorption spectrum. To run:
+../../WaveT/bin/WaveT.x <tdcis.inp>tdcis.out

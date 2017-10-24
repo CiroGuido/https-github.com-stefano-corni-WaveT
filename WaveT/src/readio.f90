@@ -482,6 +482,12 @@
 ! @param n_ci_read,n_ci,mol_cc,n_f,medium 
 !------------------------------------------------------------------------
 
+       ! Time step in the propagation (a.u.)
+       dt=0.05
+       ! Number of steps
+       n_step=10000
+       ! Frequency in writing files
+       n_out=1
        ! Molecular center of charge
        mol_cc=0.d0
        ! Integer to be appended in all output files
@@ -506,12 +512,6 @@
 ! @param dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax 
 !------------------------------------------------------------------------
 
-       ! Time step in the propagation (a.u.)
-       dt=0.05
-       ! Number of steps
-       n_step=10000
-       ! Frequency in writing files
-       n_out=1
        ! Type of field
        Ffld='gau'
        ! Center of the pulse
@@ -610,6 +610,9 @@
        write(*,*) 'Molecular center of charge'
        write(*,*) mol_cc 
        write(*,*) ''
+       write (*,*) "Time step (in au), number of steps, stride",dt, &
+                 n_step,n_out
+       write(*,*) ''
        select case (medium)
         case ('sol','Sol','SOL')
           write(*,*) "Solvent as external medium"
@@ -658,8 +661,6 @@
 ! @param dt,n_step,n_out,Ffld,t_mid,sigma,omega,radiative,iseed,fmax 
 !------------------------------------------------------------------------
 
-       write (*,*) "Time step (in au), number of steps, stride",dt, &
-                 n_step,n_out
        write (*,*) "Time shape of the perturbing field",Ffld
        write (*,*) "time at the center of the pulse (au):",t_mid
        write (*,*) "Width of the pulse (time au):",sigma

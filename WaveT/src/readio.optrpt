@@ -87,7 +87,7 @@ LOOP END
 
 LOOP BEGIN at readio.f90(303,11)
    remark #17109: LOOP WAS AUTO-PARALLELIZED
-   remark #17101: parallel loop shared={ .2.33_2upper_.21 } private={ } firstprivate={ 945 readio_mp_de_gam_ 941 943 945 } lastprivate={ } firstlastprivate={ } reduction={ }
+   remark #17101: parallel loop shared={ .2.33_2upper_.21 } private={ } firstprivate={ 947 readio_mp_de_gam_ 943 945 947 } lastprivate={ } firstlastprivate={ } reduction={ }
 LOOP END
 
 LOOP BEGIN at readio.f90(303,11)
@@ -243,52 +243,264 @@ Begin optimization report for: READIO::WRITE_NML_SSE
     Report from: Auto-parallelization optimizations [par]
 
 
-LOOP BEGIN at readio.f90(785,11)
+LOOP BEGIN at readio.f90(786,11)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(785,11)
+LOOP BEGIN at readio.f90(786,11)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(781,11)
+LOOP BEGIN at readio.f90(782,11)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(775,14)
+LOOP BEGIN at readio.f90(776,14)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(771,14)
+LOOP BEGIN at readio.f90(772,14)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(730,13)
+LOOP BEGIN at readio.f90(731,13)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(733,13)
+LOOP BEGIN at readio.f90(734,13)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(749,17)
+LOOP BEGIN at readio.f90(750,17)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(752,17)
+LOOP BEGIN at readio.f90(753,17)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(740,14)
+LOOP BEGIN at readio.f90(741,14)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(757,13)
+LOOP BEGIN at readio.f90(758,13)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(760,13)
+LOOP BEGIN at readio.f90(761,13)
    remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+===========================================================================
+
+Begin optimization report for: READIO::WRITE_NML_GENERAL
+
+    Report from: Auto-parallelization optimizations [par]
+
+
+LOOP BEGIN at readio.f90(631,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(628,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(625,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(622,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(619,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(639,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(636,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(647,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(644,11)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+===========================================================================
+
+Begin optimization report for: READIO::READ_INPUT
+
+    Report from: Auto-parallelization optimizations [par]
+
+
+LOOP BEGIN at readio.f90(492,8) inlined into readio.f90(128,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(496,8) inlined into readio.f90(128,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(498,8) inlined into readio.f90(128,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(500,8) inlined into readio.f90(128,13)
+LOOP END
+
+LOOP BEGIN at readio.f90(516,8) inlined into readio.f90(133,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(524,8) inlined into readio.f90(133,13)
+LOOP END
+
+LOOP BEGIN at readio.f90(528,8) inlined into readio.f90(133,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(530,8) inlined into readio.f90(133,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(674,10) inlined into readio.f90(135,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(672,10) inlined into readio.f90(135,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(168,8) inlined into readio.f90(138,13)
+   remark #17104: loop was not parallelized: existence of parallel dependence
+LOOP END
+
+LOOP BEGIN at readio.f90(181,8) inlined into readio.f90(138,13)
+   remark #17104: loop was not parallelized: existence of parallel dependence
+
+   LOOP BEGIN at readio.f90(185,10) inlined into readio.f90(138,13)
+   <Peeled>
+   LOOP END
+
+   LOOP BEGIN at readio.f90(185,10) inlined into readio.f90(138,13)
+      remark #17108: loop was not parallelized: insufficient computational work
+   LOOP END
+
+   LOOP BEGIN at readio.f90(185,10) inlined into readio.f90(138,13)
+   <Remainder>
+   LOOP END
+LOOP END
+
+LOOP BEGIN at readio.f90(190,8) inlined into readio.f90(138,13)
+   remark #17104: loop was not parallelized: existence of parallel dependence
+
+   LOOP BEGIN at readio.f90(191,10) inlined into readio.f90(138,13)
+      remark #17104: loop was not parallelized: existence of parallel dependence
+
+      LOOP BEGIN at readio.f90(194,12) inlined into readio.f90(138,13)
+      <Peeled>
+      LOOP END
+
+      LOOP BEGIN at readio.f90(194,12) inlined into readio.f90(138,13)
+         remark #17108: loop was not parallelized: insufficient computational work
+      LOOP END
+
+      LOOP BEGIN at readio.f90(194,12) inlined into readio.f90(138,13)
+      <Remainder>
+      LOOP END
+   LOOP END
+LOOP END
+
+LOOP BEGIN at readio.f90(210,8) inlined into readio.f90(138,13)
+   remark #17104: loop was not parallelized: existence of parallel dependence
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+   remark #17109: LOOP WAS AUTO-PARALLELIZED
+   remark #17101: parallel loop shared={ .2.36_2upper_.27 } private={ } firstprivate={ 802 readio_mp_c_i_ 798 800 802 } lastprivate={ } firstlastprivate={ } reduction={ 804 }
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+   remark #17109: LOOP WAS AUTO-PARALLELIZED
+   remark #17101: parallel loop shared={ .2.36_2upper_.29 } private={ } firstprivate={ 802 readio_mp_c_i_ 804 792 794 796 } lastprivate={ } firstlastprivate={ } reduction={ }
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(556,8) inlined into readio.f90(141,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(558,8) inlined into readio.f90(141,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(574,8) inlined into readio.f90(148,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(578,8) inlined into readio.f90(148,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(578,8) inlined into readio.f90(148,13)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+   remark #25460: No loop optimizations reported
+LOOP END
+
+LOOP BEGIN at readio.f90(213,21) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+   remark #25460: No loop optimizations reported
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at readio.f90(213,8) inlined into readio.f90(138,13)
+<Remainder>
 LOOP END
 ===========================================================================
 
@@ -347,7 +559,7 @@ LOOP END
 
 LOOP BEGIN at readio.f90(213,21)
    remark #17109: LOOP WAS AUTO-PARALLELIZED
-   remark #17101: parallel loop shared={ .2.35_2upper_.5 } private={ } firstprivate={ 800 readio_mp_c_i_ 796 798 800 } lastprivate={ } firstlastprivate={ } reduction={ 802 }
+   remark #17101: parallel loop shared={ .2.37_2upper_.5 } private={ } firstprivate={ 802 readio_mp_c_i_ 798 800 802 } lastprivate={ } firstlastprivate={ } reduction={ 804 }
 LOOP END
 
 LOOP BEGIN at readio.f90(213,21)
@@ -364,7 +576,7 @@ LOOP END
 
 LOOP BEGIN at readio.f90(213,8)
    remark #17109: LOOP WAS AUTO-PARALLELIZED
-   remark #17101: parallel loop shared={ .2.35_2upper_.7 } private={ } firstprivate={ 800 readio_mp_c_i_ 802 790 792 794 } lastprivate={ } firstlastprivate={ } reduction={ }
+   remark #17101: parallel loop shared={ .2.37_2upper_.7 } private={ } firstprivate={ 802 readio_mp_c_i_ 804 792 794 796 } lastprivate={ } firstlastprivate={ } reduction={ }
 LOOP END
 
 LOOP BEGIN at readio.f90(213,8)
@@ -401,112 +613,6 @@ LOOP END
 
 LOOP BEGIN at readio.f90(213,8)
 <Remainder>
-LOOP END
-===========================================================================
-
-Begin optimization report for: READIO::WRITE_NML_GENERAL
-
-    Report from: Auto-parallelization optimizations [par]
-
-
-LOOP BEGIN at readio.f90(628,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(625,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(622,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(619,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(616,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(636,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(633,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(644,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(641,11)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-===========================================================================
-
-Begin optimization report for: READIO::READ_INPUT
-
-    Report from: Auto-parallelization optimizations [par]
-
-
-LOOP BEGIN at readio.f90(486,8) inlined into readio.f90(128,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(490,8) inlined into readio.f90(128,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(492,8) inlined into readio.f90(128,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(494,8) inlined into readio.f90(128,13)
-LOOP END
-
-LOOP BEGIN at readio.f90(516,8) inlined into readio.f90(133,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(524,8) inlined into readio.f90(133,13)
-LOOP END
-
-LOOP BEGIN at readio.f90(528,8) inlined into readio.f90(133,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(530,8) inlined into readio.f90(133,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(673,10) inlined into readio.f90(135,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(671,10) inlined into readio.f90(135,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(556,8) inlined into readio.f90(141,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(558,8) inlined into readio.f90(141,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(574,8) inlined into readio.f90(148,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(578,8) inlined into readio.f90(148,13)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(578,8) inlined into readio.f90(148,13)
-   remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 ===========================================================================
 
@@ -575,19 +681,19 @@ Begin optimization report for: READIO::INIT_NML_GENERAL
     Report from: Auto-parallelization optimizations [par]
 
 
-LOOP BEGIN at readio.f90(486,8)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
-LOOP BEGIN at readio.f90(490,8)
-   remark #17108: loop was not parallelized: insufficient computational work
-LOOP END
-
 LOOP BEGIN at readio.f90(492,8)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(494,8)
+LOOP BEGIN at readio.f90(496,8)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(498,8)
+   remark #17108: loop was not parallelized: insufficient computational work
+LOOP END
+
+LOOP BEGIN at readio.f90(500,8)
 LOOP END
 ===========================================================================
 
@@ -649,11 +755,11 @@ Begin optimization report for: READIO::WRITE_NML_FIELD
     Report from: Auto-parallelization optimizations [par]
 
 
-LOOP BEGIN at readio.f90(673,10)
+LOOP BEGIN at readio.f90(674,10)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 
-LOOP BEGIN at readio.f90(671,10)
+LOOP BEGIN at readio.f90(672,10)
    remark #17108: loop was not parallelized: insufficient computational work
 LOOP END
 ===========================================================================

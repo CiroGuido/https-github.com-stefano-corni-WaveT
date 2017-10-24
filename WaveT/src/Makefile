@@ -48,7 +48,10 @@ OBJ_VIB= constants.o readio.o vib.o main_vib.o
 
 # rules
 
-all: $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x $(BINPATH)/make_vib.x
+all: $(BINPATH) $(BINPATH)/WaveT.x $(BINPATH)/make_spectra.x $(BINPATH)/make_vib.x
+	
+$(BINPATH):
+	mkdir $(BINPATH)
 	
 $(BINPATH)/make_spectra.x: $(OBJ_SPECTRA) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_SPECTRA) $(LIBS) $(LIBSF)
@@ -59,7 +62,7 @@ $(BINPATH)/WaveT.x: $(OBJ)
 $(BINPATH)/make_vib.x: $(OBJ_VIB)
 	$(FC) $(FFLAGS) -o $@ $(OBJ_VIB)
 clean:
-	rm -f *.o *.mod *.il $(BINPATH)/*.x
+	rm -f *.o *.mod *.il *.optrpt $(BINPATH)/*.x
 
 constants.o: constants.f90
 	$(FC) $(FFLAGS) -c $< -o $@

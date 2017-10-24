@@ -34,6 +34,9 @@ OBJ_FREQ= constants.o global_tdplas.o pedra_friends.o readio_medium.o MathTools.
 # rules
 
 all: $(BINPATH)  $(BINPATH)/freq_bem.x $(BINPATH)/tdplas.x
+	
+$(BINPATH):
+	mkdir $(BINPATH)
 
 $(BINPATH)/tdplas.x: $(OBJ_TDPLAS) 
 	$(FC) $(FFLAGS) -o $@ $(OBJ_TDPLAS) $(LIBS) $(LIBSF)

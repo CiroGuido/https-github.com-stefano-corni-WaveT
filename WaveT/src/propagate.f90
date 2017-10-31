@@ -34,6 +34,7 @@
        implicit none
        integer(i4b)                :: i,j,k,istop,ijump=0
        complex(cmp), allocatable  :: c(:),c_prev(:),c_prev2(:), h_rnd(:,:), h_rnd2(:,:)
+       complex(cmp), allocatable  :: exp_e_dt(:) !SC 31/10/17: added to store exp(-ui*e(:)*dt), used in propagation
        real(dbl),     allocatable  :: h_int(:,:), h_dis(:,:)
        real(dbl),     allocatable  :: pjump(:) 
        real(dbl)                   :: f_prev(3),f_prev2(3)
@@ -64,6 +65,7 @@
        allocate (c_prev(n_ci))
        allocate (c_prev2(n_ci))
        allocate (h_int(n_ci,n_ci))
+       allocate (exp_e_dt(n_ci))
 ! SP 17/07/17: new flags
        !if (dis) then
        if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
@@ -83,6 +85,7 @@
        c_prev2=c_i
        c_prev=c_i
        c=c_i
+       exp_e_dt=exp(-ui*dt*e_ci)  ! SC 31/10/17: added vector to improve prop. algoritm
 ! SP: 17/07/17: changed the following f_prev2 <= f_prev
        !f_prev2=f(:,2)
        f_prev2=f(:,1)
@@ -129,7 +132,8 @@
        endif
 !
 ! INITIAL STEP: dpsi/dt=(psi(2)-psi(1))/dt
-       c=c_prev-ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+! SC: 31/10/17 modified the propagation with exp_e_dt
+       c=exp_e_dt*(c_prev-ui*dt*matmul(h_int,c_prev))
 !       if (ernd) then
        if (Fdis.eq."ernd") then
           do j=1,n_ci
@@ -243,7 +247,8 @@
 ! SC field
             if (Frad.eq."arl".and.i.gt.5) call add_int_rad(mu_prev,mu_prev2,mu_prev3, &
                                                 mu_prev4,mu_prev5,h_int)
-            c=c_prev2-2.d0*ui*dt*(e_ci*c_prev+matmul(h_int,c_prev))
+! SC 31/10/17: modified propagation by adding the exp term
+            c=exp_e_dt*(exp_e_dt*c_prev2-2.d0*ui*dt*matmul(h_int,c_prev))
             if (Fdis.eq."ernd") then
                do j=1,n_ci
                   c(j) = c(j) - 2.d0*ui*dt*krnd*random_normal()*c_prev(j)
@@ -258,7 +263,7 @@
        endif 
 
 ! DEALLOCATION AND CLOSING
-       deallocate (c,c_prev,c_prev2,h_int)
+       deallocate (c,c_prev,c_prev2,exp_e_dt,h_int)
 !       if (dis) then
        if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
           call deallocate_dis()

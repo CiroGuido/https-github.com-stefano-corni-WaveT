@@ -249,7 +249,7 @@
          open(7,file="mat_SD.inp",status="unknown")
          write(7,*) nts_act
          do j=1,nts_act
-          do i=j,nts_act
+          do i=1,nts_act
            write(7,'(2E26.16)')cals(i,j),cald(i,j)
           enddo
          enddo
@@ -270,7 +270,7 @@
          open(7,file="mat_SD_sol.inp",status="unknown")
          write(7,*) nts_sol
          do j=1,nts_sol
-          do i=j,nts_sol
+          do i=1,nts_sol
            write(7,'(2E26.16)')cals(i,j),cald(i,j)
           enddo
          enddo
@@ -410,16 +410,16 @@
           diff(2)=(cts_act(i)%y-cts_act(k)%y)
           diff(3)=(cts_act(i)%z-cts_act(k)%z)
           dist=sqrt(dot_product(diff,diff))
-          sum_d=sum_d+dot_product(cts_act(i)%n,diff)/dist**3*cts_act(k)%area 
+          sum_d=sum_d+dot_product(cts_act(k)%n,diff)/dist**3*cts_act(k)%area 
          enddo
          do k=i+1,nts_act
           diff(1)=(cts_act(i)%x-cts_act(k)%x)
           diff(2)=(cts_act(i)%y-cts_act(k)%y)
           diff(3)=(cts_act(i)%z-cts_act(k)%z)
           dist=sqrt(dot_product(diff,diff))
-          sum_d=sum_d+dot_product(cts_act(i)%n,diff)/dist**3*cts_act(k)%area 
+          sum_d=sum_d+dot_product(cts_act(k)%n,diff)/dist**3*cts_act(k)%area 
          enddo
-         sum_d=-(2.0*pi-sum_d)/cts_act(i)%area
+         sum_d=-(2.0*pi+sum_d)/cts_act(i)%area
 ! SC 30/05/2017: changed to a diagonal value of D_ii that should be more general than those for the sphere
 !         value=-1.0694*sqrt(4.d0*pi*cts_act(i)%area)/(2.d0* &
 !                cts_act(i)%rsfe)/cts_act(i)%area
@@ -464,16 +464,16 @@
           diff(2)=(cts_sol(i)%y-cts_sol(k)%y)
           diff(3)=(cts_sol(i)%z-cts_sol(k)%z)
           dist=sqrt(dot_product(diff,diff))
-          sum_d=sum_d+dot_product(cts_sol(i)%n,diff)/dist**3*cts_sol(k)%area 
+          sum_d=sum_d+dot_product(cts_sol(k)%n,diff)/dist**3*cts_sol(k)%area 
          enddo
          do k=i+1,nts_sol
           diff(1)=(cts_sol(i)%x-cts_sol(k)%x)
           diff(2)=(cts_sol(i)%y-cts_sol(k)%y)
           diff(3)=(cts_sol(i)%z-cts_sol(k)%z)
           dist=sqrt(dot_product(diff,diff))
-          sum_d=sum_d+dot_product(cts_sol(i)%n,diff)/dist**3*cts_sol(k)%area 
+          sum_d=sum_d+dot_product(cts_sol(k)%n,diff)/dist**3*cts_sol(k)%area 
          enddo
-         sum_d=-(2.0*pi-sum_d)/cts_sol(i)%area
+         sum_d=-(2.0*pi+sum_d)/cts_sol(i)%area
 ! SC 30/05/2017: changed to a diagonal value of D_ii that should be more general than those for the sphere
 !         value=-1.0694*sqrt(4.d0*pi*cts_sol(i)%area)/(2.d0* &
 !                cts_sol(i)%rsfe)/cts_sol(i)%area
@@ -635,10 +635,8 @@
       open(7,file="mat_SD.inp",status="old")
       read(7,*) nts_act
       do j=1,nts_act
-       do i=j,nts_act
+       do i=1,nts_act
         read(7,*) cals(i,j), cald(i,j)
-        cals(j,i)=cals(i,j)
-        cald(j,i)=cald(i,j)
        enddo
       enddo
       close(7)
@@ -688,7 +686,7 @@
       open(7,file="TSSK_matrices.mat",status="unknown")
       write(7,*) nts_act
       do j=1,nts_act
-       do i=j,nts_act
+       do i=1,nts_act
         write(7,'(4E26.16)')eigt(i,j),sp12(i,j),sm12(i,j)
        enddo
       enddo
@@ -806,7 +804,7 @@
        open(7,file="TSSK_matrices_sol.mat",status="unknown")
        write(7,*) nts_sol
        do j=1,nts_sol
-        do i=j,nts_sol
+        do i=1,nts_sol
          write(7,'(4E26.16)')eigt_sol(i,j),sp12_sol(i,j),sm12_sol(i,j)
         enddo
        enddo
@@ -850,19 +848,25 @@
       return
       end subroutine
 !
-      subroutine do_charge_freq(omega_a,eps_a,pot,pot_sol)
+!! SC 02/02/2018 The latter is commented since it is not completed yet
+!      subroutine do_charge_freq(omega_a,eps_a,pot,pot_sol)
+      subroutine do_charge_freq(omega_a,eps_a,pot)
       integer(4) :: its
       complex(16), allocatable :: q_omega(:),q_omega_sol(:)
       complex(16) :: mu_omega(3)
       complex(16) :: eps_a
       real(8) :: omega_a
-      real(8) :: pot(:),pot_sol(:)
+!! SC 02/02/2018 The latter is commented since it is not completed yet
+!      real(8) :: pot(:),pot_sol(:)
+      real(8) :: pot(:)
 !      real(8), allocatable :: fact1(:),fact2(:)
       complex(16), allocatable :: Kdiag_omega(:)
       complex(16), allocatable :: eigtt(:,:)
       integer(4) :: sgn,i
 ! SC 15/05/2017: added estimate of lifetime gamma
+! SC 02/02/2017: added estimate of shift
       real(8) :: gamma_met
+      real(8) :: shift_met
       allocate(Kdiag_omega(nts_act))
 !      allocate(fact1(nts_act))
 !      allocate(fact2(nts_act))
@@ -889,22 +893,24 @@
       q_omega=Kdiag_omega*q_omega
       q_omega=matmul(eigt,q_omega)
       q_omega=-matmul(sm12,q_omega)
-      q_omega=q_omega-sum(q_omega)/nts_act
+!SC 02/02/2018: test here below!!
+!      q_omega=q_omega-sum(q_omega)/nts_act
+!! SC 02/02/2018 The latter is commented since it is not completed yet
 ! SC 11/06/2017: if there is a solvent, do a iterative procedure to include it
-      if(mdm.eq."nas") then
-       deallocate (eigtt)
-       deallocate(Kdiag_omega)
-       allocate(Kdiag_omega(nts_sol,nts_col))
-       allocate (q_omega_sol(nts_act))
-       allocate (eigtt(nts_sol,nts_sol))
-       q_omega_sol=matmul(sm12_sol,pot_sol)
-       eigtt=transpose(eigt_sol)
-       q_omega_sol=matmul(eigtt,q_omega_sol)
-       q_omega_sol=Kdiag_omega*q_omeg_sol 
-       q_omega_sol=matmul(eigt_sol,q_omega_sol)
-       q_omega_sol=-matmul(sm12_sol,q_omega_sol)
-       q_omega_sol=q_omega_sol-sum(q_omega_sol)/nts_sol
-      endif
+!      if(mdm.eq."nas") then
+!       deallocate (eigtt)
+!       deallocate(Kdiag_omega)
+!       allocate(Kdiag_omega(nts_sol,nts_col))
+!       allocate (q_omega_sol(nts_act))
+!       allocate (eigtt(nts_sol,nts_sol))
+!       q_omega_sol=matmul(sm12_sol,pot_sol)
+!       eigtt=transpose(eigt_sol)
+!       q_omega_sol=matmul(eigtt,q_omega_sol)
+!       q_omega_sol=Kdiag_omega*q_omeg_sol 
+!       q_omega_sol=matmul(eigt_sol,q_omega_sol)
+!       q_omega_sol=-matmul(sm12_sol,q_omega_sol)
+!       q_omega_sol=q_omega_sol-sum(q_omega_sol)/nts_sol
+!      endif
 !      write(6,*) "q_omega"
       mu_omega=0.d0
       do its=1,nts_act
@@ -914,14 +920,16 @@
        mu_omega(3)=mu_omega(3)+q_omega(its)*(cts_act(its)%z)
       enddo
       gamma_met=-2.d0*dot_product(aimag(q_omega),pot)
-      write (6,'(8d15.6)') omega_a,real(mu_omega(:)), &
-                           aimag(mu_omega(:)),gamma_met
+      shift_met=dot_product(real(q_omega),pot)
+      write (6,'(9d15.6)') omega_a,real(mu_omega(:)), &
+                           aimag(mu_omega(:)),gamma_met,shift_met
       deallocate(Kdiag_omega)
       deallocate (q_omega)
       deallocate (eigtt)
-      if(mdm.eq."nas") then
-       deallocate (q_omega_sol)
-      endif
+!! SC 02/02/2018 The latter is commented since it is not completed yet
+!      if(mdm.eq."nas") then
+!       deallocate (q_omega_sol)
+!      endif
 !      scr3=matmul(sm12,eigt)
 !      do i=1,nts_act
 !        scr1(:,i)=scr3(:,i)*Kdiag_omega(i) 

@@ -1318,7 +1318,9 @@
          dist=(cts_act(its_a)%x-cts_act(jts)%x)**2+  &
               (cts_act(its_a)%y-cts_act(jts)%y)**2+ &
               (cts_act(its_a)%z-cts_act(jts)%z)**2
-         if (dist.lt.1.d-5) goto 10
+!SC 13/2/2018: commented line below (that inhibit removal of replicated tesseras)
+!             to prevent loosing tessera in case of very small NP)
+!         if (dist.lt.1.d-5) goto 10
         enddo
         normal=vec((vert(:,3)-vert(:,1)),(vert(:,2)-vert(:,1)))
         area=sqrt(dot_product(normal,normal))
@@ -1368,9 +1370,9 @@
       do its=1,nts_act
        write(7,'("C ",8E14.5)') cts_act(its)%x,cts_act(its)%y, &
                                 cts_act(its)%z
-       write(7,'("H ",8E14.5)') cts_act(its)%x+cts_act(its)%n(1), &
-                           cts_act(its)%y+cts_act(its)%n(2), &
-                           cts_act(its)%z+cts_act(its)%n(3)
+       write(7,'("H ",8E14.5)') cts_act(its)%x+cts_act(its)%n(1)*sqrt(cts_act(its)%area)/5., &
+                           cts_act(its)%y+cts_act(its)%n(2)*sqrt(cts_act(its)%area)/5., &
+                           cts_act(its)%z+cts_act(its)%n(3)*sqrt(cts_act(its)%area)/5.
       enddo
       close(7)
 !      open(7,file="cavity.inp",status="unknown")

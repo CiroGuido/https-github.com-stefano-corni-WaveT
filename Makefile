@@ -19,8 +19,8 @@ FFLAGS= $(FFLAGS_DEB)
 LIBS =  -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread
 #LIBS =  -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -Wl,--end-group
 #LIBSF = -lm -L/usr/lib/i386-linux-gnu -lfftw3
-#INC = -I/usr/include/ 
-INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
+INC = -I/usr/include/ 
+#INC = -I/usr/include/ -I/unimore/prod/fftw-3.3.4/include/
 
 OBJ= random.o cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o QM_coupling.o dissipation.o propagate.o main.o 
 OBJ_FREQ= cav_types.o pedra_friends.o readio.o readio_medium.o spectra.o BEM_medium.o scf.o td_contmed.o main_freq.o 

@@ -691,9 +691,11 @@
        write(*,*) 'Molecular center of charge'
        write(*,*) mol_cc 
        write(*,*) ''
-       write (*,*) "Time step (in au), number of steps, stride",dt, &
+       if (Ffld.ne."read_file") then
+        write (*,*) "Time step (in au), number of steps, stride",dt, &
                  n_step,n_out
-       write(*,*) ''
+        write(*,*) ''
+       endif
        select case (medium)
         case ('sol','Sol','SOL')
           write(*,*) "Solvent as external medium"
@@ -769,11 +771,13 @@
            npulse=1
        endif
 
-       write (*,*) "Time shape of the perturbing field",Ffld
-       write (*,*) "time at the center of the pulse (au):",t_mid
-       write (*,*) "Width of the pulse (time au):",sigma(1)
-       write (*,*) "Frequency (au):",omega(1)
-       write (*,*) "Maximum E field",fmax(:,1)
+       write (*,*) "Time shape of the perturbing field:",Ffld
+       if (Ffld.ne."read_file") then
+        write (*,*) "time at the center of the pulse (au):",t_mid
+        write (*,*) "Width of the pulse (time au):",sigma(1)
+        write (*,*) "Frequency (au):",omega(1)
+        write (*,*) "Maximum E field",fmax(:,1)
+       endif
        !SC
        select case (radiative)
         case ('rad','Rad','RAD')

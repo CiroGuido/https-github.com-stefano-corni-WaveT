@@ -1,0 +1,28 @@
+
+&general n_ci=10,n_ci_read=10
+mol_cc=
+0.0
+0.0
+0.0
+n_f=1
+medium='vac'
+n_out=1
+/ 
+
+&field Ffld='read_file'
+/
+
+&sse dissipative='non'/
+
+&spectra start=0, 
+
+tau=
+2.0
+0.0
+
+dir_ft=
+0.0
+1.0
+0.0 
+/
+

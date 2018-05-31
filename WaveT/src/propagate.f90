@@ -229,14 +229,26 @@
           endif
        endif
 
-       allocate (f(3,n_tot))
 
-       write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
-       open (7,file=name_f,status="unknown")
 
-        f(:,:)=0.d0
         select case (Ffld)
+        case ("read_file")
+! SC 31/5/2018 added the reading of an external field. Overwrite
+!              the dt, n_tot, and n_step previuously set
+         open (8,file="external_field.inp",status="unknown")
+         read (8,*) dt,n_step
+         write (6,*) "Field read from file, dt and n_step from input are OVERWRITTEN!"
+         write (6,*) "dt read in external_field.inp:",dt
+         write (6,*) "number of step read in external_field.inp:",n_step
+         n_tot=n_step
+         allocate(f(3,n_tot))
+         do i=1,n_tot
+           read(8,*) f(:,i)
+         enddo
+         close(8)
         case ("mdg")
+           allocate (f(3,n_tot))
+           f(:,:)=0.d0
         ! Gaussian modulated sinusoid: exp(-(t-t0)^2/s^2) * sin(wt) 
            do i=1,n_tot
               t_a=dt*(i-1)
@@ -249,6 +261,8 @@
               enddo 
            enddo
         case ("mds")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Cosine^2 modulated sinusoid: 1/2* cos^2(pi(t-t0)/(2t0)) * sin(wt) 
         !          f=0 for t>t0
          i_max=int(t_mid/dt)
@@ -279,6 +293,8 @@
          !   enddo
          !enddo
         case ("pip")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Pi pulse: cos^2(pi(t-t0)/(2s)) * cos(w(t-t0)) 
          do i=1,n_tot
             t_a=dt*(dble(i)-1)
@@ -299,6 +315,8 @@
             enddo
          enddo
         case ("sin")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Sinusoid:  sin(wt) 
          do i=1,n_tot
             t_a=dt*(dble(i)-1)
@@ -306,6 +324,8 @@
          enddo
          
         case ("snd")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Linearly modulated (up to t0) Sinusoid:
         !         0 < t < t0 : t/to* sin(wt) 
         !             t > t0 :       sin(wt) 
@@ -318,6 +338,8 @@
             endif            
          enddo
         case ("gau")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Gaussian pulse: exp(-(t-t0)^2/s^2) 
            do i=1,n_tot
               t_a=dt*(i-1)
@@ -338,6 +360,8 @@
          ! endif
          !enddo
         case ("css")
+         allocate (f(3,n_tot))
+         f(:,:)=0.d0
         ! Cos^2 pulse (only half a period): cos^2(pi*(t-t0)/(s)) 
          ti=t_mid-sigma(1)/two
          tf=t_mid+sigma(1)/two
@@ -351,18 +375,18 @@
         case default
          write(*,*)  "Error: wrong field type !"
          stop
-        end select
+       end select
         ! write out field 
-        do i=1,n_tot
+       write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
+       open (7,file=name_f,status="unknown")
+       do i=1,n_tot
          t_a=dt*(i-1)
          if (mod(i,n_out).eq.0) &
            write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
-        enddo
-       
-
-        close(7)
+       enddo
+       close(7)
  
-        return
+       return
 
       end subroutine create_field
 

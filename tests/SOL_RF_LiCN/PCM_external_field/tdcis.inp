@@ -1,0 +1,51 @@
+&general n_ci=10,n_ci_read=10 
+mol_cc= 0. 0. 0.
+medium='sol'
+n_f=1 
+dt=0.20
+n_step=1000
+n_out=1
+/ 
+
+&field 
+Ffld='read_file'
+radiative='non'
+/
+
+&sse dissipative='non'
+/
+
+&spectra start=80, 
+tau= 2000.0 2000.0
+dir_ft= 1. 1. 1. 
+/
+
+! Here starts the tdplas part
+!
+&PROPAGATE  
+propagation_type='ief'
+interaction_type='pcm'
+interaction_stride=1
+interaction_init='non-scf'
+local_field='non'
+/
+
+&MEDIUM
+medium_type='sol'
+medium_init='fro'
+bem_type='diag'
+bem_read_write='rea'
+/
+
+&SURFACE
+input_surface='fil'
+/
+
+&EPS_FUNCTION
+epsilon_omega='deb'
+eps_0=35.84 
+eps_d=1.806      
+!tau_deb=500. 
+tau_deb=13932000.
+/
+

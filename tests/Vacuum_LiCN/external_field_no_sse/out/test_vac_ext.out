@@ -1,0 +1,56 @@
+ 
+ *****************************************************
+ *****************************************************
+ **                                                 **
+ **                    WaveT                        **
+ **     Evolution of molecular wavefunctions        **
+ **   under external electromagnetic perturbations  **
+ **                                                 **
+ **                     by                          **
+ **                Stefano Corni                    **
+ **                Silvio Pipolo                    **
+ **               Emanuele Coccia                   **
+ **                 Gabriel Gil                     **
+ **                Jacopo Fregoni                   **
+ **                                                 **
+ *****************************************************
+ *****************************************************
+ 
+ Number to append to dat file           1
+ Number of CIS states to be read          10
+ Number of CIS states to be used          10
+ Molecular center of charge
+   0.0000000000000000        0.0000000000000000        0.0000000000000000     
+ 
+ Time step (in au), number of steps, stride   5.0000000745058060E-002       10000           1
+ 
+ No external medium, vacuum calculation
+ No restart
+ Only |k> -> |0> relaxation
+ Energy term is propagated analytically
+ 
+ Time shape of the perturbing field:read_file 
+ 
+ No dissipation
+ 
+ Excitation energies read from input, in Hartree
+           1  0.26756062571145595     
+           2  0.28059927721507849     
+           3  0.28059927721507849     
+           4  0.32140569950826470     
+           5  0.32144979866780338     
+           6  0.33408053294569251     
+           7  0.33412830703519286     
+           8  0.34653487058542670     
+           9  0.37215648227743803     
+          10  0.37972683799825613     
+
+ Starting point for FT calculation   0.0000000000000000     
+ Artificial damping   2.0000000000000000     
+ Direction along which the field is oriented   0.0000000000000000        1.0000000000000000        0.0000000000000000     
+ 
+ Field read from file, dt and n_step from input are OVERWRITTEN!
+ dt read in external_field.inp:   1.0000000000000000E-002
+ number of step read in external_field.inp:       20000
+Done reading input & setting up the field, took     0.068s
+Done , total elapsed time     2.003s

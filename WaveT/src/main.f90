@@ -25,10 +25,11 @@
                                !restart,n_restart)
          call read_medium_input
        endif
-       call init_spectra
 
 !      create the field 
        call create_field
+!      initialize the calculation of absorption spectra
+       call init_spectra
 
        call system_clock(current)
        write(6,'("Done reading input & setting up the field, took", &

@@ -9,6 +9,9 @@
 #ifdef OMP
       use omp_lib
 #endif
+#ifdef MPI
+      use mpi
+#endif
 
       implicit none
       real(dbl), allocatable :: occ(:)       !<Occupations                      
@@ -17,6 +20,7 @@
       real(dbl), allocatable :: Hqm_evl(:)   !<eigenvectors of QM-coupling super-matrix 
       integer(i4b) :: Hqm_dim  !<dimension of of QM-coupling super-matrix 
       integer(i4b) :: nmodes  ! quantum plasmonic modes                  
+
       save
       private
       public do_QM_coupling, & ! subroutines
@@ -37,23 +41,31 @@
 !     @param  
 !----------------------------------------------------------------------------
        ! allocate matrices and initialize                                   
+
+#ifndef MPI
+       myrank=0
+#endif
+
        call init_QM_coupling 
-       write(6,*) "QM_coupling correcty initialized"
+       if (myrank.eq.0) write(6,*) "QM_coupling correcty initialized"
        ! Build Hamiltonian Super-matrix
        call do_matrix
-       write(6,*) "Super matrix has been built"
+       if (myrank.eq.0) write(6,*) "Super matrix has been built"
        if(Ftest.eq."qmt") then
          call do_vts_from_dip
-         call test_QM_coupling
+         if (myrank.eq.0) call test_QM_coupling
        elseif(FQBEM(1:4)=='diag') then 
          ! Diagonalize Super-matrix        
          Hqm_evt=Hqm
          call diag_mat(Hqm_evt,Hqm_evl,Hqm_dim)
-         write(6,*) "Super matrix has been diagonalized"
+         if (myrank.eq.0)write(6,*) "Super matrix has been diagonalized"
          ! Print Output                    
-         call out_QM_coupling
+         if (myrank.eq.0) call out_QM_coupling
        else
-         write(6,*) "Calculation mode not implemented yet"
+         if (myrank.eq.0)write(6,*)"Calculation not implemented yet"
+#ifdef MPI
+       call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        ! deallocate                                    
@@ -76,6 +88,9 @@
          Hqm_dim=n_ci*(nmodes+1)
        else
          write(6,*) "FQBEM=",FQBEM," not implemented yet"
+#ifdef MPI 
+       call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        allocate(occ(nts_act))
@@ -117,39 +132,25 @@
        if(FQBEM(1:4)=='prop') allocate(dp(nts_act))
        ! Build the diagonal superblocs:
        ! H11
+
        if(FQBEM(1:4)=='prop') then ! propagation_semiclassical
          ! Introduces the coupling with the field for propagation
-#ifdef OMP
-!$OMP PARALLEL 
-!$OMP DO 
-#endif
          do j=1,n_ci
            do k=1,n_ci
              Hqm(k,j)=-dot_product(mut(:,k,j),fmax(:,1))
            enddo
          enddo
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
 
          do i=1,nmodes 
            dp(i)=cts_act(i)%x*fmax(1,1)+cts_act(i)%y*fmax(2,1)+       &
                                       cts_act(i)%z*fmax(3,1) 
          enddo 
        endif
+
        ! CI energies, diagonal 
-#ifdef OMP
-!$OMP PARALLEL REDUCTION(+:Hqm)
-!$OMP DO 
-#endif
        do j=1,n_ci
          Hqm(j,j)=Hqm(j,j)+e_ci(j)
        enddo
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
 
        gFi=0.d0
        do i=2,nmodes   
@@ -225,6 +226,11 @@
        integer(i4b) :: i,j,k   
        real(dbl), allocatable :: sp(:)               
        real(dbl), allocatable :: tot(:,:),ref(:,:)               
+
+#ifndef MPI
+       myrank=0
+#endif
+
        allocate(sp(3),tot(n_ci,n_ci),ref(n_ci,n_ci))
        open(7,file="g.mat",status="unknown")
        write(7,*) "# Test for dipolar-mode couplings" 
@@ -268,8 +274,10 @@
          write(7,"(i5, 2F20.12)")i, sqrt(BEM_W2(i)), sqrt(eps_A/3)
        enddo
        close(7)
-       write(6,*) "Test for dipolar-mode couplings...DONE" 
-       write(6,*) "  Results in the g.mat file. " 
+       if (myrank.eq.0) then 
+          write(6,*) "Test for dipolar-mode couplings...DONE" 
+          write(6,*) "  Results in the g.mat file. " 
+       endif
        deallocate(sp,tot,ref)
       return
       end subroutine

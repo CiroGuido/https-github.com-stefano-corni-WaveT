@@ -2,9 +2,12 @@ module global_wavet
       use constants
       use td_contmed, only: set_charges,get_mdm_dip,get_gneq,init_mdm, &
                             prop_mdm,finalize_mdm
-      use readio_medium, only: q0,Fmdm_relax,read_medium
+      use readio_medium, only: q0,Fmdm_relax,read_medium,mpibcast_readio_mdm
+#ifdef MPI 
+      use mpi 
+#endif
 
-      public set_q0charges,get_medium_dip,read_medium_input
+      public set_q0charges,get_medium_dip,read_medium_input,mpibcast_readio_mdm
 
       contains
   
@@ -133,5 +136,22 @@ module global_wavet
         return
 
       end subroutine finalize_medium
+
+      subroutine mpibcast_read_medium 
+!------------------------------------------------------------------------
+! @brief Broadcast input medium if parallel 
+!
+! @date Created   : E. Coccia 9/5/18 
+! Modified  :  
+!------------------------------------------------------------------------
+
+        implicit none
+
+        call mpibcast_readio_mdm 
+
+        return
+
+      end subroutine mpibcast_read_medium 
+
 
 end module global_wavet 

@@ -1,6 +1,9 @@
       module global_tdplas
 
       use constants  
+#ifdef MPI 
+      use mpi
+#endif
 
       implicit none
       ! block of global variables to be supplied by WaveT
@@ -16,7 +19,6 @@
       integer(i4b) 	        :: n_out,n_f			! auxiliaries for output
       !character(1)              :: medium_res                   !restart for medium 
       !integer(i4b)              :: n_res                        ! frequency for restart
-
 
       contains
   

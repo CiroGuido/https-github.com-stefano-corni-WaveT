@@ -4,6 +4,10 @@
       use constants           
       use global_tdplas       
       use pedra_friends
+#ifdef MPI
+      use mpi
+#endif
+
       implicit none
       save
 !
@@ -81,25 +85,17 @@
                         out_level,interaction_init,epsilon_omega,    &
                         test_type,medium_relax,gamess
 
-      ! variables read from eps.inp in the case of the general dielectric function case (i.e., eps_omega = 'gen')
-      integer(i4b) :: npts
-      real(dbl), allocatable    :: omegas(:)          !< sampling frequencies for the complex dielectric function
-      complex(cmp), allocatable :: eps_omegas(:)      !< complex dielectric function values for the sampling frequencies
-      real(dbl), allocatable    :: re_deps_domegas(:) !< real part of the derivative of the dielectric function at the sampling frequencies
-
       private
       public read_medium,deallocate_medium,Fint,Feps,Fprop,          &
              nsph,sph_maj,sph_min,sph_centre,sph_vrs,                &
              eps_0,eps_d,tau_deb,eps_A,eps_gm,eps_w0,f_vel,          &
-             npts,omegas,eps_omegas,re_deps_domegas,                 &
              vts,n_q,Fmdm_pol,                                       &
              MPL_ord,Fbem,Fshape,fr_0,q0,Floc,                       &
              Fdeb,vtsn,Finit_int,Fqbem,Ftest,                        &
              ncycmax,thrshld,mix_coef,                               &
              FinitBEM,Fsurf,Finit_mdm,read_medium_freq,              &
              read_medium_tdplas,n_omega,omega_ini,omega_end,         &
-             Fwrite,Fmdm_relax,Fgamess!,Fmdm_res,fr_i,fx_i,qr_i,qx_i,         &
-             !read_medium_restart 
+             Fwrite,Fmdm_relax,Fgamess,mpibcast_readio_mdm          
 !
       contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -128,6 +124,7 @@
          sphere_radius,spheroid_radius                                
        namelist /eps_function/epsilon_omega,eps_0,eps_d,eps_A, &
                          eps_gm,eps_w0,f_vel,tau_deb       
+      
        call init_nml_all() 
        call init_nml_propagate() 
        read(*,nml=propagate) 
@@ -148,7 +145,7 @@
 
        return
 
-      end subroutine
+      end subroutine read_medium
 
 
       subroutine read_medium_freq
@@ -187,7 +184,7 @@
 
        return
 
-      end subroutine
+      end subroutine read_medium_freq
 
 
       subroutine read_medium_tdplas
@@ -223,6 +220,7 @@
 10     call write_nml_all()
 
        return
+
       end subroutine read_medium_tdplas
 !
 !
@@ -512,6 +510,9 @@
          Fprop='dip'
         case default
          write(*,*) "Error, specify the propagation type "
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif
          stop
        end select
        ! Local Field: include or not external field into local field.
@@ -569,30 +570,22 @@
 ! @brief Write solvent and nanoparticle shared variables 
 !      
 ! @date Created: S. Pipolo
-! Modified: E. Coccia, G. Gil
+! Modified: E. Coccia
 !------------------------------------------------------------------------
 
-       integer(i4b) :: i
+       real(dbl)::a,b,c
+       integer(i4b)::i,j
 
        select case (epsilon_omega)
          case ('deb','Deb','DEB')
            Feps='deb'
          case ('drl','Drl','DRL')
            Feps='drl'
-         case ('gen','Gen','GEN','gral','Gral','GRAL')
-           Feps='gen'
-           open(1,file='eps.inp')
-           read(1,*) npts
-           allocate(omegas(npts),eps_omegas(npts),re_deps_domegas(npts))
-           do i=1, npts
-            read(1,*) omegas(i), eps_omegas(i)
-            if(i.eq.1) cycle
-            re_deps_domegas(i-1) = real(eps_omegas(i)-eps_omegas(i-1))/(omegas(i)-omegas(i-1))
-           enddo
-           re_deps_domegas(npts) = zero
-           close(1)
          case default
-           write(*,*) "Error, specify eps(omega) type DEB, DRL or GEN"
+           write(*,*) "Error, specify eps(omega) type DEB or DRL"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
        end select        
 
@@ -645,10 +638,16 @@
          if (Fprop.eq.'dip') then
            write(*,*) &
            "Error: PCM incompatible with dipole/field propagation"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
          endif
         case default
          write(*,*) "Error, specify interaction type ONS or PCM"
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif    
          stop
        end select
 
@@ -686,6 +685,9 @@
           Fmdm='Qnan'
         case default
           write(*,*) "Error: Choose a medium type"
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop 
        end select
        select case (medium_pol)
@@ -697,6 +699,9 @@
           Fmdm_pol='dip'
         case default
           write(*,*) "Error: Choose a medium type"
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop 
        end select
        if (Fmdm_pol.eq.'chr') then
@@ -710,9 +715,15 @@
            Fbem="diag"
           case ('stan','Stan','STAN')
            write(6,*) 'Standard BEM furmulation not implemented yet'
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
           case default
            write(*,*) "Error, specify a BEM type "
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
          end select
          if (Fmdm(1:1).eq.'C') then
@@ -734,6 +745,9 @@
          case default
           write(*,*) "Error, specify if boundary data & matrices", &
              "are read (read) or made and written out (write) "
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
          end select
        endif
@@ -752,6 +766,9 @@
           Finit_mdm='rea'
          case default
           write(6,*) "Please choose how to initialize charges/RField"
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
          end select
        endif     
@@ -787,7 +804,7 @@
            ! sphere major axis = minor axis = radius           
            Fshape='sphe' ! Sphere
            if(Fmdm(2:4).eq.'sol')write(*,*)'Spherical cavity'
-           if(Fmdm(2:4).eq.'nan')write(*,*)'Spherical nanoparticle' 
+           if(Fmdm(2:4).eq.'nan')write(*,*)'Spherical nanoparticle'
            do i=1,nsph
              sph_centre(1,i)=sphere_position_x(i)
              sph_centre(2,i)=sphere_position_y(i)
@@ -795,7 +812,7 @@
              sph_min(i)=sphere_radius(i)
              sph_maj(i)=sphere_radius(i)
              sph_vrs(:,:,i)=zero
-             write(*,*) 'Radius (a.u.) ', sph_maj(i)
+             write(*,*) 'Radius (a.u.) sphere',i, sph_maj(i)
            enddo
          else
            write(6,*) 'This is a Spheroidal Onsager run in solution'
@@ -813,7 +830,10 @@
                              sph_vrs(2,1,i)**2+ &    
                              sph_vrs(3,1,i)**2)     
              if(sph_maj(i).eq.zero) then
-               write(6,*) 'ERROR: please provide spheroid axis'
+              write(6,*) 'ERROR: please provide spheroid axis'
+#ifdef MPI
+               call mpi_finalize(ierr_mpi)
+#endif
                stop
              endif
              sph_vrs(:,1,i)=sph_vrs(:,1,i)/sph_maj(i)
@@ -840,10 +860,16 @@
           write(6,*) "Building surface from spheres."
           if (spheres_number.le.0) then
              write(*,*) 'ERROR: number of spheres is zero or negative '
+#ifdef MPI
+             call mpi_finalize(ierr_mpi)
+#endif
              stop
           endif
           if (spheres_number.gt.nsmax) then
              write(*,*) 'ERROR: nsph is larger than', nsmax
+#ifdef MPI
+             call mpi_finalize(ierr_mpi)
+#endif
              stop
           endif
           ! Build surface from spheres
@@ -853,6 +879,9 @@
                         sphere_radius,nsph,nsmax)
          case default
           write(6,*) "Please choose: build or read surface?"
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
          end select
        endif
@@ -881,6 +910,9 @@
        read(7,*) scr 
        if(scr.ne.nsph) then
          write(6,*) "Wrong number of spheres/oids"
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        nsph=scr
@@ -914,6 +946,9 @@
          nts_act=nts
        else
          write(*,*) "Tesserae number conflict"
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        allocate (vts(nts_act,n_ci,n_ci))
@@ -1005,6 +1040,114 @@
        return
 
       end subroutine
+
+      subroutine mpibcast_readio_mdm()
+!------------------------------------------------------------------------
+! @brief Broadcast input data
+!      
+! @date Created: E. Coccia 24/4/18 
+! Modified: 
+!------------------------------------------------------------------------
+#ifdef MPI
+
+       call mpi_bcast(interaction_init,     flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(interaction_type,     flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(propagation_type,     flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(local_field,          flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(debug_type,           flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(out_level,            flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(test_type,            flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(medium_relax,         flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(medium_type,          flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(medium_init,          flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(medium_pol,           flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(bem_type,             flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(bem_read_write,       flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(input_surface,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(epsilon_omega,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)  
+       call mpi_bcast(Fwrite,               flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Ftest,                flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Floc,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(Ffld,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fdeb,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fgamess,              flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fprop,                flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fmdm_relax,           flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Feps,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(Finit_int,            flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fint,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fmdm_pol,             flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fmdm,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(Fbem,                 flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(Fqbem,                flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(FinitBEM,             flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Finit_mdm,            flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fshape,               flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fsurf,                flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+ 
+
+       if (Fprop(1:3).eq.'chr') call mpi_bcast(nts_act,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi) 
+       if (Fprop(1:3).eq.'dip') call mpi_bcast(nsph,       1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+
+       if (myrank.ne.0) then
+          if (Fprop(1:3).eq.'chr') then
+             allocate(vts(nts_act,n_ci,n_ci))
+             allocate(vtsn(nts_act))
+          elseif (Fprop(1:3).eq.'dip') then
+             allocate(sph_maj(nsph))
+             allocate(sph_min(nsph))
+             allocate(sph_vrs(3,3,nsph))
+             allocate(sph_centre(3,nsph))
+          endif
+       endif
+
+       !Send input variables to the slaves
+       call mpi_bcast(n_q,                  1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(MPL_ord,              1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+
+       call mpi_bcast(interaction_stride,   1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(scf_mix_coeff,        1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(scf_max_cycles,       1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(scf_threshold,        1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheres_number,       1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroids_number,     1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(eps_0,                1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(eps_gm,               1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(eps_d,                1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(eps_A,                1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(eps_w0,               1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(f_vel,                1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(tau_deb,              1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(thrshld,              1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(ncycmax,              1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mix_coef,             1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       if (Fprop(1:3).eq.'dip') then
+          call mpi_bcast(sph_min,           nsph,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+          call mpi_bcast(sph_maj,           nsph,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)  
+          call mpi_bcast(sph_centre,        3*nsph,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+          call mpi_bcast(sph_vrs,           3*3*nsph,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       endif
+       call mpi_bcast(sphere_position_x,    nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(sphere_position_y,    nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(sphere_position_z,    nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_axis_x,      nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_axis_y,      nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_axis_z,      nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_position_x,  nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_position_y,  nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_position_z,  nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(spheroid_radius,      nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(sphere_radius,        nsmax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       if (Fprop(1:3).eq.'chr') then
+          call mpi_bcast(vtsn,              nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+          call mpi_bcast(vts,               nts_act*n_ci*n_ci,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       endif
+
+#endif
+
+       return
+
+      end subroutine mpibcast_readio_mdm
 
      
 !      subroutine read_medium_restart() 

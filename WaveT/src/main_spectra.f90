@@ -13,7 +13,7 @@ program make_spectra
 !     calculate spectra               
       call read_arrays 
       call do_spectra
-         
+
       stop
 
 end program make_spectra

@@ -7,6 +7,10 @@
 #ifdef OMP
       use omp_lib
 #endif
+#ifdef MPI
+      use mpi
+#endif
+
 !      use, intrinsic :: iso_c_binding
 
       implicit none
@@ -15,21 +19,19 @@
       real(dbl), allocatable :: BEM_L(:),BEM_T(:,:)      !< $\Lambda$ and T eigenMatrices
       real(dbl), allocatable :: BEM_W2(:),BEM_Modes(:,:) !< BEM squared frequencies and Modes ($T*S^{1/2}$)
 ! SP 25/06/17: K0 and Kd are still common to 'deb' and 'drl' cases
-      real(dbl), allocatable :: K0(:),Kd(:)              !< Diagonal $K_0$ and $K_d$ matrices
-      real(dbl), allocatable :: K0x(:),Kdx(:)            !< Diagonal $K_0$ and $K_d$ matrices for local (x) field
+      real(dbl), allocatable :: K0(:),Kd(:)              !< Diagonal $K_0$ and $K_d$ matrices 
+      real(dbl), allocatable :: K0x(:),Kdx(:)
       real(dbl), allocatable :: fact1(:),fact2(:)        !< Diagonal vectors for propagation matrices
-      real(dbl), allocatable :: fact2x(:)                !< Diagonal vectors for propagation matrices for local (x) field
+      real(dbl), allocatable :: fact2x(:)
       real(dbl), allocatable :: Sm12T(:,:),TSm12(:,:)    !< $S^{-1/2}T$ and $T*S^{-1/2}$ matrices
       real(dbl), allocatable :: TSp12(:,:)               !< $T*S^{1/2}$ matrices
       real(dbl), allocatable :: BEM_Sm12(:,:),Sp12(:,:)  !< $S^{-1/2}$ and $S^{1/2}$ matrices
       real(dbl), allocatable :: BEM_Q0(:,:),BEM_Qd(:,:)  !< Static and Dyanamic BEM matrices $Q_0$ and $Q_d$
       real(dbl), allocatable :: BEM_Qt(:,:),BEM_R(:,:)   !< Debye propagation matrices $\tilde{Q}$ and $R$
-      real(dbl), allocatable :: BEM_Qw(:,:),BEM_Qf(:,:)  !< Drude-Lorents (or general) propagation matrices $Q_\omega$ and $Q_f$
-      real(dbl), allocatable :: BEM_Qg(:,:)              !< General propagation matrix $Q_\gamma$
-      real(dbl), allocatable :: BEM_2G(:)                !< General BEM damping diagonal matrix with components 2\Gamma_ii
-      real(dbl), allocatable :: BEM_Q0x(:,:),BEM_Qdx(:,:) !< Static and Dyanamic BEM matrices $Q_0$ and $Q_d$ for local (x) field
-      real(dbl), allocatable :: BEM_Qtx(:,:)						  !< Debye propagation matrix $\tilde{Q}$ for local (x) field
-      real(dbl), allocatable :: BEM_Qfx(:,:)              !< Drude-Lorents propagation matrix $Q_f$ for local (x) field
+      real(dbl), allocatable :: BEM_Qw(:,:),BEM_Qf(:,:)  !< Drude-Lorents propagation matrices $Q_\omega$ and $Q_f$
+      real(dbl), allocatable :: BEM_Q0x(:,:),BEM_Qdx(:,:)  !< Static and Dyanamic BEM matrices $Q_0$ and $Q_d$ for local (x) field
+      real(dbl), allocatable :: BEM_Qtx(:,:)
+      real(dbl), allocatable :: BEM_Qfx(:,:)
       real(dbl), allocatable :: MPL_Ff(:,:,:,:),MPL_Fw(:,:)!< Onsager's Matrices with factors for reaction and local (x) field
       real(dbl), allocatable :: MPL_F0(:,:,:,:),MPL_Fx0(:,:,:) !< Onsager's Matrices with factors for reaction and local (x) field
       real(dbl), allocatable :: MPL_Ft0(:,:,:),MPL_Ftx0(:,:,:) !< Onsager's Matrices with factors/tau for reaction and local (x) field
@@ -48,35 +50,16 @@
       complex(cmp), allocatable :: Kdiag_omega(:)         !< Diagonal K matrix in frequency domain
       real(dbl), allocatable :: scrd3(:) ! Scratch vector dim=3
 
-!      real(dbl), allocatable    ::  omega_p(:), gamma_p(:) !< real and imaginary parts of the poles of the diagonal Kernel
-                                                           !< of the PCM response matrix
-!      complex(cmp), allocatable :: eps_omega_p(:)          !< complex dielectric function valued on the real part of the
-                                                           !< aforementioned poles
-!      real(dbl), allocatable    :: re_deps_domega_p(:)     !< real part of the derivative of the complex dielectric function
-                                                           !< valued on the real part of the aforementioned poles
-
-      type poles_t
-       real(dbl), allocatable    :: omega_p(:)          !< real part of the poles of the diagonal Kernel of the PCM response matrix
-       real(dbl), allocatable    :: gamma_p(:)          !< imaginary part of the poles of the diagonal Kernel of the PCM response matrix
-       complex(cmp), allocatable :: eps_omega_p(:)      !< complex dielectric function valued on the real part of the mentioned poles
-       real(dbl), allocatable    :: re_deps_domega_p(:) !< real part of the derivative of the complex dielectric function valued on
-                                                        !< the mentioned poles
-      end type
-
-      type(poles_t), allocatable :: poles(:)
-
       save
       private
-      public eps,eps_f,BEM_L,BEM_T,ONS_ff,ONS_fw,                      &
+      public eps,eps_f,BEM_L,BEM_T,ONS_ff,ONS_fw,              &
              BEM_Sm12,MPL_F0,MPL_Ft0,MPL_Fd,MPL_Fx0,MPL_Ftx0,MPL_Fxd,  &
              MPL_Tauxm1,MPL_Taum1,mat_f0,mat_fd,MPL_Ff,MPL_Fw,         &
              ONS_f0,ONS_fd,ONS_taum1,ONS_fx0,ONS_fxd,ONS_tauxm1,       &
              BEM_Qt,BEM_R,BEM_Qw,BEM_Qf,BEM_Qd,BEM_Q0,BEM_W2,BEM_Modes,&
              BEM_Qtx,BEM_Qfx,BEM_Qdx,BEM_Q0x,                          &
-             BEM_Qg,BEM_2G,                                            &
              do_BEM_prop,do_BEM_freq,do_BEM_quant,do_MPL_prop,         &
              do_eps_drl,do_eps_deb,do_charge_freq,                     &
-             do_eps_gen,                                               &
              deallocate_BEM_public,deallocate_MPL_public
 
       contains
@@ -89,10 +72,15 @@
 ! @brief BEM driver routine for propagation
 !
 ! @date Created: S. Pipolo
-! Modified: G. Gil
+! Modified:
 !------------------------------------------------------------------------
 
+
        real(dbl), allocatable :: Sm1(:,:)  !< $S^{-1}$ Onsager matrix
+
+#ifndef MPI
+       myrank=0
+#endif
 
        !Cavity read/write and S D matrices 
        call init_BEM
@@ -101,7 +89,10 @@
          allocate(BEM_Q0(nts_act,nts_act))
          !Standard or Diagonal BEM           
          if(Fbem(1:4).eq.'stan') then
-           write(6,*) "Standard BEM not implemented yet"
+           if (myrank.eq.0)write(6,*) "Standard BEM not implemented yet"
+#ifdef MPI
+       call mpi_finalize(ierr_mpi)
+#endif
            stop
          elseif(Fbem(1:4).eq.'diag') then
            call init_BEM_diagonal
@@ -110,6 +101,9 @@
          !Write out matrices for gamess                     
          call out_BEM_gamess
          call finalize_BEM
+#ifdef MPI
+       call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        if(Fprop(1:3).eq."chr") then
@@ -123,7 +117,10 @@
        if(Fprop(1:6).eq."chr-ie") then
          !Standard or Diagonal BEM           
          if(Fbem(1:4).eq.'stan') then
-           write(6,*) "Standard BEM not implemented yet"
+           if(myrank.eq.0)write(6,*) "Standard BEM not implemented yet"
+#ifdef MPI
+       call mpi_finalize(ierr_mpi)
+#endif
            stop
          elseif(Fbem(1:4).eq.'diag') then
            call init_BEM_diagonal
@@ -142,21 +139,14 @@
            allocate(BEM_R(nts_act,nts_act))
            allocate(BEM_Qt(nts_act,nts_act))
            if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') allocate(BEM_Qtx(nts_act,nts_act))
-           if(Fbem(1:4).eq.'stan') call do_propBEM_dia_deb ! 'dia' to be replace by 'std' 
+           if(Fbem(1:4).eq.'stan') call do_propBEM_dia_deb ! 'dia' to be replaced by 'std' 
            if(Fbem(1:4).eq.'diag') call do_propBEM_dia_deb
          elseif(Feps.eq."drl") then
            allocate(BEM_Qw(nts_act,nts_act))
            allocate(BEM_Qf(nts_act,nts_act))
            if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') allocate(BEM_Qfx(nts_act,nts_act))
-           if(Fbem(1:4).eq.'stan') call do_propBEM_dia_drl ! 'dia' to be replace by 'std' 
+           if(Fbem(1:4).eq.'stan') call do_propBEM_dia_drl ! 'dia' to be replaced by 'std' 
            if(Fbem(1:4).eq.'diag') call do_propBEM_dia_drl
-         elseif(Feps.eq."gen") then
-           allocate(BEM_Qg(nts_act,nts_act))
-           allocate(BEM_Qw(nts_act,nts_act))
-           allocate(BEM_Qf(nts_act,nts_act))
-           if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') allocate(BEM_Qfx(nts_act,nts_act))
-           if(Fbem(1:4).eq.'stan') call do_propBEM_dia_gen ! 'dia' to be replace by 'std'
-           if(Fbem(1:4).eq.'diag') call do_propBEM_dia_gen
          endif
          !Write out propagation matrices         
          if(Fwrite.eq."high") call out_BEM_propmat  
@@ -270,7 +260,11 @@
 ! Modified:
 !------------------------------------------------------------------------
      
-       integer(i4b) :: its                    
+       integer(i4b)              :: its
+
+#ifndef MPI
+       myrank=0
+#endif
       
        allocate(scrd3(3))
        sgn=one                 
@@ -287,24 +281,31 @@
            if(Fmdm(2:4).eq.'nan') call pedra_int('met')
          endif
          ! write out the cavity/nanoparticle surface
-         call output_surf
-         write(6,*) "Created output file with surface points"
+         !call output_surf
+         if (myrank.eq.0) then
+            call output_surf
+            write(6,*) "Created output file with surface points"
+         endif
          ! Build and write out Calderon SD matrices
          allocate(BEM_S(nts_act,nts_act))
          if (Fprop(1:7).ne.'chr-ons') allocate(BEM_D(nts_act,nts_act))
          call do_BEM_SD
-         call write_BEM_SD
-         write(6,*) "Matrixes S D have been written out"
+         if (myrank.eq.0) call write_BEM_SD
+         if (myrank.eq.0)write(6,*) "Matrixes S D have been written out"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
          stop
        elseif (FinitBEM.eq.'rea') then
        !Read in geometric info and proceed
          call read_cavity_file
          allocate(BEM_S(nts_act,nts_act))
          if (Fprop(1:7).ne.'chr-ons') allocate(BEM_D(nts_act,nts_act))
-         call read_BEM_SD     
-         write(6,*) "BEM surface and Matrixes S D have been read in"
+         call read_BEM_SD
+         if (myrank.eq.0) write(6,*) &
+         "BEM surface and Matrixes S D have been read in"
        endif 
-       write(6,*) "BEM correctly initialized"
+       if (myrank.eq.0) write(6,*) "BEM correctly initialized"
 
        return
  
@@ -316,7 +317,7 @@
 ! @brief BEM finalized and deallocation routine 
 !
 ! @date Created: S. Pipolo
-! Modified: G. Gil
+! Modified:
 !------------------------------------------------------------------------
 
        deallocate(scrd3)
@@ -326,15 +327,13 @@
        if(allocated(fact2)) deallocate(fact2)
        if(allocated(K0)) deallocate(K0)
        if(allocated(Kd)) deallocate(Kd)
-       if(allocated(fact2x)) deallocate(fact2x)
-       if(allocated(K0x)) deallocate(K0x)
-       if(allocated(Kdx)) deallocate(Kdx)
        if(allocated(Sp12)) deallocate(Sp12)
        if(allocated(Sm12T)) deallocate(Sm12T)
        if(allocated(TSm12)) deallocate(TSm12)
        if(allocated(TSp12)) deallocate(TSp12)
-
-       if(allocated(poles)) deallocate(poles)
+       if(allocated(fact2x)) deallocate(fact2x)
+       if(allocated(K0x)) deallocate(K0x)
+       if(allocated(Kdx)) deallocate(Kdx)
 
        return
  
@@ -346,7 +345,7 @@
 ! @brief BEM finalized and deallocation routine 
 !
 ! @date Created: S. Pipolo
-! Modified: G. Gil
+! Modified:
 !------------------------------------------------------------------------
 
        if (Fprop(1:3).eq.'chr') then
@@ -356,16 +355,14 @@
          if(allocated(BEM_R)) deallocate(BEM_R)
          if(allocated(BEM_Qw)) deallocate(BEM_Qw)
          if(allocated(BEM_Qf)) deallocate(BEM_Qf)
-         if(allocated(BEM_Qg)) deallocate(BEM_Qg)
+         if(allocated(BEM_L)) deallocate(BEM_L)
+         if(allocated(BEM_W2)) deallocate(BEM_W2)
+         if(allocated(BEM_T)) deallocate(BEM_T)
+         if(allocated(BEM_Sm12)) deallocate(BEM_Sm12)
          if(allocated(BEM_Qdx)) deallocate(BEM_Qdx)
          if(allocated(BEM_Q0x)) deallocate(BEM_Q0x)
          if(allocated(BEM_Qtx)) deallocate(BEM_Qtx)
          if(allocated(BEM_Qf)) deallocate(BEM_Qfx)
-         if(allocated(BEM_L)) deallocate(BEM_L)
-         if(allocated(BEM_W2)) deallocate(BEM_W2)
-         if(allocated(BEM_2G)) deallocate(BEM_2G)
-         if(allocated(BEM_T)) deallocate(BEM_T)
-         if(allocated(BEM_Sm12)) deallocate(BEM_Sm12)
        endif
 
        return
@@ -384,6 +381,10 @@
 
        real(dbl):: tmp(3),m
        integer(i4b):: i,j
+
+#ifndef MPI
+       myrank=0
+#endif
 
        ! SP 05/07/17 Only one cavity!!! 
        if(Fmdm(2:4).eq."sol") nsph=1 
@@ -412,7 +413,7 @@
                lambda(1,i)=-4.d0*pi*m*m/(m*m-one)*&
                        (one-one/sqrt(m*m-one)*asin(sqrt(m*m-one)/m))
              else 
-               write(6,*) "This is a Sphere"
+               if (myrank.eq.0) write(6,*) "This is a Sphere"
                lambda(1,i)=one/three
              endif
              lambda(2,i)=pt5*(one-lambda(1,i))
@@ -453,15 +454,20 @@
              mat_fd(i,i)=ONS_fd
              mat_f0(i,i)=ONS_f0
            enddo
-           write (6,*) "Onsager"
-           write (6,*) "eps_0,eps_d",eps_0,eps_d
-           write (6,*) "lambda",1/three     
-           write (6,*) "f0",ONS_f0
-           write (6,*) "fd",ONS_fd
-           if(Feps.eq."deb")write (6,*) "tau",1./ONS_taum1
+           if (myrank.eq.0) then
+               write (6,*) "Onsager"
+               write (6,*) "eps_0,eps_d",eps_0,eps_d
+               write (6,*) "lambda",1/three     
+               write (6,*) "f0",ONS_f0
+               write (6,*) "fd",ONS_fd
+               if(Feps.eq."deb")write (6,*) "tau",1./ONS_taum1
+           endif
          endif
        else
-         write(6,*) "Higher multipoles not implemented "
+         if (myrank.eq.0)write(6,*) "Higher multipoles not implemented "
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif
          stop
        endif
        call finalize_MPL
@@ -692,6 +698,10 @@
        real(8), allocatable :: eigv(:)
        real(dbl) :: fac_eps0,fac_epsd
 
+#ifndef MPI
+       myrank=0
+#endif
+
        allocate(scr1(nts_act,nts_act),scr2(nts_act,nts_act))
        allocate(scr3(nts_act,nts_act))
        allocate(eigv(nts_act))
@@ -700,7 +710,9 @@
        ! Copy the matrix in the eigenvector matrix
        eigt = BEM_S
        call diag_mat(eigt,eigv,nts_act)
-       if(Fwrite.eq."high")write(6,*) "S matrix diagonalized "
+       if(Fwrite.eq."high") then
+          if (myrank.eq.0) write(6,*) "S matrix diagonalized "
+       endif
 #ifdef OMP
 !$OMP PARALLEL 
 !$OMP DO
@@ -768,15 +780,18 @@
 
        deallocate(scr2,scr3)
        call diag_mat(BEM_T,BEM_L,nts_act)
-       if(Fwrite.eq."high")&
-       write(6,*) "S^-1/2DAS^1/2+S^1/2AD*S^-1/2 matrix diagonalized"
+       if(Fwrite.eq."high") then
+          if (myrank.eq.0) then
+          write(6,*) "S^-1/2DAS^1/2+S^1/2AD*S^-1/2 matrix diagonalized"
+          endif
+       endif
        if (Feps.eq."deb") then
 !       debye dielectric function  
          if(eps_0.ne.one) then
            fac_eps0=(eps_0+one)/(eps_0-one)
            K0(:)=(twp-sgn*BEM_L(:))/(twp*fac_eps0-sgn*BEM_L(:))
            ! GG: analogous to K_0 matrix in the case of local-field for solvent external medium
-           if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') K0x(:)=-(twp+BEM_L(:))/(twp*fac_eps0-BEM_L(:))
+           if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') K0x(:)=-(twp+BEM_L(:))/(twp*fac_eps0-BEM_L(:)) 
          else
            K0(:)=zero
          endif
@@ -824,57 +839,19 @@
          K0(:)=fact2(:)/BEM_W2(:)
          ! GG: analogous to K_f and K_0 matrices in the case of local-field for solvent external medium
          if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
-          fact2x(:)=-(twp+BEM_L(:))*eps_A/(two*twp)
-          K0x(:)=fact2x(:)/BEM_W2(:)
+           fact2x(:)=-(twp+BEM_L(:))*eps_A/(two*twp)
+           K0x(:)=fact2x(:)/BEM_W2(:)
          endif
-       elseif (Feps.eq."gen") then
-         !GG: for a general dielectric function
-         ! finding the real part of the poles of the PCM response diagonal kernel
-         ! the values of the dielectric function
-         ! and the real part of its derivative
-         fact1(:) = (twp+sgn*BEM_L(:))/(twp-sgn*BEM_L(:))
-         call do_poles(poles,fact1)
-         Kd=zero
-
-         fact2 = zero
-         BEM_W2 = zero
-         BEM_2G = zero
-#ifdef OMP
-!$OMP PARALLEL 
-!$OMP DO
-#endif
-         do i=1,nts_act
-          if( allocated(poles(i)%omega_p) ) then 
-           fact2(i)   = sum(abs(two*poles(i)%omega_p(:)*(poles(i)%eps_omega_p(:)-one)/poles(i)%re_deps_domega_p(:)))
-           BEM_W2(i)  = sum(poles(i)%omega_p(:)**2+poles(i)%gamma_p(:)**2)
-           BEM_2G(i)  = sum(two*poles(i)%gamma_p(:))
-          endif
-         end do
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
-
-! SC: the first eigenvector should be 0 for the NP
-!         if (Fmdm(2:4).eq.'nan') fact2(1)=0.d0
-
-         if(eps_0.ne.one) then
-           fac_eps0=(eps_0+one)/(eps_0-one)
-           K0(:)=(twp-sgn*BEM_L(:))/(twp*fac_eps0-sgn*BEM_L(:))
-           ! GG: analogous to K_0 matrix in the case of local-field for solvent external medium
-           if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') K0x(:)=-(twp+BEM_L(:))/(twp*fac_eps0-BEM_L(:))
-         else
-           K0(:)=zero
-         endif
-         ! GG: analogous to K_f and K_0 matrices in the case of local-field for solvent external medium
-         if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') fact2x(:)=-fact2(:) * fact1(:)
        endif
-       if(Fwrite.eq."high") write(6,*) "Done BEM eigenmodes"
+       if(Fwrite.eq."high") then 
+         if (myrank.eq.0) &
+             write(6,*) "Done BEM eigenmodes"
+       endif
        Sm12T=matmul(BEM_Sm12,BEM_T)
        TSm12=transpose(Sm12T)
        TSp12=matmul(transpose(BEM_T),Sp12)
       ! SC 05/11/2016 write out the transition charges in pqr format
-       if(Fwrite.eq."high") call output_charge_pqr
+       if(Fwrite.eq."high".and.myrank.eq.0) call output_charge_pqr
       ! Do BEM_Q0 and and BEM_Qd 
 
 #ifdef OMP
@@ -904,7 +881,8 @@
 #endif
 
        BEM_Qd=-matmul(scr1,TSm12) 
-       ! GG: analogous to Q_0 and Q_d matrices in the case of local-field for solvent external medium
+       ! GG: analogous to Q_0 and Q_d matrices in the case of
+       ! local-field for solvent external medium
        if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
         do i=1,nts_act
          scr1(:,i)=Sm12T(:,i)*K0x(i)
@@ -915,10 +893,10 @@
         enddo
         BEM_Qdx=-matmul(scr1,TSm12)
        endif
-      ! Print matrices in output
-       if(Fwrite.eq."high") call out_BEM_diagmat 
+       !Print matrices in output 
+       if(Fwrite.eq."high".and.myrank.eq.0) call out_BEM_diagmat 
        deallocate(scr1,eigv,eigt,eigt_t)
-       write(6,*) "Done BEM diagonal" 
+       if (myrank.eq.0) write(6,*) "Done BEM diagonal" 
 
        return
  
@@ -935,21 +913,18 @@
 
        allocate(fact1(nts_act),fact2(nts_act))
        allocate(Kd(nts_act),K0(nts_act))
-       if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
+        if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
         allocate(fact2x(nts_act))
         allocate(Kdx(nts_act),K0x(nts_act))
-       endif
+       endif 
        allocate(BEM_L(nts_act))
        allocate(BEM_W2(nts_act))
-       allocate(BEM_2G(nts_act))
        allocate(BEM_T(nts_act,nts_act))
        allocate(BEM_Sm12(nts_act,nts_act))
        allocate(Sp12(nts_act,nts_act))
        allocate(Sm12T(nts_act,nts_act))
        allocate(TSm12(nts_act,nts_act))
        allocate(TSp12(nts_act,nts_act))
-
-       if( Feps.eq.'gen') allocate(poles(nts_act))
 
        return
 
@@ -1065,7 +1040,8 @@
 #endif
 
         BEM_Qt=-matmul(scr1,TSm12)
-        ! GG: analogous to \tilde{Q} matrix in the case of local-field for solvent external medium
+        ! GG: analogous to \tilde{Q} matrix in the case of local-field
+        ! for solvent external medium
         if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
          do i=1,nts_act
            scr1(:,i)=Sm12T(:,i)*fact2x(i)
@@ -1121,83 +1097,13 @@
 #endif
 
        BEM_Qf=-matmul(scr1,TSm12)
+       !GG
        if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
         do i=1,nts_act
           scr1(:,i)=Sm12T(:,i)*fact2x(i)
         enddo
         BEM_Qfx=-matmul(scr1,TSm12)
        endif
-       deallocate(scr1)
-
-       return
-
-      end subroutine
-
-
-      subroutine do_propBEM_dia_gen
-!------------------------------------------------------------------------------
-! @brief Propagation of matrices for diagonal BEM (general dielectric function)
-!
-! @date Created: G. Gil
-! Modified:
-! Notes: Taken from do_propBEM_dia_drl and building up also BEM_Qg
-!------------------------------------------------------------------------------
-
-       integer(i4b) :: i
-       real(8), allocatable :: scr1(:,:)
-
-       allocate(scr1(nts_act,nts_act))
-!      Form the Q_w and Q_f for general dielectric function propagation
-
-#ifdef OMP
-!$OMP PARALLEL
-!$OMP DO
-#endif
-       do i=1,nts_act
-         scr1(:,i)=Sm12T(:,i)*BEM_W2(i)
-       enddo
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
-
-       BEM_Qw=matmul(scr1,TSp12)
-
-#ifdef OMP
-!$OMP PARALLEL
-!$OMP DO
-#endif
-       do i=1,nts_act
-         scr1(:,i)=Sm12T(:,i)*fact2(i)
-       enddo
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
-
-       BEM_Qf=-matmul(scr1,TSm12)
-       if(Floc.eq.'loc'.and.Fmdm(2:4).eq.'sol') then
-        do i=1,nts_act
-          scr1(:,i)=Sm12T(:,i)*fact2x(i)
-        enddo
-        BEM_Qfx=-matmul(scr1,TSm12)
-       endif
-
-       ! addition with respect to do_propBEM_dia_drl
-#ifdef OMP
-!$OMP PARALLEL
-!$OMP DO
-#endif
-       do i=1,nts_act
-         scr1(:,i)=Sm12T(:,i)*BEM_2G(i)
-       enddo
-#ifdef OMP
-!$OMP enddo
-!$OMP END PARALLEL
-#endif
-
-       BEM_Qg=matmul(scr1,TSp12)
-
        deallocate(scr1)
 
        return
@@ -1269,7 +1175,7 @@
 ! @brief Onsager propagation matrix for debye 
 !
 ! @date Created: S. Pipolo
-! Modified: G. Gil
+! Modified:
 !------------------------------------------------------------------------
 
        ONS_f0=(eps_0-one)/(eps_0+pt5) 
@@ -1277,6 +1183,8 @@
        ONS_fx0=three*eps_0/(two*eps_0+one) 
        ONS_fxd=three*eps_d/(two*eps_d+one) 
        ONS_taum1=(two*eps_0+one)/(two*eps_d+one)/tau_deb
+       !ONS_taum1=(eps_0+pt5)/(eps_d+pt5)/tau_deb
+       !ONS_tauxm1=(two*eps_0+one)/(two*eps_d+one)/tau_deb
 
        return
 
@@ -1351,7 +1259,7 @@
       end subroutine
 
 
-      subroutine do_eps_drl(omega)     
+      subroutine do_eps_drl      
 !------------------------------------------------------------------------
 ! @brief Compute drl cmplx eps(\omega) and (eps(\omega)-1)/(eps(\omega)+2) 
 !
@@ -1359,19 +1267,18 @@
 ! Modified:
 !------------------------------------------------------------------------
 
-       real(dbl) :: omega
-
        !eps_gm=eps_gm+f_vel/sfe_act(1)%r
-       eps=dcmplx(eps_A,zero)/dcmplx(eps_w0**2-omega**2,-omega*eps_gm)
+       eps=dcmplx(eps_A,zero)/dcmplx(eps_w0**2-omega(1)**2,-omega(1)*eps_gm)
        eps=eps+onec
        eps_f=(eps-onec)/(eps+twoc)
+
 
        return
 
       end subroutine
 
 
-      subroutine do_eps_deb(omega)      
+      subroutine do_eps_deb      
 !------------------------------------------------------------------------
 ! @brief Compute deb cmplx eps(\omega) and (3*eps(\omega))/(2*eps(\omega)+1)
 !
@@ -1379,122 +1286,15 @@
 ! Modified:
 !------------------------------------------------------------------------
 
-       real(dbl) :: omega
-
        !eps_gm=eps_gm+f_vel/sfe_act(1)%r
        eps=dcmplx(eps_d,zero)+dcmplx(eps_0-eps_d,zero)/ &
-                              dcmplx(one,-omega*tau_deb)
+                              dcmplx(one,-omega(1)*tau_deb)
        eps_f=(three*eps)/(two*eps+onec)
+
 
        return
  
       end subroutine
-
-
-      subroutine do_eps_gen(omega)
-!------------------------------------------------------------------------------
-! @brief Compute gen cmplx eps(\omega) from points through linear interpolation
-!
-! @date Created: G. Gil
-! Modified:
-!------------------------------------------------------------------------------
-
-       real(dbl) :: omega
-       integer(i4b) :: min, max, half
-
-       ! bisection search of the right frequency interval
-       min = 1
-       max = npts
-       do while( min.le.max-1 )
-        half=(min+max)/2
-        if (omega.ge.omegas(half)) then
-         min=half
-        else
-         max=half
-        endif
-       enddo
-
-       ! linear interpolation in the right frequency interval
-       eps = (eps_omegas(max)-eps_omegas(min))/(omegas(max)-omegas(min))*(omega-omegas(min))+eps_omegas(min)
-
-       return
-
-      end subroutine
-
-
-      subroutine do_poles(poles,const)
-!------------------------------------------------------------------------------
-! @brief Compute the real part of the poles of the PCM response kernel
-!   * real part of the poles - frequencies
-!   * imaginary part of the poles - damping parameters
-!   * dielectric function at the poles frequencies
-!   * derivative of the dielectric function at the poles frequencies
-!
-! @date Created: G. Gil
-! Modified:
-!------------------------------------------------------------------------------
-
-       type(poles_t), intent(out) :: poles(:)
-       real(dbl),     intent(in)  :: const(:)
-
-       integer(i4b) :: i, j
-       real(dbl) :: val_omega
-       real(dbl) :: val_gamma
-       complex(cmp) :: val_eps
-       real(dbl) :: val_epsp
-       integer(i4b) :: count
-       integer(i4b) :: const_size
-
-       ! FIXME: the case of degenerate const values can be made efficient
-
-       const_size = size(const)
-
-       ! considering multiple roots - write all the solutions
-       open(2,file="poles.out")
-       open(3,file="lambda_values.out")
-       write(2,*) "tess. index ", " ref. value ", " pole idx per tess. ", " omega ", " gamma ", " eps ", " deps/domega "
-       do j=1, const_size
-        count = 0
-        write(3,*) const(j)
-        do i=1,npts-1
-         if(    ( (real(eps_omegas(i+1))+const(j).gt.zero) .and. (real(eps_omegas(i))+const(j)  .lt.zero) ) &
-            .or.( (real(eps_omegas(i+1))+const(j).lt.zero) .and. (real(eps_omegas(i))+const(j)  .gt.zero) ) ) then
-          val_omega = -(omegas(i+1)-omegas(i))/real(eps_omegas(i+1)-eps_omegas(i))*(real(eps_omegas(i))+const(j)) + &
-                        omegas(i)
-          val_eps = (eps_omegas(i+1)-eps_omegas(i))/(omegas(i+1)-omegas(i)) * (val_omega-omegas(i)) + eps_omegas(i)
-          val_epsp = re_deps_domegas(i)
-          val_gamma = abs(aimag(eps_omegas(i))/re_deps_domegas(i))
-          write(2,*) j, const(j), i, val_omega, val_gamma, val_eps, val_epsp
-          count = count + 1
-         endif
-        end do
-        if( count .ge. 1 ) then
-         write(55,*) "How many poles per PCM matrix kernel component", j,"?", count
-         allocate(poles(j)%omega_p(1:count),poles(j)%gamma_p(1:count))
-         allocate(poles(j)%eps_omega_p(1:count),poles(j)%re_deps_domega_p(1:count))
-         count = 0
-         do i=1,npts-1
-          if(    ( (real(eps_omegas(i+1))+const(j).gt.zero) .and. (real(eps_omegas(i))+const(j)  .lt.zero) ) &
-             .or.( (real(eps_omegas(i+1))+const(j).lt.zero) .and. (real(eps_omegas(i))+const(j)  .gt.zero) ) ) then
-           count = count + 1 
-           poles(j)%omega_p(count) = -(omegas(i+1)-omegas(i))/real(eps_omegas(i+1)-eps_omegas(i))*(real(eps_omegas(i))+const(j)) + &
-                                       omegas(i)
-           poles(j)%eps_omega_p(count) = (eps_omegas(i+1)-eps_omegas(i))/(omegas(i+1)-omegas(i))*(val_omega-omegas(i)) + &
-                                          eps_omegas(i)
-           poles(j)%re_deps_domega_p(count) = re_deps_domegas(i)
-           poles(j)%gamma_p(count) = abs(aimag(eps_omegas(i))/re_deps_domegas(i))
-          endif
-         end do
-        else
-         write(55,*) "Warning! No poles for the PCM matrix kernel component", j 
-        endif
-       end do
-       close(2)
-       close(3)
-
-
-      end subroutine
-
 !
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1540,17 +1340,31 @@
 
        integer(i4b) :: i,j
 
-       open(7,file="mat_SD.inp",status="old")
-       read(7,*) nts_act
-       do j=1,nts_act
-        do i=1,nts_act
-          if (Fprop(1:7).eq.'chr-ons') then 
-            read(7,*) BEM_S(i,j)
-          else
-            read(7,*) BEM_S(i,j), BEM_D(i,j)
-          endif
-        enddo
-       enddo
+#ifndef MPI
+       myrank=0
+#endif
+
+       if (myrank.eq.0) then
+          open(7,file="mat_SD.inp",status="old")
+          read(7,*) nts_act
+          do j=1,nts_act
+             do i=1,nts_act
+                if (Fprop(1:7).eq.'chr-ons') then 
+                   read(7,*) BEM_S(i,j)
+                else
+                   read(7,*) BEM_S(i,j), BEM_D(i,j)
+               endif
+             enddo
+          enddo
+       endif
+
+#ifdef MPI
+      call mpi_bcast(nts_act,  1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+      call mpi_bcast(BEM_S,    nts_act*nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+      if (Fprop(1:7).ne.'chr-ons') then
+         call mpi_bcast(BEM_D, nts_act*nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+      endif
+#endif
 
        close(7)
 
@@ -1623,6 +1437,10 @@
 
        integer(i4b):: i,j
 
+#ifndef MPI
+       myrank=0
+#endif
+
        open(7,file="np_bem.mat",status="unknown")
        do j=1,nts_act
         do i=1,nts_act
@@ -1630,7 +1448,7 @@
         enddo
        enddo
        close(7)
-       write(6,*) "Written out the static matrix for gamess"
+       if (myrank.eq.0)write(6,*) "Written the static matrix for gamess"
        open(7,file="np_bem.mdy",status="unknown")
        do j=1,nts_act
         do i=1,nts_act
@@ -1638,7 +1456,7 @@
         enddo
        enddo
        close(7)
-       write(6,*) "Written out the dynamic matrix for gamess"
+       if (myrank.eq.0)write(6,*)"Written the dynamic matrix for gamess"
 
        return
 
@@ -1654,6 +1472,10 @@
 !------------------------------------------------------------------------
 
        integer(i4b):: i,j
+
+#ifndef MPI
+       myrank=0
+#endif
 
        open(7,file="BEM_TSpm12.mat",status="unknown")
        write(7,*) "# T , S^1/2, S^-1/2 "
@@ -1671,8 +1493,10 @@
          write(7,'(i10, 4D20.12)') j,BEM_W2(j),BEM_L(j),K0(j),Kd(j)
        enddo
        close(7)
+       if (myrank.eq.0) then 
        write(6,*) "Written out BEM diagonal matrices in BEM_TSpm12.mat"
        write(6,*) "Written out BEM squared frequencies in BEM_W2L.mat"
+       endif
 
        return
 
@@ -1737,6 +1561,10 @@
        real(dbl) :: area, maxt
        area=sum(cts_act(:)%area)
 
+#ifndef MPI
+       myrank=0
+#endif
+
        do i=1,10
         write (fname,'("charge_freq_",I0,".pqr")') i
         open(unit=7,file=fname,status="unknown", &
@@ -1785,8 +1613,10 @@
        ! SC 31/10/2016: print out total charges associated with eigenvectors
        open(unit=7,file="charge_eigv.dat",status="unknown", &
             form="formatted")
+       if (myrank.eq.0) then
        write (6,*) "Total charge associated to each eigenvector written"
        write (6,*) "   in file charge_eigv.dat"
+       endif
        do i=1,nts_act
          write(7,'(i20, 2D20.12)') i,sum(Sm12T(:,i))
        enddo

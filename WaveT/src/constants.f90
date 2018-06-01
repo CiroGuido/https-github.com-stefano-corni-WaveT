@@ -6,7 +6,6 @@
       INTEGER, PARAMETER :: cmp = dbl
       INTEGER, PARAMETER :: flg = 10 
       INTEGER, PARAMETER :: nvibmax = 1000
-      INTEGER, PARAMETER :: nelmax  = 20
       INTEGER, PARAMETER :: npulsemax = 10
 !
       ! constants, conversion factors, and number literals
@@ -28,9 +27,14 @@
       real(dbl), parameter :: zeromin = tiny(zero) 
 
       integer(i4b), parameter :: one_i=1
-      double complex, parameter :: zeroc=(zero,zero)      
-      double complex, parameter :: onec=(one,zero)                
-      double complex, parameter :: twoc=(two,zero)                
-      double complex, parameter :: ui=(zero,one)
+      complex(cmp), parameter :: zeroc=(zero,zero)      
+      complex(cmp), parameter :: onec=(one,zero)                
+      complex(cmp), parameter :: twoc=(two,zero)                
+      complex(cmp), parameter :: ui=(zero,one)
+
+      !Variables for MPI calculations
+      integer(i4b)              :: myrank
+      integer(i4b)              :: nproc
+      integer(i4b)              :: ierr_mpi
 
       end module constants 

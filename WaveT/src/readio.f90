@@ -1,5 +1,9 @@
       module readio
       use constants       
+      use random
+#ifdef MPI
+      use mpi
+#endif
       implicit none
       save
 !
@@ -18,6 +22,7 @@
       integer(i4b)              :: n_restart ! frequency of restart writing
       integer(i4b)              :: n_jump    ! number of quantum jumps along a simulation
       integer(i4b)              :: diff_step ! effective number of steps for restart
+      integer(i4b)              :: restart_seed  ! seed for restart
       real(dbl), allocatable    :: mut_np2(:,:) !squared dipole from NP
       real(dbl)                 :: tdelay(npulsemax), pshift(npulsemax)  ! time delay and phase shift with two pulses
 !
@@ -33,8 +38,8 @@
       real(dbl), allocatable    :: delta(:) !phases randomly added during the propagation 
       real(dbl), allocatable    :: de_gam1(:) !combined decay rates for idep=1
       real(dbl), allocatable    :: tomega(:)  !generalized transition frequencies 
+      real(dbl), allocatable    :: ion_rate(:) !ionization rates
       real(dbl)                 :: restart_t  ! time for restart
-      real(dbl)                 :: restart_seed  ! time for restart
       real(dbl)                 :: dt,tau(2),start,krnd
 ! SP 17/07/17: Changed to char flags
       !logical :: dis !turns on the dissipation
@@ -59,8 +64,9 @@
       character(flg) :: Fful !< Flag for relaxation matrix
       character(flg) :: Fexp !< Flag for propagation of the energy term
       character(flg) :: Fsim !< Flag for the dynamics length in case of restart
+      character(flg) :: Fabs !< Flag for the dynamics in presence of an absorber
 ! Flags read from input file
-      character(flg) :: medium,radiative,dissipative,lsim
+      character(flg) :: medium,radiative,dissipative,lsim,absorber
       character(flg) :: dis_prop
       character(flg) :: restart 
       character(flg) :: propa
@@ -80,7 +86,7 @@
 !     Frad: wheter or not to apply radiative damping
 !     TO BE COMPLETED, SEE PROPAGATE.F90      
       real(dbl) :: eps_A,eps_gm,eps_w0,f_vel
-
+      real(dbl) :: r
       
       private
       public read_input,n_ci,n_ci_read,n_step,dt,           &
@@ -96,7 +102,9 @@
              Fexp,Fres,restart_t,restart_i,n_restart,       &
              c_i_prev,c_i_prev2,mu_i_prev,mu_i_prev2,       &
              mu_i_prev3,mu_i_prev4,mu_i_prev5,restart_seed, &
-             n_jump,Fsim,diff_step
+             n_jump,Fsim,diff_step,mpibcast_readio,         &
+             mpibcast_e_dip,mpibcast_sse,mpibcast_restart,  &
+             nspectra,Fabs,ion_rate,mpibcast_ion_rate 
              
 !
       contains
@@ -116,7 +124,7 @@
      
        !Molecular parameters 
        namelist /general/n_ci_read,n_ci,mol_cc,n_f,medium,restart,full,& 
-                         dt,n_step,n_out,propa,n_restart,lsim
+                         dt,n_step,n_out,propa,n_restart,lsim,absorber
        !External field paramaters
        namelist /field/ Ffld,t_mid,sigma,omega,radiative,iseed,fmax, &
                         npulse,tdelay,pshift
@@ -154,6 +162,9 @@
        read(*,nml=field)
        if (npulse.gt.npulsemax) then
           write(*,*) 'Error: npulse', npulse,'larger than', npulsemax
+#ifdef MPI
+       call mpi_finalize(ierr_mpi)
+#endif
           stop 
        endif
        call write_nml_field() 
@@ -171,7 +182,16 @@
        read(*,nml=spectra) 
        call write_nml_spectra() 
 
-       if (Fdis(1:5).ne."nodis") call read_dis_params   
+       if (Fdis(1:5).ne."nodis") call read_dis_params
+
+       if (Fres.eq.'Yesr') call read_restart()
+
+       if (Fdis(1:5).ne.'nodis'.or.Fexp.ne.'exp') then 
+           Fabs(1:3)='non'
+           write(*,*) 'Absorber switched off with SSE or full Euler'
+       endif
+
+       if (Fabs(1:3).eq.'abs') call read_ion_rate
 
        return
 
@@ -239,6 +259,8 @@
 !        enddo
 !       enddo
        close(7)
+
+
 !    read initial coefficients for the dynamics using the Slater determinants instead of the CIS_0 states.
        allocate (c_i(n_ci))
        if (Fres.eq.'Nonr') then
@@ -248,49 +270,127 @@
              c_i(i) = dcmplx(rtmp,0.d0)   
           enddo
           c_i=c_i/sqrt(dot_product(c_i,c_i))
-       elseif (Fres.eq.'Yesr') then
-          call checkfile('restart',7)
-          read(7,*) junk 
-          read(7,*) restart_t,restart_i,diff_step
-          allocate(c_i_prev(n_ci),c_i_prev2(n_ci))
-          write(*,*) ''
-          write(*,*) 'Restart from time', restart_t
-          write(*,*) ''
-          read(7,*) junk 
-          do i=1,n_ci
-             read(7,*) c_i(i)
-          enddo
-          read(7,*) junk
-          do i=1,n_ci
-             read(7,*) c_i_prev(i)
-          enddo
-          read(7,*) junk
-          do i=1,n_ci
-             read(7,*) c_i_prev2(i)
-          enddo
-          if (Fdis(1:5).ne.'nodis') then 
-             read(7,*) junk 
-             read(7,*) restart_seed
-             iseed=restart_seed
-             write(*,*) ''
-             write(*,*) 'Used iseed:', iseed
-             write(*,*) ''
-             read(7,*) junk
-             read(7,*) n_jump
-          endif
-          read(7,*) junk 
-          read(7,*) mu_i_prev(1),mu_i_prev(2),mu_i_prev(3)
-          read(7,*) mu_i_prev2(1),mu_i_prev2(2),mu_i_prev2(3)
-          read(7,*) mu_i_prev3(1),mu_i_prev3(2),mu_i_prev3(3)
-          read(7,*) mu_i_prev4(1),mu_i_prev4(2),mu_i_prev4(3)
-          read(7,*) mu_i_prev5(1),mu_i_prev5(2),mu_i_prev5(3)
-       endif
 
-       close(7)
+       !elseif (Fres.eq.'Yesr') then
+       !   call checkfile('restart',7)
+       !   read(7,*) junk 
+       !   read(7,*) restart_t,restart_i,diff_step
+       !   allocate(c_i_prev(n_ci),c_i_prev2(n_ci))
+       !   write(*,*) ''
+       !   write(*,*) 'Restart from time', restart_t
+       !   write(*,*) ''
+       !   read(7,*) junk 
+       !   do i=1,n_ci
+       !      read(7,*) c_i(i)
+       !   enddo
+       !   read(7,*) junk
+       !   do i=1,n_ci
+       !      read(7,*) c_i_prev(i)
+       !   enddo
+       !   read(7,*) junk
+       !   do i=1,n_ci
+       !      read(7,*) c_i_prev2(i)
+       !   enddo
+       !   if (Fdis(1:5).ne.'nodis') then 
+       !      read(7,*) junk 
+       !      read(7,*) restart_seed
+       !      iseed=restart_seed
+       !      write(*,*) ''
+       !      write(*,*) 'Used iseed:', iseed
+       !      write(*,*) ''
+       !      read(7,*) junk
+       !      read(7,*) n_jump
+       !   endif
+       !   read(7,*) junk 
+       !   read(7,*) mu_i_prev(1),mu_i_prev(2),mu_i_prev(3)
+       !   read(7,*) mu_i_prev2(1),mu_i_prev2(2),mu_i_prev2(3)
+       !   read(7,*) mu_i_prev3(1),mu_i_prev3(2),mu_i_prev3(3)
+       !   read(7,*) mu_i_prev4(1),mu_i_prev4(2),mu_i_prev4(3)
+       !   read(7,*) mu_i_prev5(1),mu_i_prev5(2),mu_i_prev5(3)
+
+
+         close(7) 
+
+       endif
 
        return
 
       end subroutine
+
+      subroutine read_restart()
+!------------------------------------------------------------------------
+! @brief Read restart file
+!
+! @date Created   : E. Coccia 18 Apr 2018
+! Modified        :
+!------------------------------------------------------------------------
+
+          implicit none
+
+          integer(i4b)  :: i,ii 
+          character(4)  :: junk
+          character(32) :: filename
+
+#ifndef MPI
+          myrank=0
+#endif
+
+          if (myrank+1.lt.10) then
+             write(filename,'("restart",I1)') myrank+1 
+          elseif (myrank+1.lt.100) then
+             write(filename,'("restart",I2)') myrank+1
+          elseif (myrank+1.lt.1000) then   
+             write(filename,'("restart",I3)') myrank+1
+          elseif (myrank+1.lt.10000) then
+             write(filename,'("restart",I4)') myrank+1  
+          elseif (myrank+1.lt.100000) then
+             write(filename,'("restart",I5)') myrank+1
+          endif
+
+          ii=7+myrank
+
+          call checkfile(filename,ii)
+          read(ii,*) junk
+          read(ii,*) restart_t,restart_i,diff_step
+          allocate(c_i_prev(n_ci),c_i_prev2(n_ci))
+          write(*,*) ''
+          write(*,*) 'Restart from time', restart_t
+          write(*,*) ''
+          read(ii,*) junk
+          do i=1,n_ci
+             read(ii,*) c_i(i)
+          enddo
+          read(ii,*) junk
+          do i=1,n_ci
+             read(ii,*) c_i_prev(i)
+          enddo
+          read(ii,*) junk
+          do i=1,n_ci
+             read(ii,*) c_i_prev2(i)
+          enddo
+          if (Fdis(1:5).ne.'nodis') then
+             read(ii,*) junk
+             read(ii,*) restart_seed
+             iseed=restart_seed
+             write(*,*) ''
+             write(*,*) 'Used iseed:', iseed
+             write(*,*) ''
+             read(ii,*) junk
+             read(ii,*) n_jump
+          endif
+          read(ii,*) junk
+          read(ii,*) mu_i_prev(1),mu_i_prev(2),mu_i_prev(3)
+          read(ii,*) mu_i_prev2(1),mu_i_prev2(2),mu_i_prev2(3)
+          read(ii,*) mu_i_prev3(1),mu_i_prev3(2),mu_i_prev3(3)
+          read(ii,*) mu_i_prev4(1),mu_i_prev4(2),mu_i_prev4(3)
+          read(ii,*) mu_i_prev5(1),mu_i_prev5(2),mu_i_prev5(3)
+
+         close(ii)
+
+         return
+
+      end subroutine read_restart
+
 !
       subroutine read_dis_params()
 !------------------------------------------------------------------------
@@ -303,7 +403,7 @@
 !------------------------------------------------------------------------
      
        implicit none
-        integer   :: i, j,k,idum, ierr0, ierr1, ierr2, ierr3, ierr4, err   
+        integer   :: i,j,k,idum,ierr0,ierr1,ierr2,ierr3,ierr4,err   
         real(dbl)  :: term   
         real(dbl)  :: rdum
         real(dbl)   :: rx,ry,rz
@@ -326,11 +426,17 @@
 
        if (idep.ne.0.and.idep.ne.1) then
           write(*,*) 'Invalid value for idep, must be 0 or 1'
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
        endif
 
        if (nr_typ.ne.0.and.nr_typ.ne.1) then
           write(*,*) 'Invalid value for nr_typ, must be 0 or 1'
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
        endif 
 
@@ -422,6 +528,9 @@
            write(*,*) 'Dissipation and NP:'
            write(*,*) 'An error occurred during reading ci_mut_np.inp'
            write(*,*)
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
          endif
        endif
@@ -432,11 +541,15 @@
           enddo 
        endif
 
+
 100    if (ierr0.ne.0) then
           write(*,*)
           write(*,*) 'Dissipation:'
           write(*,*) 'An error occurred during reading nr_rate.inp'
           write(*,*)
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
        endif  
 
@@ -445,6 +558,9 @@
           write(*,*) 'Dissipation:'
           write(*,*) 'An error occurred during reading de_rate.inp'
           write(*,*)
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif  
           stop
        endif  
      
@@ -453,6 +569,9 @@
           write(*,*) 'Dissipation:'
           write(*,*) 'An error occurred during reading de_phase.inp'
           write(*,*)
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
        endif
 
@@ -461,9 +580,13 @@
           write(*,*) 'Dissipation:'
           write(*,*) 'An error occurred during reading sp_rate.inp'
           write(*,*)
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
           stop
        endif
- 
+
+
        close(8)
        close(9)
        close(10) 
@@ -509,6 +632,10 @@
 ! Modified  :
 !------------------------------------------------------------------------
 
+#ifndef MPI
+       myrank=0
+#endif
+
        deallocate(nr_gam)
        deallocate(de_gam)
        if (idep.eq.1) deallocate(de_gam1)
@@ -517,8 +644,11 @@
        deallocate(tmom2)
        deallocate(tomega)
        if (idep.eq.0) deallocate(delta)
-       if (Fdis.ne."nodis".and.Fmdm.eq.'nan') deallocate(mut_np2)
-       if (Fful.eq.'Yesf') deallocate(irel)
+       if (myrank.eq.0) then
+          if (Fdis.ne."nodis".and.Fmdm.eq.'nan') deallocate(mut_np2)
+          if (Fful.eq.'Yesf') deallocate(irel)
+       endif
+       if (Fabs(1:3).eq.'abs') deallocate(ion_rate)
 
        return
 
@@ -582,6 +712,8 @@
        ! Dynamics length in case of restart ('n' n_step from input, 'y'
        ! n_step = n_step - restart_step)
        lsim='n'
+       ! Ionization rates
+       absorber='n'
 
        return
 
@@ -681,9 +813,17 @@
 
        if (n_ci.le.0) then
           write(*,*) 'ERROR: number of excited states is wrong', n_ci
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
+          stop
        endif 
        if (n_ci_read.le.0) then
           write(*,*) 'ERROR: number of excited states is wrong', n_ci
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
+          stop
        endif
        write(6,*) "Number to append to dat file", n_f
        write (*,*) "Number of CIS states to be read",n_ci_read
@@ -745,6 +885,13 @@
         case ('n', 'N')
          Fsim='n'
        end select
+       select case (absorber)
+        case ('y', 'Y')
+         write(*,*) 'Absorber in dynamics'
+         Fabs(1:3)='abs'
+        case ('n', 'N')
+         Fabs(1:3)='non'
+       end select
        write(*,*) ''
 
        return
@@ -763,10 +910,12 @@
        integer :: i
 
        if (npulse.lt.1) then
-           write(*,*) 'WARNING: number of pulses in input '
+           write(*,*) 'ERROR: number of pulses in input '
            write(*,*) 'is less than zero'
-           write(*,*) 'Calculation will be done with one pulse'
-           npulse=1
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
+           stop
        endif
 
        write (*,*) "Time shape of the perturbing field",Ffld
@@ -804,7 +953,9 @@
 ! @param start,tau,dir_ft 
 !------------------------------------------------------------------------
  
-       if(medium.ne.'vac') nspectra=2
+       if (medium.ne.'vac') then 
+          nspectra=2
+       endif
 
        write(*,*) 'Starting point for FT calculation', start
        write(*,*) 'Artificial damping', (tau(i),i=1,nspectra)
@@ -892,7 +1043,7 @@
 !------------------------------------------------------------------------
         implicit none
 
-        character*7,  intent(in)  :: filename
+        character*12,   intent(in)  :: filename
         integer(i4b),  intent(in)  :: channel   
         logical                    :: exist
 
@@ -901,12 +1052,252 @@
            open(channel, file=filename, status="old")
         else
            write(*,*) 'ERROR:  file', filename,'is missing'       
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop 
         endif    
 
         return 
 
       end subroutine checkfile 
+
+      subroutine mpibcast_readio()
+!------------------------------------------------------------------------
+! @brief MPI broadcast of input variables 
+!
+! @date Created   : E. Coccia 20 Apr 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+#ifdef MPI
+       !n_f and iseed generated ad hoc for each process
+       n_f=myrank+1
+       call seed_random_number_sc(iseed+myrank)
+       call random_number(r)
+       iseed=floor(r*1000000000)
+
+       !Broadcast to other processes
+       call mpi_bcast(n_ci,      1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(n_ci_read, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(n_step,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(n_out,     1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(n_restart, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(npulse,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(idep,      1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(nrnd,      1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(tdis,      1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)    
+       call mpi_bcast(nr_typ,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+
+       call mpi_bcast(dt,        1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(t_mid,     1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(krnd,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(start,     1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(tau,       2,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mol_cc,    3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(dir_ft,    3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(sigma,     npulsemax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(omega,     npulsemax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(pshift,    npulsemax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(tdelay,    npulsemax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(fmax,      3*npulsemax,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+
+       call mpi_bcast(propa,       flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(lsim,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(medium,      flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(restart,     flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(full,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Ffld,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(radiative,   flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(dissipative, flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(dis_prop,    flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fmdm,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fres,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fful,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fexp,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fsim,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Frad,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fdis,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fdis_rel,    flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fdis_deph,   flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(Fabs,        flg,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr_mpi)
+#endif
+
+       return 
+
+      end subroutine mpibcast_readio 
+
+      subroutine mpibcast_e_dip()
+!------------------------------------------------------------------------
+! @brief MPI broadcast of energies, dipoles and initial coefs 
+!
+! @date Created   : E. Coccia 23 Apr 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+#ifdef MPI
+       if (myrank.ne.0) then
+          allocate(e_ci(n_ci))
+          allocate(mut(3,n_ci,n_ci))
+          allocate(c_i(n_ci))
+       endif
+
+       call mpi_bcast(e_ci,      n_ci,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mut,       3*n_ci*n_ci,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+
+       call mpi_bcast(c_i,       2*n_ci,MPI_COMPLEX,0,MPI_COMM_WORLD,ierr_mpi)
+#endif
+
+       return
+
+      end subroutine mpibcast_e_dip
+
+      subroutine mpibcast_sse()
+!------------------------------------------------------------------------
+! @brief MPI broadcast of SSE relaxation and dephasing rates 
+!
+! @date Created   : E. Coccia 23 Apr 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+#ifdef MPI
+       call mpi_bcast(nexc,       1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(nf,         1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(nrel,       1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+
+       if (myrank.ne.0) then
+          allocate(nr_gam(nf))
+          if (idep.eq.0) then
+             allocate(de_gam(nexc+1))
+             allocate(delta(nexc+1))
+          elseif (idep.eq.1) then
+             allocate(de_gam(nexc))
+             allocate(de_gam1(nexc+1))
+          endif
+          allocate(sp_gam(nf))
+          allocate(tmom2(nf))
+          allocate(sp_fact(nf))
+          allocate(tomega(nf))
+       endif
+
+       call mpi_bcast(nr_gam,     nf,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       if (idep.eq.0) then
+          call mpi_bcast(de_gam,  nexc+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+          call mpi_bcast(delta,   nexc+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+       elseif (idep.eq.1) then
+          call mpi_bcast(de_gam,  nexc,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+          call mpi_bcast(de_gam1, nexc+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+       endif
+       call mpi_bcast(sp_gam,     nf,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(sp_fact,    nf,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(tmom2,      nf,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(tomega,     nf,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+#endif
+
+       return
+
+      end subroutine mpibcast_sse
+
+
+      subroutine mpibcast_restart()
+!------------------------------------------------------------------------
+! @brief MPI broadcast of restart variables 
+!
+! @date Created   : E. Coccia 23 Apr 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+#ifdef MPI
+
+       if (myrank.ne.0) then
+          allocate(c_i(n_ci))
+          allocate(c_i_prev(n_ci))
+          allocate(c_i_prev2(n_ci)) 
+       endif
+
+       call mpi_bcast(restart_i,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(diff_step,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)  
+       call mpi_bcast(n_jump,       1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(restart_seed, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)  
+       call mpi_bcast(iseed,        1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi) 
+
+       call mpi_bcast(restart_t,    1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+       call mpi_bcast(mu_i_prev,    3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mu_i_prev2,   3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mu_i_prev3,   3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mu_i_prev4,   3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(mu_i_prev5,   3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+
+       call mpi_bcast(c_i,          2*n_ci,MPI_COMPLEX,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(c_i_prev,     2*n_ci,MPI_COMPLEX,0,MPI_COMM_WORLD,ierr_mpi)
+       call mpi_bcast(c_i_prev2,    2*n_ci,MPI_COMPLEX,0,MPI_COMM_WORLD,ierr_mpi)
+
+#endif
+
+       return
+
+      end subroutine mpibcast_restart 
+   
+      subroutine mpibcast_ion_rate
+!------------------------------------------------------------------------
+! @brief Broadcast ion_rate 
+!
+! @date Created   : E. Coccia 31 May 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+#ifdef MPI
+
+       if (myrank.ne.0) allocate(ion_rate(n_ci))
+
+       call mpi_bcast(ion_rate,n_ci,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+
+#endif
+
+       return
+
+      end subroutine mpibcast_ion_rate
+
+ 
+      subroutine read_ion_rate()
+!------------------------------------------------------------------------
+! @brief Read ionization rates 
+!
+! @date Created   : E. Coccia 31 May 2018
+! Modified  :
+!------------------------------------------------------------------------
+
+       implicit none
+
+       integer(i4b) :: ierr5,err,idum,i
+       real(dbl)    :: rdum
+
+       open(12,file='ion_rate.dat',status="old",iostat=ierr5,err=105)
+
+! Read ionization rates
+! IJQC, 116, 1120 (2016), Eq. 14
+! Obtained from calculation using Light code
+! J. Chem. Phys., 139, 164121 (2013)
+       allocate(ion_rate(n_ci))
+       do i=1,n_ci
+          read(12,*) idum,rdum, ion_rate(i)
+       enddo
+       close(12)
+
+105    if (ierr5.ne.0) then
+          write(*,*)
+          write(*,*) 'Ionization:'
+          write(*,*) 'An error occurred during reading ion_rate.dat'
+          write(*,*)
+#ifdef MPI
+          call mpi_finalize(ierr_mpi)
+#endif
+          stop
+       endif
+
+       return
+
+      end subroutine read_ion_rate
 
 
     end module readio

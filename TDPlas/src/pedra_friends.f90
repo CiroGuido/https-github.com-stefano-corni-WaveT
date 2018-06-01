@@ -5,6 +5,9 @@
 #ifdef OMP
       use omp_lib
 #endif
+#ifdef MPI
+      use mpi
+#endif
 
       implicit none
 
@@ -38,6 +41,7 @@
       integer(i4b) :: nts_act, nts_pro
       type(sfera), allocatable :: sfe_act(:), sfe_pro(:)
       integer(i4b) :: nesf_act, nesf_pro
+
       save
       private
       public pedra_int, read_act, read_pro, dealloc_pedra, &
@@ -45,15 +49,24 @@
              nesf_act,sfe_act,read_cavity_file,read_cavity_full_file,&
              read_gmsh_file
 !
+
       contains
+
 !
       Subroutine read_act(xr,yr,zr,rr,nspheres,nsmax)
       integer(i4b) :: isfe,nspheres,nsmax
       real(dbl)    :: xr(nsmax),yr(nsmax),zr(nsmax),rr(nsmax)
+
+#ifndef MPI
+       myrank=0
+#endif
+
       !read (iunit,*) nesf_act
       nesf_act=nspheres 
-      write(6,*) "Number of spheres",nesf_act
-      write(6,*) "I_sphere  X     Y   Z   Radius"
+      if (myrank.eq.0) then
+         write(6,*) "Number of spheres",nesf_act
+         write(6,*) "I_sphere  X     Y   Z   Radius"
+      endif 
       allocate(sfe_act(nesf_act))
       do isfe=1,nesf_act
        !read (iunit,*) sfe_act(isfe)%x,sfe_act(isfe)%y,sfe_act(isfe)%z, &
@@ -62,9 +75,10 @@
        sfe_act(isfe)%y=yr(isfe)
        sfe_act(isfe)%z=zr(isfe)
        sfe_act(isfe)%r=rr(isfe)
-       write(6,'(I6,4F12.4)') isfe, sfe_act(isfe)%x,sfe_act(isfe)%y, &
+       if (myrank.eq.0) write(6,'(I6,4F12.4)') isfe, sfe_act(isfe)%x,sfe_act(isfe)%y, &
                  sfe_act(isfe)%z, sfe_act(isfe)%r
       enddo
+
       return
       end subroutine
 !
@@ -130,6 +144,34 @@
       Subroutine pedra_int(what)
       character*3 :: what
       type(tess_pcm) :: dum2(1)
+
+#ifdef MPI
+      real(8), allocatable  :: tmp(:)
+
+      call mpi_bcast(nesf_act,    1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+
+      if (myrank.ne.0) then 
+         allocate(tmp(nesf_act))
+         allocate(sfe_act(nesf_act))
+      endif
+
+      if (myrank.eq.0) tmp=sfe_act%x
+      call mpi_bcast(tmp,         nesf_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+      if (myrank.ne.0) sfe_act%x=tmp
+      if (myrank.eq.0) tmp=sfe_act%y
+      call mpi_bcast(tmp,         nesf_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+      if (myrank.ne.0) sfe_act%y=tmp
+      if (myrank.eq.0) tmp=sfe_act%z
+      call mpi_bcast(tmp,        nesf_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+      if (myrank.ne.0) sfe_act%z=tmp
+      if (myrank.eq.0) tmp=sfe_act%r
+      call mpi_bcast(tmp,        nesf_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+      if (myrank.ne.0) sfe_act%r=tmp
+
+      deallocate(tmp)
+
+#endif
+
       if (what.eq.'act') then
         call pedra(0,1,nesf_act,sfe_act,nts_act,dum2)      
         write (6,*) "nts_act",nts_act
@@ -491,11 +533,18 @@
 !     Stampa la geometria della cavita'
 !
 !
+
+#ifndef MPI
+       myrank=0
+#endif
+
+       if (myrank.eq.0) then
          WRITE(6,9020) NESF
          do i=1,nesf
           write(6,9030) i,sfe(i)%x,sfe(i)%y,sfe(i)%z,sfe(i)%r
          enddo
          WRITE(6,9040) NTS,STOT,VOL
+         
 !
 ! Scrive su file le posizioni delle tessere
       if (i_count.eq.1) then
@@ -506,6 +555,7 @@
         write (3,'(a,3f16.6)') 'TT',cts(i)%x,cts(i)%y,cts(i)%z
        enddo
        close(3)
+      endif
       endif
 !
 !
@@ -1223,54 +1273,131 @@
 !C     Ha concluso il raffinamento
 !
       subroutine read_cavity_full_file
+
       integer(4) :: i,j,its
-      open(7,file="cavity_full.inp",status="old")
-      read(7,*) nts_act
-      allocate(cts_act(nts_act))
-      do its=1,nts_act
-       read(7,*) cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
-                 cts_act(its)%area,cts_act(its)%rsfe, &
-                 cts_act(its)%n(:) 
-      enddo
-      close(7)
+      real(dbl), allocatable :: tmp(:) 
+
+#ifndef MPI
+       myrank=0
+#endif
+
+      if (myrank.eq.0) then
+         open(7,file="cavity_full.inp",status="old")
+         read(7,*) nts_act
+         allocate(cts_act(nts_act))
+         do its=1,nts_act
+            read(7,*) cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+                   cts_act(its)%area,cts_act(its)%rsfe, &
+                   cts_act(its)%n(:) 
+         enddo
+         close(7)
+      endif
+
+#ifdef MPI
+
+           call mpi_bcast(nts_act, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) allocate(cts_act(nts_act))
+
+           allocate(tmp(nts_act))
+
+           if (myrank.eq.0) tmp=cts_act%x
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%x=tmp
+
+           if (myrank.eq.0) tmp=cts_act%y
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%y=tmp
+
+           if (myrank.eq.0) tmp=cts_act%z
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%z=tmp
+
+           if (myrank.eq.0) tmp=cts_act%area
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%area=tmp
+
+           if (myrank.eq.0) tmp=cts_act%rsfe
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%rsfe=tmp
+
+           if (myrank.eq.0) tmp=cts_act%n(1)
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%n(1)=tmp
+
+           if (myrank.eq.0) tmp=cts_act%n(2)
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%n(2)=tmp
+
+           if (myrank.eq.0) tmp=cts_act%n(3)
+           call mpi_bcast(tmp,     nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+           if (myrank.ne.0) cts_act%n(3)=tmp
+
+           deallocate(tmp)
+
+#endif
+
       return
       end subroutine
 !
       subroutine read_cavity_file
        integer(4) :: i,nts,nsphe
        real(dbl)  :: x,y,z,s,r      
-       open(7,file="cavity.inp",status="old")
+
+#ifndef MPI
+       myrank=0
+#endif
+
+       if (myrank.eq.0) then
+          open(7,file="cavity.inp",status="old")
          !read(7,*)  
-         read(7,*) nts,nsphe
+          read(7,*) nts,nsphe
 !         if(nts_act.eq.0.or.nts.eq.nts_act) then
-           nts_act=nts
+          nts_act=nts
+       endif
 !         else
 !           write(*,*) "Tesserae number conflict"
 !           stop
 !         endif
+#ifdef MPI
+         call mpi_bcast(nts_act, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+         call mpi_bcast(nsphe,   1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+#endif
          if(.not.allocated(sfe_act).and.nsphe.gt.0) &
            allocate (sfe_act(nsphe))
          if(.not.allocated(cts_act)) allocate (cts_act(nts_act))
-         do i=1,nsphe
-          read(7,*)  sfe_act(i)%x,sfe_act(i)%y, &
+         if (myrank.eq.0) then
+            do i=1,nsphe
+              read(7,*)  sfe_act(i)%x,sfe_act(i)%y, &
                                sfe_act(i)%z
-         enddo
-
-         do i=1,nts_act 
-           read(7,*) x,y,z,s,r
-           cts_act(i)%x=x!*antoau 
-           cts_act(i)%y=y!*antoau
-           cts_act(i)%z=z!*antoau 
-           cts_act(i)%area=s!*antoau*antoau 
-           cts_act(i)%rsfe=r 
+            enddo
+         
+            do i=1,nts_act 
+               read(7,*) x,y,z,s,r
+               cts_act(i)%x=x!*antoau 
+               cts_act(i)%y=y!*antoau
+               cts_act(i)%z=z!*antoau 
+               cts_act(i)%area=s!*antoau*antoau 
+               cts_act(i)%rsfe=r 
            ! SP: this is only for a sphere: test purposes
            !cts_act(i)%rsfe=sqrt(x*x+y*y+z*z)
            !cts_act(i)%n(1)=cts_act(i)%x/cts_act(i)%rsfe 
            !cts_act(i)%n(2)=cts_act(i)%y/cts_act(i)%rsfe
            !cts_act(i)%n(3)=cts_act(i)%z/cts_act(i)%rsfe 
-         enddo
+           enddo
 
-       close(7)
+           close(7)
+        endif 
+#ifdef MPI
+        call mpi_bcast(sfe_act%x,    nsphe,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+        call mpi_bcast(sfe_act%y,    nsphe,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+        call mpi_bcast(sfe_act%z,    nsphe,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+        call mpi_bcast(cts_act%x,    nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+        call mpi_bcast(cts_act%y,    nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+        call mpi_bcast(cts_act%z,    nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+        call mpi_bcast(cts_act%area, nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+        call mpi_bcast(cts_act%rsfe, nts_act,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi) 
+#endif
+
        return
       end subroutine
 !
@@ -1284,25 +1411,47 @@
       real(8),allocatable :: c_nodes(:,:) 
       real(8) :: vert(3,3),normal(3),area,dist,dist_v(3), &
         dist_max,area_tot 
+
+#ifndef MPI
+       myrank=0
+#endif
+
+
       nesf_act=0
-      open(7,file="surface_msh.inp",status="old")
-      read(7,*) n_nodes
+      if (myrank.eq.0) then
+         open(7,file="surface_msh.inp",status="old")
+         read(7,*) n_nodes
+      endif
+#ifdef MPI
+     call mpi_bcast(n_nodes,  1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+#endif 
       allocate(c_nodes(3,n_nodes))
-      do i_nodes=1,n_nodes
-       read(7,*) c_nodes(:,i_nodes)
-      enddo
-      read(7,*) nts_act
+      if (myrank.eq.0) then
+         do i_nodes=1,n_nodes
+            read(7,*) c_nodes(:,i_nodes)
+         enddo
+         read(7,*) nts_act
+      endif
+#ifdef MPI
+     call mpi_bcast(c_nodes, 3*n_nodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr_mpi)
+     call mpi_bcast(nts_act, 1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+#endif 
       allocate(cts_act(nts_act))
       allocate(el_nodes(3,nts_act))
-      do its=1,nts_act
-       read(7,*) el_nodes(:,its),iswap
-       if(iswap.lt.0) then
-        tmp=el_nodes(3,its)
-        el_nodes(3,its)=el_nodes(1,its)
-        el_nodes(1,its)=tmp            
-       endif
-      enddo
-      close(7)
+      if (myrank.eq.0) then
+         do its=1,nts_act
+            read(7,*) el_nodes(:,its),iswap
+            if(iswap.lt.0) then
+              tmp=el_nodes(3,its)
+              el_nodes(3,its)=el_nodes(1,its)
+              el_nodes(1,its)=tmp
+            endif
+         enddo
+         close(7)
+      endif
+#ifdef MPI
+     call mpi_bcast(el_nodes, 3*nts_act,MPI_INTEGER,0,MPI_COMM_WORLD,ierr_mpi)
+#endif
 !  And now do representative points, areas and normals
       its_a=1
       area_tot=0.d0
@@ -1341,11 +1490,11 @@
 !$OMP END PARALLEL
 #endif
 
-
-      write(6,*) "nts,nts after eliminating replica",nts_act,its_a-1
-      write(6,*) "Tot. area",area_tot
+      if (myrank.eq.0) then
+         write(6,*) "nts,nts after eliminating replica",nts_act,its_a-1
+         write(6,*) "Tot. area",area_tot
+      endif
       nts_act=its_a-1
-! SP 220218: commented the following normal direction changed with iswap 
 ! choose the outward normal, with an euristic procedure tha may not always work!!
 
 #ifdef OMP
@@ -1374,27 +1523,29 @@
 !$OMP END PARALLEL
 #endif
 
+      if (myrank.eq.0) then
 ! Save in files for subsequent calculations or checks
-      open(7,file="cavity_full.inp",status="unknown")
-      write(7,*) nts_act
-      do its=1,nts_act
-       write(7,'(8D14.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
+         open(7,file="cavity_full.inp",status="unknown")
+         write(7,*) nts_act
+         do its=1,nts_act
+         write(7,'(8D14.5)') cts_act(its)%x,cts_act(its)%y,cts_act(its)%z, &
                  cts_act(its)%area,cts_act(its)%rsfe, &
                  cts_act(its)%n(:) 
-      enddo
-      close(7)
+         enddo
+         close(7)
 !
-      open(7,file="nanoparticle.xyz",status="unknown")
-      write(7,*) 2*nts_act
-      write(7,*)
-      do its=1,nts_act
-       write(7,'("C ",8E14.5)') cts_act(its)%x,cts_act(its)%y, &
+         open(7,file="nanoparticle.xyz",status="unknown")
+         write(7,*) 2*nts_act
+         write(7,*)
+         do its=1,nts_act
+            write(7,'("C ",8E14.5)') cts_act(its)%x,cts_act(its)%y, &
                                 cts_act(its)%z
-       write(7,'("H ",8E14.5)') cts_act(its)%x+cts_act(its)%n(1), &
+            write(7,'("H ",8E14.5)') cts_act(its)%x+cts_act(its)%n(1), &
                            cts_act(its)%y+cts_act(its)%n(2), &
                            cts_act(its)%z+cts_act(its)%n(3)
-      enddo
-      close(7)
+         enddo
+         close(7)
+      endif
 !      open(7,file="cavity.inp",status="unknown")
 !      write(7,*) nts_act,0
 !      do its=1,nts_act

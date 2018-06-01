@@ -3,8 +3,13 @@ module dissipation
   use readio
   use random
   use global_wavet, only: set_q0charges,Fmdm_relax
-
+#ifdef MPI 
+  use mpi
+#endif
   use, intrinsic :: iso_c_binding
+#ifdef OMP
+  use omp_lib
+#endif
 
 ! @brief Contains routines for SSE
 
@@ -43,6 +48,7 @@ module dissipation
 
 ! Relaxation via spontaneous emission (sp)
 ! S_alpha = sqrt(sp_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
+
       do i=2, nci
          h_dis(i) = h_dis(i) + sp_gam(i-1)*tmom2(i-1) 
       enddo
@@ -54,6 +60,7 @@ module dissipation
             h_dis(i) = h_dis(i) + rate
          enddo 
       enddo 
+
  
 ! Relaxation via nonradiative processes (nr)
 ! S_alpha = sqrt(nr_gam_alpha) d_(alpha,0)  |Phi_0> <Phi_alpha| 
@@ -399,7 +406,9 @@ module dissipation
       !c(2:nci) = zeroc
       !c(1)=c(1)/sqrt(pjump(istate)*dsp/dt)
       i_sp=i_sp+1
+#ifndef MPI 
       write(*,*) 'Jump due to spontaneous emission, channel n.:', istate, 'between', ie, 'and', ig 
+#endif
       !Update charges to those in equilibrium with the ground state
       if (Fmdm_relax.eq."rel") then
          call set_q0charges
@@ -448,7 +457,9 @@ module dissipation
       !c(1)=c(1)/sqrt(pjump(istate+nf)*dnr/dt) 
 
       i_nr = i_nr +1
+#ifndef MPI 
       write(*,*) 'Jump due to nonradiative relaxation, channel n.:', istate, 'between', ie, 'and', ig
+#endif
 ! Pure dephasing occurring 
    elseif (eta.ge.tmp2.and.eta.lt.tmp3) then
       call random_number(eta1)
@@ -489,7 +500,9 @@ module dissipation
          c=c/sqrt(pjump(istate+2*nf)*dde/dt)
       endif
       i_de = i_de + 1
+#ifndef MPI 
       write(*,*) 'Jump due to pure dephasing, channel n.:', istate 
+#endif
    endif
 
    return

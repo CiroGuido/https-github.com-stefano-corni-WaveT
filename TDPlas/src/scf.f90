@@ -9,6 +9,9 @@
 #ifdef OMP
       use omp_lib
 #endif
+#ifdef MPI
+      use mpi
+#endif
 
       implicit none
       real(dbl), allocatable :: Htot(:,:)    !< Hamiltonian matrix in SCF cycle
@@ -22,6 +25,7 @@
       real(dbl) :: mu(3)                    !< Temporary array containing dipole in SCF cycle
       real(dbl), allocatable :: pot(:)      !< Temporary array containing potential in SCF cycle
       real(dbl), allocatable :: c_c(:)      !< Temporary array containing coefficients in old basis 
+
       save
       private
       public do_scf
@@ -49,11 +53,17 @@
        real(dbl) :: fld(3)                      !  field from charges
        integer(i4b):: max_p(1)    
 
-       write(6,*) "SCF Cycle"
-       write(6,*) "Max_cycle ", ncycmax
+#ifndef MPI
+       myrank=0
+#endif
+
+       if (myrank.eq.0) then
+          write(6,*) "SCF Cycle"
+          write(6,*) "Max_cycle ", ncycmax
+       endif
        thrv=10**(-thrshld+2)
        thre=10**(-thrshld)
-       write(6,*) "Threshold ", thrv,thre
+       if (myrank.eq.0) write(6,*) "Threshold ", thrv,thre
        call init_scf ! Initialize/allocate
        ! scf cycle
        do while (docycle.and.ncyc.le.ncycmax) 
@@ -81,26 +91,32 @@
 !               in case of degeneracy the variation of eigenvector
 !               can be erratic
            if (maxe.le.thre) docycle=.false.         
-           write(6,*) "cycle ", ncyc, e_scf, e_ini
+           if (myrank.eq.0) write(6,*) "cycle ", ncyc, e_scf, e_ini
          endif
          eigt_cp=eigt_c
          eigv_cp=eigv_c
          ncyc=ncyc+1 
-         write(6,*) "Max Diff on Eigenvalue ", maxe
-         write(6,*) "Max Diff on Eigenvector ", maxv
+         if (myrank.eq.0) then
+            write(6,*) "Max Diff on Eigenvalue ", maxe
+            write(6,*) "Max Diff on Eigenvector ", maxv
+         endif
        enddo
-       write(6,*) "SCF Done"
+       if (myrank.eq.0) write(6,*) "SCF Done"
        ! Write-out integrals/properties in the new basis 
        if (Fprop(1:3).eq.'chr') then
-         call out_charges(q_or_f)
-         call out_vts
+         if (myrank.eq.0) then
+            call out_charges(q_or_f)
+            call out_vts
+         endif
        endif
-       call out_dipoles
-       call out_energies
+       if (myrank.eq.0) then
+          call out_dipoles
+          call out_energies
+       endif
        !  find the new eigenvector that is most similar to the old one
        c_i=abs(matmul(c_i,eigt_c))
        max_p=maxloc(c_i)
-       write(6,*) 'maxloc',max_p(1)
+       if (myrank.eq.0) write(6,*) 'maxloc',max_p(1)
        c_i=0.d0
        c_i(max_p(1))=1.d0
        c_prev=c_i
@@ -165,19 +181,27 @@
 ! SP 12/07/17: avoiding use of automatic arrays, especially in cycles   
        !real(dbl) :: c_c(n_ci)
 
+#ifndef MPI
+       myrank=0
+#endif
+
        ! find the new eigenvector that is most similar to the old one
        c_c=abs(matmul(c_i,eigt_c))
        max_p=maxloc(c_c)
-       if(Fwrite.eq."high") write(6,*) 'maxloc',max_p(1)
+       if(Fwrite.eq."high") then 
+          if (myrank.eq.0) write(6,*) 'maxloc',max_p(1)
+       endif
        c_c=0.d0
        c_c(max_p(1))=1.d0
        ! This is the new state on the basis of the old states  
        c_c=matmul(eigt_c,c_c) 
        ! write the state
        if(Fwrite.eq."high") then
-         write(6,*) "State on the basis of original states"
+         if (myrank.eq.0) then
+             write(6,*) "State on the basis of original states"
+         endif
          do i=1,n_ci
-          write(6,*) i, c_c(i)
+          if (myrank.eq.0) write(6,*) i, c_c(i)
          enddo
          write(6,*)
        endif
@@ -379,6 +403,10 @@
        real(dbl), intent(IN):: q(nts_act)     
        integer(i4b) its
 
+#ifndef MPI
+       myrank=0
+#endif
+
        open(unit=7,file="charges0_scf.inp",status="unknown", &
             form="formatted")
          write (7,*) nts_act
@@ -386,7 +414,7 @@
           write (7,'(E22.8,F22.10)') q(its)
          enddo
        close(unit=7)
-       write(6,*) "Written out the SCF charges"
+       if (myrank.eq.0) write(6,*) "Written out the SCF charges"
        ! SP 23/10/16: update the q0 vector to have a consistent correction if a
        !              propagation is performed after the SCF cycle
        q0(:)=q(:)
@@ -408,6 +436,10 @@
        implicit none
 
        integer(i4b) :: its,i,j
+
+#ifndef MPI
+       myrank=0
+#endif
 
 #ifdef OMP
 !$OMP PARALLEL 
@@ -449,7 +481,7 @@
          enddo
        enddo
        close(unit=7)
-       write(6,*) "Written out the SCF potentials"
+       if (myrank.eq.0) write(6,*) "Written out the SCF potentials"
 
        return 
 
@@ -468,6 +500,10 @@
 
        integer(i4b) :: its,i,j
 
+#ifndef MPI
+       myrank=0
+#endif
+
        do its=1,3
         mut(its,:,:)=matmul(mut(its,:,:),eigt_c)
         mut(its,:,:)=matmul(transpose(eigt_c),mut(its,:,:))
@@ -484,7 +520,7 @@
          enddo
        enddo
        close(unit=7)
-       write(6,*) "Written out the SCF dipoles"
+       if (myrank.eq.0) write(6,*) "Written out the SCF dipoles"
 
        return 
 
@@ -503,6 +539,10 @@
 
        integer(i4b) :: i
 
+#ifndef MPI
+       myrank=0
+#endif
+
        e_ci=eigv_c
        open(unit=7,file="ci_energy_scf.inp",status="unknown", &
            form="formatted")
@@ -510,8 +550,10 @@
         write(7,'(3i4,f15.8)') 0,0,0,(e_ci(i)-e_ci(1))/ev_to_au
        enddo
        close(unit=7)
+       if (myrank.eq.0) then
        write(6,*) "Written out the SCF energies,", &
                " GS has been given zero energy!"
+       endif
 
        return 
 

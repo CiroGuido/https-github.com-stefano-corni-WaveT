@@ -6,6 +6,12 @@
       use spectra
       use random
       use dissipation 
+#ifdef OMP
+      use omp_lib
+#endif
+#ifdef MPI
+      use mpi
+#endif
 
       implicit none
 
@@ -77,6 +83,7 @@
        if (Fexp.eq."exp") then 
           allocate (ccexp(n_ci))
           ccexp=exp(-ui*dt*e_ci)
+          if (Fabs(1:3).eq.'abs') ccexp=ccexp*exp(-ion_rate*dt/2.d0) 
        endif
 ! SP 17/07/17: new flags
        if (Fdis(1:3).eq."mar".or.Fdis(1:3).eq."nma") then
@@ -121,6 +128,7 @@
        int_rad_int=0.d0
        if(Frad.eq."arl".or.Fdis.ne."nodis") &
                                call seed_random_number_sc(iseed)
+
        if (Fmdm(1:3).ne."vac") then
            call init_medium(c_prev,f_prev,h_int)
            !if (Fres.eq.'Nonr') then
@@ -165,7 +173,6 @@
           call full_euler_prop(n_ci)
        endif
 
-
 ! DEALLOCATION AND CLOSING
        deallocate(c,c_prev,c_prev2,h_int)
        deallocate(c_i)
@@ -180,6 +187,8 @@
              deallocate(w)
              deallocate(w_prev)
           endif 
+
+#ifndef MPI
           if (Fdis(5:9).eq."qjump") then
              write(*,*)
              write(*,*) 'Total number of quantum jumps',i_sp+i_nr+i_de,&
@@ -192,7 +201,9 @@
                         '(', real(i_de)/real(n_step),')'
              write(*,*)
           endif
+#endif
        endif
+
        close (file_c)
        close (file_e)
        close (file_mu)
@@ -230,9 +241,17 @@
        endif
 
        allocate (f(3,n_tot))
-
+#ifndef MPI
+       myrank=0
        write(name_f,'(a5,i0,a4)') "field",n_f,".dat"
        open (7,file=name_f,status="unknown")
+#endif
+#ifdef MPI
+       if (myrank.eq.0) then
+          write(name_f,'(a9)') "field.dat"
+          open (7,file=name_f,status="unknown")
+       endif
+#endif
 
         f(:,:)=0.d0
         select case (Ffld)
@@ -254,11 +273,14 @@
          i_max=int(t_mid/dt)
          if (2*i_max.gt.n_tot) then
             write(*,*) 'ERROR: 2*t_mid/dt must be smaller than', n_tot
+#ifdef MPI
+            call mpi_finalize(ierr_mpi)  
+#endif
             stop
          endif
          do i=1,2*i_max
             t_a=dt*(dble(i)-1)
-            f(:,i)=fmax(:,1)*cos(pi*(t_a-t_mid)/(2*t_mid))**2/2.d0* &
+            f(:,i)=fmax(:,1)*cos(pi*(t_a-t_mid)/(2*t_mid))**2* &
                    sin(omega(1)*t_a)
          enddo
          do i=2*i_max+1,n_tot
@@ -348,21 +370,21 @@
             f(:,i)=fmax(:,1)*(cos(pi*(t_a-t_mid)/(sigma(1))))**2
           endif
          enddo
-        case ("sta")
-         ! static field
-         do i=1,n_tot
-          f(:,i)=fmax(:,1)
-         enddo
         case default
          write(*,*)  "Error: wrong field type !"
+#ifdef MPI
+         call mpi_finalize(ierr_mpi)
+#endif
          stop
         end select
+        if (myrank.eq.0) then
         ! write out field 
-        do i=1,n_tot
-         t_a=dt*(i-1)
-         if (mod(i,n_out).eq.0) &
-           write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
-        enddo
+           do i=1,n_tot
+              t_a=dt*(i-1)
+              if (mod(i,n_out).eq.0) &
+                  write (7,'(f12.2,3e22.10e3)') t_a,f(:,i)
+           enddo
+        endif
        
 
         close(7)
@@ -416,10 +438,11 @@
        real(dbl), intent(IN) :: f_prev(3)
        real(dbl) :: e_a,e_vac,t,g_neq_t,g_neq2_t,g_eq_t,f_med(3)
        character(4000) :: fmt_ci,fmt_ci2
-       integer(i4b)    :: itmp,j
+       integer(i4b)    :: itmp,j,k
 
        t=(i-1)*dt 
        e_a=dot_product(c,e_ci*c+matmul(h_int,c))
+
 ! SC 07/02/16: added printing of g_neq, g_eq 
        if(Fmdm(1:3).ne.'vac') then 
           g_eq_t=e_a
@@ -700,7 +723,9 @@
                call quan_jump(c,c_prev,n_ci,pjump)
                ijump=i
                n_jump=n_jump+1
+#ifndef MPI
                write(*,*) 'Quantum jump at step:', i, (i-1)*dt 
+#endif 
                c_prev=c
             else
                 c=c/sqrt(dot_product(c,c))
@@ -883,7 +908,9 @@
                call quan_jump(c,c_prev,n_ci,pjump)
                ijump=i
                n_jump=n_jump+1
+#ifndef MPI
                write(*,*) 'Quantum jump at step:', i, (i-1)*dt
+#endif
                c_prev=c
             else
                 c=c/sqrt(dot_product(c,c))
@@ -984,41 +1011,60 @@
        real(dbl),     intent(in)  :: mu_prev(3),mu_prev2(3),mu_prev3(3)
        real(dbl),     intent(in)  :: mu_prev4(3),mu_prev5(3)
        complex(cmp),  intent(in)  :: c(nci), c_prev(nci), c_prev2(nci)
+     
+       integer(i4b)               :: j,ii
+       character(20)              :: filename
 
-       integer(i4b)               :: j
+#ifndef MPI
+       myrank=0
+#endif
 
-       open(777,file='restart')
-       rewind(777)
+       ii=777+myrank
+       if (myrank+1.lt.10) then 
+          write(filename,'("restart",I1)') myrank+1
+       elseif (myrank+1.lt.100) then
+          write(filename,'("restart",I2)') myrank+1
+       elseif (myrank+1.lt.1000) then
+          write(filename,'("restart",I3)') myrank+1
+       elseif (myrank+1.lt.10000) then
+          write(filename,'("restart",I4)') myrank+1
+       elseif (myrank+1.lt.100000) then
+          write(filename,'("restart",I5)') myrank+1
+       endif
+
+       !open(ii,file='restart')
+       open(ii,file=filename)
+       rewind(ii)
  
-       write(777,*) 'Restart time in au, Restart step'
-       write(777,*) t,i,iend-i
-       write(777,*) 'Coefficients'
+       write(ii,*) 'Restart time in au, Restart step'
+       write(ii,*) t,i,iend-i
+       write(ii,*) 'Coefficients'
        do j=1,nci
-          write(777,*) c(j)
+          write(ii,*) c(j)
        enddo
-       write(777,*) 'Coefficients -1'
+       write(ii,*) 'Coefficients -1'
        do j=1,nci
-          write(777,*) c_prev(j)
+          write(ii,*) c_prev(j)
        enddo
-       write(777,*) 'Coefficients -2'
+       write(ii,*) 'Coefficients -2'
        do j=1,nci
-          write(777,*) c_prev2(j)
+          write(ii,*) c_prev2(j)
        enddo
        if (Fdis(1:5).ne.'nodis') then
-          write(777,*) 'Seed'
-          write(777,*) iseed
-          write(777,*) 'Number of quantum jumps'
-          write(777,*) n_jump
+          write(ii,*) 'Seed'
+          write(ii,*) iseed
+          write(ii,*) 'Number of quantum jumps'
+          write(ii,*) n_jump
        endif
-       write(777,*) 'Dipoles'
-       write(777,*) mu_prev(1), mu_prev(2), mu_prev(3)
-       write(777,*) mu_prev2(1), mu_prev2(2), mu_prev2(3)
-       write(777,*) mu_prev3(1), mu_prev3(2), mu_prev3(3)
-       write(777,*) mu_prev4(1), mu_prev4(2), mu_prev4(3)
-       write(777,*) mu_prev5(1), mu_prev5(2), mu_prev5(3)
+       write(ii,*) 'Dipoles'
+       write(ii,*) mu_prev(1), mu_prev(2), mu_prev(3)
+       write(ii,*) mu_prev2(1), mu_prev2(2), mu_prev2(3)
+       write(ii,*) mu_prev3(1), mu_prev3(2), mu_prev3(3)
+       write(ii,*) mu_prev4(1), mu_prev4(2), mu_prev4(3)
+       write(ii,*) mu_prev5(1), mu_prev5(2), mu_prev5(3)
 
 
-       close(777)
+       close(ii)
  
        !flush(6)
       

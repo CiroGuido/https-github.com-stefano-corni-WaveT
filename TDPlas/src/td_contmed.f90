@@ -52,8 +52,7 @@
       real(dbl) :: e_vac,g_eq,g_eq_gs                   !< energy/equilibrium Free energies
       real(dbl) :: g_neq2,g_neq2_0,g_neq_0,g_neq1,g_neq1_part !< Non Equilibrium Free energies
 ! Working variables
-      real(dbl) :: f1,f2,f3,f4,f5 !< constant factors (calculated once and for all) for velocity-verlet propagator (Drude-Lorentz)
-      real(dbl), allocatable :: BEM_f1(:,:),BEM_f3(:,:),BEM_f5(:,:) !< matrices (calculated once and for all) for velocity-verlet propagator (gral dielec func) 
+      real(dbl) :: f1,f2,f3,f4,f5 !< constant factors (calculated once and for all) for velocity-verlet propagator (Drude-Lorentz) 
       real(dbl) :: dip(3)                               !< used in a test 
       real(dbl) :: ref                                  !< reference value in different debug tests    
       real(dbl) :: qtot                                 !< total BEM charge    
@@ -133,11 +132,7 @@
 ! SC: predifine the factors used in the VV propagator, used for
 ! Drude-Lorentz
       endif
-      if(Feps.eq."drl") then 
-       call init_vv_propagator
-      else if(Feps.eq."gen") then
-       call init_vv_propagator_gen
-      endif  
+      if(Feps.eq."drl") call init_vv_propagator
       if (Fmdm(1:3).ne.'vac') call correct_hamiltonian
 ! SC set the initial values of the solvent component of the 
 ! neq free energies
@@ -221,6 +216,7 @@
        endif
        ! Build the interaction Hamiltonian Reaction/Local
        if(Fdeb.ne."off") call do_interaction_h
+#ifndef MPI
        if (i.eq.1.and.Fwrite.eq."high") then
         write(6,*) "h_mdm at the first propagation step"
         do j=1,n_ci
@@ -229,6 +225,7 @@
          enddo
         enddo
        endif
+#endif
        ! SP 230916: added to perform tests on the local/reaction field
        if(Ftest(2:2).eq."-") call do_ref(c_tp)
        ! Update the interaction Hamiltonian 
@@ -348,6 +345,11 @@
 !------------------------------------------------------------------------
 
        integer(i4b):: i,j
+
+#ifndef MPI
+       myrank=0
+#endif
+
 ! SC 19/03/2016: added a temporarty array to avoid summing the local field
 ! to ther reaction field for onsager
 ! SC 19/03/2016: moved from prop_mdm (so that h_mdm has values assined only here 
@@ -370,7 +372,10 @@
            enddo
          enddo
        else
-         write(*,*) "wrong interaction type "
+       if (myrank.eq.0) write(*,*) "wrong interaction type "
+#ifdef MPI
+      call mpi_finalize(ierr_mpi) 
+#endif
          stop
        endif
 
@@ -411,6 +416,7 @@
 !$OMP END PARALLEL 
 #endif
        endif
+#ifndef MPI
        if(Fwrite.eq."high") then
          do i=1,n_ci
           do j=1,n_ci
@@ -418,6 +424,7 @@
           enddo
          enddo
        endif
+#endif
 
        return
 
@@ -496,6 +503,10 @@
        integer(i4b):: its
        real(dbl), allocatable :: qd(:)
 
+#ifndef MPI
+       myrank=0
+#endif
+
        allocate(qd(nts_act))
        allocate(qr_t(nts_act))
        allocate(q_mdm(nts_act))
@@ -520,8 +531,10 @@
          qtot0=zero
        endif
        g_eq_gs=0.5d0*dot_product(q0,pot_0)
-       write(6,*) 'Medium contribution to ground state free energy:', &
+       if (myrank.eq.0) then 
+           write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
+       endif
        ! see readio_medium for Finit_int
        select case (Finit_int)
         case ('nsc')
@@ -559,7 +572,7 @@
          g_neq2_0=0.5*dot_product(qr_tp,pot_tp)
          qr_tp=matmul(BEM_Q0,pot_tp)
        end select
-       write(6,*) 'G_neq at t=0:',g_neq_0
+       if (myrank.eq.0) write(6,*) 'G_neq at t=0:',g_neq_0
        qr_t(:)=qr_tp(:)
        dqr_t(:)=zero  
        if(Fint.eq."ons") call do_field_from_charges(qr_t,fr_0)
@@ -572,7 +585,7 @@
          qx_tp(:)=zero    
          dqx_t(:)=zero 
        endif
-       if(Feps.eq."drl".or.Feps.eq."gen") then
+       if(Feps.eq."drl") then
          allocate(dqr_tp(nts_act))
          allocate(fqr_tp(nts_act))
          allocate(fqr_t(nts_act))
@@ -767,9 +780,15 @@
        complex(cmp), intent(INOUT) :: c_tp(n_ci)
        real(dbl), intent(IN) :: f_tp(3)
 
+#ifndef MPI
+       myrank=0
+#endif
+
        g_eq_gs=-0.5d0*dot_product(fr_0,mu_0)
-       write(6,*) 'Medium contribution to ground state free energy:', &
+       if (myrank.eq.0) then
+          write(6,*) 'Medium contribution to ground state free energy:', &
                    g_eq_gs
+       endif
        select case (Finit_int)
         case ('nsc')
 ! SC in principle a non equilibrium self consistency if eps_d=1 is needed
@@ -789,7 +808,7 @@
          g_neq_0=-0.5*dot_product(mu_tp,matmul(mat_f0,mu_tp))
          g_neq2_0=-0.5*dot_product(mu_tp,matmul(mat_fd,mu_tp))
        end select
-       write(6,*) 'G_neq at t=0:',g_neq_0
+       if (myrank.eq.0) write(6,*) 'G_neq at t=0:',g_neq_0
 
        return
 
@@ -808,9 +827,15 @@
 
        complex(cmp), intent(INOUT) :: c_tp(n_ci)
 
+#ifndef MPI
+       myrank=0
+#endif
+
        g_eq_gs=-0.5d0*dot_product(fr_0,mu_0)
-       write(6,*) 'Medium contribution to ground state free energy:', &
+       if (myrank.eq.0) then
+           write(6,*) 'Medium contribution to ground state free energy:', &
                     g_eq_gs
+       endif
        select case (Finit_int)
        case ('nsc')
 ! SC in principle a non equilibrium self consistency if eps_d=1 is needed
@@ -828,7 +853,7 @@
          g_neq_0=-0.5*ONS_f0*dot_product(mu_tp,mu_tp)
          g_neq2_0=-0.5*ONS_fd*dot_product(mu_tp,mu_tp)
        end select
-       write(6,*) 'G_neq at t=0:',g_neq_0
+       if (myrank.eq.0) write(6,*) 'G_neq at t=0:',g_neq_0
 
        return
 
@@ -902,6 +927,9 @@
 ! Modified:
 !------------------------------------------------------------------------
 
+#ifndef MPI
+       myrank=0
+#endif
 
        ! Propagate
        if(Ftest.eq."s-r") pot_tp=vts(:,1,1) !Only for debug purposes
@@ -914,7 +942,10 @@
          elseif(Fprop.eq."chr-ons") then
            call prop_ons_deb 
          else
-           write(*,*) "not implemented yet"
+           if (myrank.eq.0) write(*,*) "not implemented yet"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
          endif
        ! SP 22/02/16 dqr_t calculated for g_neq
@@ -925,19 +956,10 @@
          elseif(Fprop.eq."chr-ons") then
            call prop_ons_drl ! uses vv
          else
-           write(*,*) "Wrong propagation method"
-           stop
-         endif
-       elseif(Feps.eq."gen") then
-         if(Fprop.eq."chr-ief") then
-           call prop_vv_ief_gen
-         elseif(Fprop.eq."chr-ons") then
-           ! FIXME: add C-PCM propagation type
-           !call prop_ons_gen ! uses vv - not yet
-           write(*,*) "Wrong propagation method"
-           stop
-         else
-           write(*,*) "Wrong propagation method"
+           if (myrank.eq.0) write(*,*) "Wrong propagation method"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
            stop
          endif
        endif
@@ -999,45 +1021,16 @@
 ! Modified:
 !------------------------------------------------------------------------
 
+#ifndef MPI
+       myrank=0
+#endif       
+
        f1=dt*(1.d0-dt*0.5d0*eps_gm)
+       f2=dt*dt*0.5d0
+       f3=1.d0-dt*eps_gm*(1.d0-dt*0.5*eps_gm)
        f4=0.5d0*dt
-       f2=dt*f4
-       f3=1.d0-eps_gm*f1
        f5=eps_gm*f2
-       write(6,*) "Initiated VV propagator"
-
-       return
-
-      end subroutine
-
-
-      subroutine init_vv_propagator_gen
-!------------------------------------------------------------------------
-! @brief Initialization for velocity Verlet propagation (vv) 
-!
-! @date Created: G. Gil
-! Modified:
-! Notes: Taken from init_vv_propagator and replacing eps_gm by BEM_Qg 
-!------------------------------------------------------------------------
-
-       real(dbl), allocatable :: BEM_I(:,:)
-       integer :: j
-
-       allocate(BEM_I(nts_act,nts_act))
-       BEM_I = zero
-       forall(j = 1:nts_act) BEM_I(j,j) = one
-
-       ! FIXME: need to be deallocated somewhere
-       allocate(BEM_f1(nts_act,nts_act),BEM_f3(nts_act,nts_act),BEM_f5(nts_act,nts_act))
-
-       BEM_f1=dt*(BEM_I-dt*0.5d0*BEM_Qg)
-       f4=0.5d0*dt
-       f2=dt*f4
-       BEM_f3=BEM_I-matmul(BEM_Qg,BEM_f1)
-       BEM_f5=BEM_Qg*f2
-       write(6,*) "Initiated VV propagator"
-
-       deallocate(BEM_I)
+       if (myrank.eq.0) write(6,*) "Initiated VV propagator"
 
        return
 
@@ -1196,45 +1189,6 @@
          fqx_t=-matmul(BEM_Qw,qx_t)+matmul(BEM_Qf,potf_tp)
         endif
         dqx_t=f3*dqx_tp+f4*(fqx_t+fqx_tp)-f5*fqx_tp
-        fqx_tp=fqx_t
-        dqx_tp=dqx_t
-       endif
-
-       return
-
-      end subroutine
-
-
-      subroutine prop_vv_ief_gen
-!------------------------------------------------------------------------
-! @brief General dielectric function propagation Fprop=chr-ief velocity-verlet
-! algorithm 
-!
-! @date Created: G. Gil
-! Modified:
-! Notes: Taken from prop_vv_ief_drl and changing to the vv with matrix factors
-!        N.B. that matrix BEM_Qg is inside the BEM_f1, BEM_f3 and BEM_f5 matrices
-!------------------------------------------------------------------------
-
-      ! Charge propagation with general dielectric function and IEF equations
-       integer(i4b) :: its
-
-
-       qr_t=qr_tp+matmul(BEM_f1,dqr_tp)+f2*fqr_tp
-
-       fqr_t=-matmul(BEM_Qw,qr_t)+matmul(BEM_Qf,pot_tp)
-       dqr_t=matmul(BEM_f3,dqr_tp)+f4*(fqr_t+fqr_tp)-matmul(BEM_f5,fqr_tp)
-       fqr_tp=fqr_t
-       dqr_tp=dqr_t
-      ! Local Field
-       if(Floc.eq."loc") then
-        qx_t=qx_tp+matmul(BEM_f1,dqx_tp)+f2*fqx_tp
-        if(Fmdm(2:4).eq.'sol') then
-         fqx_t=-matmul(BEM_Qw,qx_t)+matmul(BEM_Qfx,potf_tp)
-        else if(Fmdm(2:4).eq.'nan') then
-         fqx_t=-matmul(BEM_Qw,qx_t)+matmul(BEM_Qf,potf_tp)
-        endif
-        dqx_t=matmul(BEM_f3,dqx_tp)+f4*(fqx_t+fqx_tp)-matmul(BEM_f5,fqx_tp)
         fqx_tp=fqx_t
         dqx_tp=dqx_t
        endif
@@ -1657,7 +1611,7 @@
            else
              rr=cts_act(1)%rsfe 
            endif
-           call do_eps_drl(omega(1))
+           call do_eps_drl
            !refc=eps_f*ui*exp(-ui*omega*t)
            E0=dcmplx(zero,0.5d0*sqrt(dot_product(fmax(:,1),fmax(:,1))))
            refc=eps_f*E0*exp(-ui*omega(1)*t)
@@ -1681,8 +1635,8 @@
            else
              rr=sqrt(cts_act(1)%x**2+cts_act(1)%y**2+cts_act(1)%z**2) 
            endif
-           call do_eps_deb(omega(1))
-           if(Fmdm(2:4).eq.'sol'.and.Fprop.ne.'dip'.and.Fprop.ne.'chr-ons') eps_f=(eps-onec)/(two*eps+onec)
+           call do_eps_deb
+         if(Fmdm(2:4).eq.'sol'.and.Fprop.ne.'dip'.and.Fprop.ne.'chr-ons') eps_f=(eps-onec)/(two*eps+onec)
            !refc=eps_f*ui*exp(-ui*omega*t)
            E0=dcmplx(zero,0.5d0*sqrt(dot_product(fmax(:,1),fmax(:,1))))
            refc=eps_f*E0*exp(-ui*omega(1)*t)
@@ -1742,13 +1696,22 @@
 
         integer(4) :: i,nts
 
+#ifndef MPI
+        myrank=0 
+#endif
+
         open(7,file="charges0.inp",status="old",err=10)
-        write (6,*) "Initial charges read from charges0.inp"
+        if (myrank.eq.0) then
+           write (6,*) "Initial charges read from charges0.inp"
+        endif
           read(7,*) nts
           if(nts_act.eq.0.or.nts.eq.nts_act) then
             nts_act=nts
           else
-            write(*,*) "Tesserae number conflict"
+           if (myrank.eq.0) write(*,*) "Tesserae number conflict"
+#ifdef MPI
+           call mpi_finalize(ierr_mpi)
+#endif
             stop
           endif
           qtot0=zero

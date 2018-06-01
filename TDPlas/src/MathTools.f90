@@ -6,8 +6,12 @@
 #ifdef OMP
       use omp_lib
 #endif
+#ifdef MPI 
+      use mpi
+#endif
 
       implicit none
+
       save
       private
       public diag_mat,inv,do_pot_from_field,do_field_from_charges,    &

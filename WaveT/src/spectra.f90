@@ -2,6 +2,9 @@
       use constants   
       use readio
       use, intrinsic :: iso_c_binding
+#ifdef OMP
+      use omp_lib
+#endif
 
       implicit none
       real(dbl), allocatable:: Sdip(:,:,:) !< molecule, medium and total dipole as function of time for spectrum
